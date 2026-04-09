@@ -22,6 +22,8 @@
 | 12 | nextAfter() 중복 제거 | P3 | 🗓️ 보류 |
 | 13 | 크로스플랫폼 백업 Phase 2 (iCloud/Google Drive) | P3 | 🗓️ 보류 |
 | 14 | AI 프록시 (Cloudflare Workers) — RevenueCat 전제 | P2 | 🗓️ 보류 |
+| 15 | EAS Build 설정 + RC API 키 등록 | P1 | 🗓️ 보류 |
+| 16 | RevenueCat 상품 ID 앱스토어 등록 | P1 | 🗓️ 보류 |
 
 ---
 
