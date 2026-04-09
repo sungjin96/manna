@@ -15,28 +15,39 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
 }
 
 async function _initDb(): Promise<SQLite.SQLiteDatabase> {
-  // expo-sqlite openDatabaseAsync stores files in documentDirectory/SQLite/
-  const sqliteDir = FileSystem.documentDirectory + 'SQLite/';
-  const dbPath = sqliteDir + DB_NAME;
+  // Open first — expo-sqlite creates the file at its own internal location.
+  // We use databasePath to find that location instead of guessing the path.
+  _db = await SQLite.openDatabaseAsync(DB_NAME);
 
-  // Ensure the SQLite directory exists
-  const { exists: dirExists } = await FileSystem.getInfoAsync(sqliteDir);
-  if (!dirExists) {
-    await FileSystem.makeDirectoryAsync(sqliteDir, { intermediates: true });
+  // Check if the KorRV bible data is present.
+  // An empty DB means the bundled file was never copied here.
+  const tableCheck = await _db.getFirstAsync<{ count: number }>(
+    "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='bible'"
+  );
+  const bibleTableExists = (tableCheck?.count ?? 0) > 0;
+
+  let needsRestore = !bibleTableExists;
+  if (bibleTableExists && !needsRestore) {
+    const verseCheck = await _db.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM bible'
+    );
+    if ((verseCheck?.count ?? 0) === 0) needsRestore = true;
   }
 
-  // First launch: copy bundled manna.db (with KorRV bible content) to writable location
-  const { exists } = await FileSystem.getInfoAsync(dbPath);
-  if (!exists) {
+  if (needsRestore) {
+    // Get the exact path expo-sqlite is using, close, replace with bundled DB.
+    const actualPath = _db.databasePath;
+    await _db.closeAsync();
+    _db = null;
+
     const asset = Asset.fromModule(require('../assets/manna.db'));
     await asset.downloadAsync();
-    await FileSystem.copyAsync({
-      from: asset.localUri!,
-      to: dbPath,
-    });
+    await FileSystem.deleteAsync(actualPath, { idempotent: true });
+    await FileSystem.copyAsync({ from: asset.localUri!, to: actualPath });
+
+    _db = await SQLite.openDatabaseAsync(DB_NAME);
   }
 
-  _db = await SQLite.openDatabaseAsync(DB_NAME);
   await migrate(_db);
   return _db;
 }
