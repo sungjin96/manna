@@ -29,6 +29,7 @@ export default function SettingsScreen() {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [isPremiumLoading, setIsPremiumLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
   const [activePlanId, setActivePlanId] = useState<PlanId | null>(null);
@@ -53,6 +54,7 @@ export default function SettingsScreen() {
       setClaudeApiKey(apiKey);
       const premium = await checkAIEntitlement();
       setIsPremium(premium);
+      setIsPremiumLoading(false);
     })();
   }, []);
 
@@ -331,52 +333,6 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      {/* 구독 섹션 */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>구독</Text>
-
-        {isPremium ? (
-          <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <MaterialCommunityIcons name="crown" size={20} color={theme.gold} />
-              <Text style={styles.rowLabel}>프리미엄 구독 중</Text>
-            </View>
-            <MaterialCommunityIcons name="check-circle" size={18} color={theme.gold} />
-          </View>
-        ) : (
-          <>
-            <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
-              <Text style={styles.rowLabel}>Manna 프리미엄</Text>
-              <Text style={styles.rowHint}>AI 묵상 질문 생성 · 월 구독</Text>
-            </View>
-
-            <Pressable
-              style={({ pressed }) => [styles.row, styles.rowPressable, pressed && styles.rowPressed]}
-              onPress={handlePurchase}
-              disabled={purchasing}
-            >
-              <View style={styles.rowLeft}>
-                <MaterialCommunityIcons name="crown-outline" size={20} color={theme.gold} />
-                <Text style={styles.rowLabel}>{purchasing ? '처리 중...' : '프리미엄 구독하기'}</Text>
-              </View>
-              <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [styles.row, styles.rowPressable, pressed && styles.rowPressed]}
-              onPress={handleRestorePurchases}
-              disabled={purchasing}
-            >
-              <View style={styles.rowLeft}>
-                <MaterialCommunityIcons name="restore" size={20} color={theme.textMuted} />
-                <Text style={[styles.rowLabel, { color: theme.textMuted }]}>구매 복원</Text>
-              </View>
-              <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
-            </Pressable>
-          </>
-        )}
-      </View>
-
       {/* AI 묵상 도우미 섹션 */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>AI 묵상 도우미</Text>
@@ -396,6 +352,7 @@ export default function SettingsScreen() {
               secureTextEntry={!apiKeyVisible}
               autoCorrect={false}
               autoCapitalize="none"
+              accessibilityLabel="Claude API 키 입력"
             />
             <Pressable onPress={() => setApiKeyVisible(v => !v)} hitSlop={8} style={styles.apiKeyEye}>
               <MaterialCommunityIcons
@@ -411,6 +368,68 @@ export default function SettingsScreen() {
             </Text>
           )}
         </View>
+      </View>
+
+      {/* 구독 섹션 */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>구독</Text>
+
+        {isPremiumLoading ? (
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: theme.textMuted }]}>확인 중...</Text>
+          </View>
+        ) : isPremium ? (
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <MaterialCommunityIcons name="crown" size={20} color={theme.gold} />
+              <Text style={styles.rowLabel}>프리미엄 구독 중</Text>
+            </View>
+            <MaterialCommunityIcons name="check-circle" size={18} color={theme.gold} />
+          </View>
+        ) : (
+          <View style={styles.subsCard}>
+            {/* Header: title + price pill */}
+            <View style={styles.subsCardHeader}>
+              <View style={styles.rowLeft}>
+                <MaterialCommunityIcons name="crown-outline" size={20} color={theme.gold} />
+                <Text style={styles.rowLabel}>프리미엄 구독</Text>
+              </View>
+              <View style={styles.pricePill}>
+                <Text style={styles.pricePillText}>₩4,900/월</Text>
+              </View>
+            </View>
+
+            {/* Features */}
+            <View style={styles.subsFeatures}>
+              <View style={styles.subsFeatureRow}>
+                <MaterialCommunityIcons name="check" size={14} color={theme.gold} />
+                <Text style={styles.subsFeatureText}>AI 묵상 질문 3개/선택</Text>
+              </View>
+              <View style={styles.subsFeatureRow}>
+                <MaterialCommunityIcons name="check" size={14} color={theme.gold} />
+                <Text style={styles.subsFeatureText}>광고 없음</Text>
+              </View>
+            </View>
+
+            {/* CTA */}
+            <Pressable
+              style={({ pressed }) => [styles.subsCTA, pressed && { opacity: 0.85 }]}
+              onPress={handlePurchase}
+              disabled={purchasing}
+            >
+              <Text style={styles.subsCTAText}>{purchasing ? '처리 중...' : '구독 시작하기'}</Text>
+            </Pressable>
+
+            {/* Footer */}
+            <View style={styles.subsFooter}>
+              <Text style={styles.subsFooterText}>언제든 취소 가능</Text>
+              <Text style={styles.subsFooterText}> · </Text>
+              <Pressable onPress={handleRestorePurchases} disabled={purchasing} hitSlop={12}>
+                <Text style={[styles.subsFooterText, { color: theme.textSub }]}>구독 복원</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* 통독 계획 섹션 */}
@@ -596,6 +615,69 @@ const styles = StyleSheet.create({
 
   planRow: {
     gap: 4,
+  },
+
+  // Subscription card
+  subsCard: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 4,
+    gap: 14,
+    borderTopWidth: 1,
+    borderTopColor: theme.borderSubtle,
+  },
+  subsCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pricePill: {
+    backgroundColor: `${theme.gold}20`,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+  },
+  pricePillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.gold,
+  },
+  subsFeatures: {
+    gap: 8,
+    paddingLeft: 4,
+  },
+  subsFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subsFeatureText: {
+    fontSize: 13,
+    color: theme.textSub,
+  },
+  subsCTA: {
+    backgroundColor: theme.gold,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  subsCTAText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: theme.bg,
+    letterSpacing: 0.3,
+  },
+  subsFooter: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 12,
+  },
+  subsFooterText: {
+    fontSize: 11,
+    color: theme.textMuted,
   },
 
   apiKeyRow: {

@@ -406,7 +406,12 @@ export default function HomeScreen() {
 
             {/* Plan selection page */}
             {page.type === 'plan' && (
-              <View style={styles.onboardingPlanList}>
+              <ScrollView
+                style={styles.onboardingPlanList}
+                contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+                showsVerticalScrollIndicator={false}
+                nestedScrollEnabled
+              >
                 <Pressable
                   style={[styles.onboardingPlanChip, onboardingPlan === null && styles.onboardingPlanChipSelected]}
                   onPress={() => setOnboardingPlan(null)}
@@ -431,7 +436,7 @@ export default function HomeScreen() {
                     {onboardingPlan === plan.id && <MaterialCommunityIcons name="check" size={14} color={theme.bg} />}
                   </Pressable>
                 ))}
-              </View>
+              </ScrollView>
             )}
 
             <View style={styles.dots}>
@@ -778,7 +783,7 @@ const styles = StyleSheet.create({
   },
   onboardingPlanList: {
     width: '100%',
-    gap: 8,
+    maxHeight: 200,
   },
   onboardingPlanChip: {
     flexDirection: 'row',
