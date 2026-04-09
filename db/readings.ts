@@ -56,6 +56,14 @@ export async function markVerseRead(bookId: number, chapter: number, verse: numb
   );
 }
 
+export async function unmarkVerseRead(bookId: number, chapter: number, verse: number): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    'DELETE FROM verse_readings WHERE book_id = ? AND chapter = ? AND verse = ?',
+    [bookId, chapter, verse]
+  );
+}
+
 export async function getReadVerses(bookId: number, chapter: number): Promise<Set<number>> {
   const db = await getDb();
   const rows = await db.getAllAsync<{ verse: number }>(

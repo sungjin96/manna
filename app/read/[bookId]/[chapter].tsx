@@ -6,6 +6,9 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,12 +17,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
+import * as Speech from 'expo-speech';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useBibleText } from '../../../hooks/useBibleText';
 import { useReaderSettings, READER_THEMES, ReaderTheme } from '../../../hooks/useReaderSettings';
-import { markChapterComplete, isChapterComplete, markVerseRead, getReadVerses } from '../../../db/readings';
+import {
+  markChapterComplete, isChapterComplete,
+  markVerseRead, unmarkVerseRead, getReadVerses,
+} from '../../../db/readings';
 import { saveMeditation } from '../../../db/meditations';
 import { getSetting, setSetting } from '../../../db/settings';
 import { BOOKS } from '../../../constants/books';
@@ -54,12 +62,16 @@ function createParticles() {
   });
 }
 
+const HEADER_H = 44;
+const PROGRESS_H = 28;
+
 // ── Main screen ────────────────────────────────────────────────────────────
 export default function ReadScreen() {
   const { bookId: bookIdStr, chapter: chapterStr } = useLocalSearchParams<{
     bookId: string; chapter: string;
   }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const bookId = Number(bookIdStr);
   const chapter = Number(chapterStr);
@@ -68,7 +80,7 @@ export default function ReadScreen() {
   const { verses, loading, error } = useBibleText(bookId, chapter);
   const { settings, update: updateSettings, colors } = useReaderSettings();
 
-  // State
+  // ── State ─────────────────────────────────────────────────────────────────
   const [alreadyDone, setAlreadyDone] = useState(false);
   const [readVerses, setReadVerses] = useState<Set<number>>(new Set());
   const [showMeditation, setShowMeditation] = useState(false);
@@ -79,12 +91,63 @@ export default function ReadScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
+  const [isTTS, setIsTTS] = useState(false);
+  const [ttsVerse, setTtsVerse] = useState<number | null>(null);
 
+  // ── Animated values ───────────────────────────────────────────────────────
+  const headerOpacity = useRef(new Animated.Value(1)).current;
+  const headerHeightAnim = useRef(new Animated.Value(1)).current;
+  const meditationSheetY = useRef(new Animated.Value(600)).current;
+  const meditationBgOpacity = useRef(new Animated.Value(0)).current;
+  const settingsSheetY = useRef(new Animated.Value(600)).current;
+  const settingsBgOpacity = useRef(new Animated.Value(0)).current;
+
+  // ── Refs ──────────────────────────────────────────────────────────────────
   const flatListRef = useRef<FlatList>(null);
   const particles = useRef<ReturnType<typeof createParticles> | null>(null);
   if (!particles.current) particles.current = createParticles();
+  const ttsRef = useRef({ cancel: false });
+  const headerVisibleRef = useRef(true);
+  const lastScrollY = useRef(0);
 
-  // Load initial data
+  // PanResponder callbacks as refs (avoids stale closures)
+  const onMeditationSwipeDismiss = useRef<() => void>(() => {});
+  onMeditationSwipeDismiss.current = () => {
+    closeMeditationSheet(() => { if (!meditationVerse) navigateNext(); });
+  };
+  const onSettingsSwipeDismiss = useRef<() => void>(() => {});
+  onSettingsSwipeDismiss.current = closeSettingsSheet;
+
+  // ── PanResponders ─────────────────────────────────────────────────────────
+  const meditationPR = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderMove: (_, { dy }) => {
+      if (dy > 0) meditationSheetY.setValue(dy);
+    },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 100 || vy > 0.5) {
+        onMeditationSwipeDismiss.current();
+      } else {
+        Animated.spring(meditationSheetY, { toValue: 0, useNativeDriver: true }).start();
+      }
+    },
+  })).current;
+
+  const settingsPR = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderMove: (_, { dy }) => {
+      if (dy > 0) settingsSheetY.setValue(dy);
+    },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 100 || vy > 0.5) {
+        onSettingsSwipeDismiss.current();
+      } else {
+        Animated.spring(settingsSheetY, { toValue: 0, useNativeDriver: true }).start();
+      }
+    },
+  })).current;
+
+  // ── Initial data load ─────────────────────────────────────────────────────
   useEffect(() => {
     Promise.all([
       isChapterComplete(bookId, chapter),
@@ -105,26 +168,51 @@ export default function ReadScreen() {
     if (firstUnreadIndex > 2) {
       setTimeout(() => {
         flatListRef.current?.scrollToIndex({
-          index: firstUnreadIndex,
-          animated: true,
-          viewOffset: 20,
+          index: firstUnreadIndex, animated: true, viewOffset: 20,
         });
       }, 300);
     }
   }, [verses, readVerses.size]);
 
+  // TTS cleanup
+  useEffect(() => {
+    return () => {
+      ttsRef.current.cancel = true;
+      Speech.stop();
+    };
+  }, []);
+
+  // ── Header auto-hide ──────────────────────────────────────────────────────
+  const HEADER_FULL_H = insets.top + HEADER_H + PROGRESS_H;
+
+  const headerHeightValue = headerHeightAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, HEADER_FULL_H],
+  });
+
+  function animateHeader(show: boolean) {
+    if (headerVisibleRef.current === show) return;
+    headerVisibleRef.current = show;
+    Animated.parallel([
+      Animated.timing(headerOpacity, { toValue: show ? 1 : 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(headerHeightAnim, { toValue: show ? 1 : 0, duration: 200, useNativeDriver: false }),
+    ]).start();
+  }
+
+  function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const y = event.nativeEvent.contentOffset.y;
+    const dy = y - lastScrollY.current;
+    lastScrollY.current = y;
+    if (dy > 6 && y > 80) animateHeader(false);
+    else if (dy < -6) animateHeader(true);
+  }
+
   // ── Confetti ──────────────────────────────────────────────────────────────
   function fireConfetti() {
     const pts = particles.current!;
     setShowConfetti(true);
-    pts.forEach(p => {
-      p.x.setValue(0);
-      p.y.setValue(0);
-      p.opacity.setValue(1);
-      p.scale.setValue(0);
-    });
+    pts.forEach(p => { p.x.setValue(0); p.y.setValue(0); p.opacity.setValue(1); p.scale.setValue(0); });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
     const animations = pts.map(p =>
       Animated.parallel([
         Animated.timing(p.x, { toValue: Math.cos(p.angle) * p.distance, duration: 700, useNativeDriver: true }),
@@ -138,7 +226,40 @@ export default function ReadScreen() {
     Animated.parallel(animations).start(() => setShowConfetti(false));
   }
 
-  // ── Verse tap / long-press ────────────────────────────────────────────────
+  // ── TTS ───────────────────────────────────────────────────────────────────
+  async function startTTS() {
+    if (!verses || verses.length === 0) return;
+    setIsTTS(true);
+    ttsRef.current.cancel = false;
+    for (let i = 0; i < verses.length; i++) {
+      if (ttsRef.current.cancel) break;
+      setTtsVerse(verses[i].verse);
+      await new Promise<void>(resolve => {
+        Speech.speak(verses[i].text, {
+          language: 'ko-KR',
+          rate: 0.9,
+          onDone: resolve,
+          onStopped: resolve,
+          onError: () => resolve(),
+        });
+      });
+    }
+    setIsTTS(false);
+    setTtsVerse(null);
+  }
+
+  async function stopTTS() {
+    ttsRef.current.cancel = true;
+    await Speech.stop();
+    setIsTTS(false);
+    setTtsVerse(null);
+  }
+
+  function toggleTTS() {
+    if (isTTS) stopTTS(); else startTTS();
+  }
+
+  // ── Verse interactions ────────────────────────────────────────────────────
   async function handleVerseTap(verseNum: number) {
     if (selectionMode) {
       setSelectionRange(prev => {
@@ -147,9 +268,14 @@ export default function ReadScreen() {
       });
       return;
     }
-    if (readVerses.has(verseNum)) return;
-    await markVerseRead(bookId, chapter, verseNum);
-    setReadVerses(prev => new Set([...prev, verseNum]));
+    // Toggle read state
+    if (readVerses.has(verseNum)) {
+      await unmarkVerseRead(bookId, chapter, verseNum);
+      setReadVerses(prev => { const next = new Set(prev); next.delete(verseNum); return next; });
+    } else {
+      await markVerseRead(bookId, chapter, verseNum);
+      setReadVerses(prev => new Set([...prev, verseNum]));
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
 
@@ -169,8 +295,8 @@ export default function ReadScreen() {
     if (!selectionRange) return;
     setMeditationVerse(selectionRange);
     setNote('');
-    setShowMeditation(true);
     cancelSelection();
+    openMeditationSheet();
   }
 
   async function copySelectedVerses() {
@@ -183,6 +309,47 @@ export default function ReadScreen() {
     cancelSelection();
   }
 
+  // ── Modal control ─────────────────────────────────────────────────────────
+  function openMeditationSheet() {
+    meditationSheetY.setValue(600);
+    meditationBgOpacity.setValue(0);
+    setShowMeditation(true);
+    Animated.parallel([
+      Animated.spring(meditationSheetY, { toValue: 0, friction: 9, tension: 100, useNativeDriver: true }),
+      Animated.timing(meditationBgOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+    ]).start();
+  }
+
+  function closeMeditationSheet(afterClose?: () => void) {
+    Keyboard.dismiss();
+    Animated.parallel([
+      Animated.timing(meditationSheetY, { toValue: 600, duration: 220, useNativeDriver: true }),
+      Animated.timing(meditationBgOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start(() => {
+      setShowMeditation(false);
+      setNote('');
+      setMeditationVerse(null);
+      afterClose?.();
+    });
+  }
+
+  function openSettingsSheet() {
+    settingsSheetY.setValue(600);
+    settingsBgOpacity.setValue(0);
+    setShowSettings(true);
+    Animated.parallel([
+      Animated.spring(settingsSheetY, { toValue: 0, friction: 9, tension: 100, useNativeDriver: true }),
+      Animated.timing(settingsBgOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+    ]).start();
+  }
+
+  function closeSettingsSheet() {
+    Animated.parallel([
+      Animated.timing(settingsSheetY, { toValue: 600, duration: 220, useNativeDriver: true }),
+      Animated.timing(settingsBgOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start(() => setShowSettings(false));
+  }
+
   // ── Chapter complete ───────────────────────────────────────────────────────
   async function handleComplete() {
     if (alreadyDone || selectionMode) return;
@@ -193,29 +360,19 @@ export default function ReadScreen() {
       setTimeout(() => {
         setMeditationVerse(null);
         setNote('');
-        setShowMeditation(true);
+        openMeditationSheet();
       }, 400);
     } else {
       setTimeout(() => navigateNext(), 400);
     }
   }
 
-  // ── Meditation save ────────────────────────────────────────────────────────
   async function handleSaveMeditation() {
     if (note.trim()) {
       await saveMeditation(bookId, chapter, note.trim(), meditationVerse?.start, meditationVerse?.end);
     }
-    closeMeditationModal();
-  }
-
-  function closeMeditationModal() {
-    setShowMeditation(false);
-    setNote('');
-    if (!meditationVerse) {
-      // chapter-level completion → go to next chapter
-      navigateNext();
-    }
-    setMeditationVerse(null);
+    const wasChapter = meditationVerse === null;
+    closeMeditationSheet(() => { if (wasChapter) navigateNext(); });
   }
 
   function navigateNext() {
@@ -223,7 +380,6 @@ export default function ReadScreen() {
     router.replace(`/read/${next.bookId}/${next.chapter}`);
   }
 
-  // ── Reader settings persistence ───────────────────────────────────────────
   async function toggleMeditationPrompt(val: boolean) {
     setMeditationPromptEnabled(val);
     await setSetting('meditation_prompt_enabled', val ? '1' : '0');
@@ -234,20 +390,18 @@ export default function ReadScreen() {
   const totalVerses = verses?.length ?? 0;
   const readCount = readVerses.size;
   const progressPct = totalVerses > 0 ? readCount / totalVerses : 0;
-
+  const fontFamily = settings.font === 'serif'
+    ? (Platform.OS === 'ios' ? 'Georgia' : 'serif') : undefined;
   const verseLabel = selectionRange
     ? `${book?.name} ${chapter}:${selectionRange.start}${selectionRange.start !== selectionRange.end ? `–${selectionRange.end}` : ''} 선택됨`
     : '';
-
-  const fontFamily = settings.font === 'serif'
-    ? (Platform.OS === 'ios' ? 'Georgia' : 'serif')
-    : undefined;
 
   // ── Render verse row ──────────────────────────────────────────────────────
   const renderVerse = ({ item }: { item: { verse: number; text: string } }) => {
     const isRead = readVerses.has(item.verse);
     const inSelection = selectionMode && selectionRange
       && item.verse >= selectionRange.start && item.verse <= selectionRange.end;
+    const isTTSActive = isTTS && ttsVerse === item.verse;
 
     return (
       <Pressable
@@ -256,14 +410,14 @@ export default function ReadScreen() {
         delayLongPress={400}
         style={[
           styles.verseRow,
-          isRead && styles.verseRowRead,
-          inSelection && { backgroundColor: `${colors.gold}25`, borderRadius: 6 },
+          inSelection && { backgroundColor: `${colors.gold}20`, borderRadius: 6 },
+          isTTSActive && { backgroundColor: `${colors.gold}12` },
         ]}
       >
-        {isRead && <View style={[styles.verseBorder, { backgroundColor: colors.gold }]} />}
         <Text style={[
           styles.verseNum,
-          { color: colors.gold, opacity: isRead ? 0.6 : 0.75, fontFamily },
+          { color: colors.gold, fontFamily },
+          isRead && { opacity: 0.35 },
         ]}>
           {item.verse}
         </Text>
@@ -274,8 +428,8 @@ export default function ReadScreen() {
             fontSize: settings.fontSize,
             lineHeight: settings.fontSize * settings.lineHeight,
             fontFamily,
-            opacity: isRead ? 0.6 : 1,
           },
+          isRead && { opacity: 0.45 },
         ]}>
           {item.text}
         </Text>
@@ -285,39 +439,60 @@ export default function ReadScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title,
-          headerBackTitle: '',
-          headerStyle: { backgroundColor: colors.headerBg },
-          headerTintColor: colors.gold,
-          headerTitleStyle: { color: colors.text, fontWeight: '700' },
-          headerShadowVisible: false,
-          headerRight: () => (
-            <Pressable
-              onPress={() => setShowSettings(true)}
-              style={{ paddingHorizontal: 8, paddingVertical: 4 }}
-              hitSlop={8}
-            >
-              <MaterialCommunityIcons name="format-size" size={22} color={colors.gold} />
-            </Pressable>
-          ),
-        }}
-      />
-
+      <Stack.Screen options={{ headerShown: false, title }} />
       <View style={[styles.container, { backgroundColor: colors.bg }]}>
-        {/* Chapter progress bar */}
-        {totalVerses > 0 && (
-          <View style={[styles.progressHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-              <View style={[styles.progressFill, { width: `${progressPct * 100}%` as any, backgroundColor: colors.gold }]} />
-            </View>
-            <Text style={[styles.progressLabel, { color: colors.muted }]}>
-              {readCount} / {totalVerses}절 읽음
-            </Text>
-          </View>
-        )}
 
+        {/* Collapsible header — height + opacity animated */}
+        <Animated.View style={[
+          styles.headerWrapper,
+          {
+            height: headerHeightValue,
+            opacity: headerOpacity,
+            backgroundColor: colors.headerBg,
+            borderBottomColor: colors.border,
+          },
+        ]}
+          pointerEvents={headerVisibleRef.current ? 'auto' : 'none'}
+        >
+          {/* Main header row */}
+          <View style={[styles.headerInner, { paddingTop: insets.top }]}>
+            <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+              <MaterialCommunityIcons name="chevron-left" size={28} color={colors.gold} />
+            </Pressable>
+            <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+              {title}
+            </Text>
+            <View style={styles.headerRight}>
+              <Pressable onPress={toggleTTS} style={styles.headerIconBtn} hitSlop={8}>
+                <MaterialCommunityIcons
+                  name={isTTS ? 'volume-high' : 'volume-off'}
+                  size={20}
+                  color={isTTS ? colors.gold : colors.muted}
+                />
+              </Pressable>
+              <Pressable onPress={openSettingsSheet} style={styles.headerIconBtn} hitSlop={8}>
+                <MaterialCommunityIcons name="format-size" size={20} color={colors.muted} />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Progress strip */}
+          {totalVerses > 0 && (
+            <View style={[styles.progressStrip, { borderTopColor: colors.border }]}>
+              <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                <View style={[
+                  styles.progressFill,
+                  { width: `${progressPct * 100}%` as any, backgroundColor: colors.gold },
+                ]} />
+              </View>
+              <Text style={[styles.progressLabel, { color: colors.muted }]}>
+                {readCount}/{totalVerses}절
+              </Text>
+            </View>
+          )}
+        </Animated.View>
+
+        {/* Bible content */}
         {loading ? (
           <View style={styles.center}>
             <Text style={[styles.loadingText, { color: colors.muted }]}>읽는 중...</Text>
@@ -325,7 +500,9 @@ export default function ReadScreen() {
         ) : error ? (
           <View style={styles.center}>
             <MaterialCommunityIcons name="alert-circle-outline" size={40} color={colors.muted} />
-            <Text style={[styles.loadingText, { color: colors.muted, marginTop: 12 }]}>본문을 불러올 수 없어요</Text>
+            <Text style={[styles.loadingText, { color: colors.muted, marginTop: 12 }]}>
+              본문을 불러올 수 없어요
+            </Text>
           </View>
         ) : (
           <FlatList
@@ -333,6 +510,8 @@ export default function ReadScreen() {
             data={verses}
             keyExtractor={v => String(v.verse)}
             contentContainerStyle={styles.list}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
             onScrollToIndexFailed={() => {}}
             renderItem={renderVerse}
             ListFooterComponent={
@@ -347,8 +526,8 @@ export default function ReadScreen() {
               >
                 {alreadyDone ? (
                   <View style={styles.doneBtnInner}>
-                    <MaterialCommunityIcons name="check-circle" size={20} color={colors.gold} />
-                    <Text style={[styles.completeBtnText, { color: colors.gold }]}>완료됨</Text>
+                    <MaterialCommunityIcons name="check-circle" size={18} color={`${colors.gold}60`} />
+                    <Text style={[styles.completeBtnText, { color: `${colors.gold}60` }]}>완료됨</Text>
                   </View>
                 ) : (
                   <Text style={[styles.completeBtnText, { color: '#0B0A12' }]}>읽기 완료</Text>
@@ -379,19 +558,22 @@ export default function ReadScreen() {
 
         {/* Selection bar */}
         {selectionMode && selectionRange && (
-          <View style={[styles.selectionBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          <View style={[
+            styles.selectionBar,
+            { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: insets.bottom + 12 },
+          ]}>
             <Text style={[styles.selectionLabel, { color: colors.text }]} numberOfLines={1}>
               {verseLabel}
             </Text>
             <View style={styles.selectionActions}>
-              <Pressable
-                style={[styles.selBtn, { backgroundColor: colors.gold }]}
-                onPress={openVerseMeditation}
-              >
+              <Pressable style={[styles.selBtn, { backgroundColor: colors.gold }]} onPress={openVerseMeditation}>
                 <MaterialCommunityIcons name="notebook-edit-outline" size={15} color="#0B0A12" />
                 <Text style={[styles.selBtnText, { color: '#0B0A12' }]}>묵상</Text>
               </Pressable>
-              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={copySelectedVerses}>
+              <Pressable
+                style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]}
+                onPress={copySelectedVerses}
+              >
                 <MaterialCommunityIcons name="content-copy" size={15} color={colors.text} />
                 <Text style={[styles.selBtnText, { color: colors.text }]}>복사</Text>
               </Pressable>
@@ -402,15 +584,31 @@ export default function ReadScreen() {
           </View>
         )}
 
-        {/* Meditation modal */}
-        <Modal visible={showMeditation} transparent animationType="slide">
+        {/* ── Meditation modal ── */}
+        <Modal visible={showMeditation} transparent animationType="none">
+          {/* Backdrop */}
+          <Animated.View style={[styles.backdrop, { opacity: meditationBgOpacity }]} />
+
           <KeyboardAvoidingView
-            style={styles.overlay}
+            style={styles.overlayInner}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           >
-            <Pressable style={StyleSheet.absoluteFillObject} onPress={Keyboard.dismiss} />
-            <View style={[styles.modal, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-              <View style={[styles.modalHandle, { backgroundColor: colors.muted }]} />
+            {/* Tap backdrop to close */}
+            <Pressable
+              style={StyleSheet.absoluteFillObject}
+              onPress={() => closeMeditationSheet(() => { if (!meditationVerse) navigateNext(); })}
+            />
+
+            <Animated.View style={[
+              styles.modal,
+              { backgroundColor: colors.surface, borderTopColor: colors.border },
+              { transform: [{ translateY: meditationSheetY }] },
+            ]}>
+              {/* Draggable handle */}
+              <View {...meditationPR.panHandlers} style={styles.handleArea}>
+                <View style={[styles.modalHandle, { backgroundColor: colors.muted }]} />
+              </View>
+
               <Text style={[styles.modalTitle, { color: colors.text }]}>오늘의 묵상</Text>
               <Text style={[styles.modalSub, { color: colors.gold }]}>
                 {meditationVerse
@@ -418,7 +616,10 @@ export default function ReadScreen() {
                   : `${book?.name} ${chapter}장 — 한 줄이라도 남겨보세요 (선택)`}
               </Text>
               <TextInput
-                style={[styles.textInput, { color: colors.text, backgroundColor: `${colors.bg}`, borderColor: colors.border }]}
+                style={[
+                  styles.textInput,
+                  { color: colors.text, backgroundColor: colors.bg, borderColor: colors.border },
+                ]}
                 placeholder="오늘 읽은 말씀에서 받은 것..."
                 placeholderTextColor={colors.muted}
                 multiline
@@ -431,27 +632,45 @@ export default function ReadScreen() {
               <View style={styles.modalActions}>
                 <Pressable
                   style={[styles.skipBtn, { borderColor: colors.border }]}
-                  onPress={() => { Keyboard.dismiss(); closeMeditationModal(); }}
+                  onPress={() => closeMeditationSheet(() => { if (!meditationVerse) navigateNext(); })}
                 >
                   <Text style={[styles.skipBtnText, { color: colors.muted }]}>건너뛰기</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.saveBtn, { backgroundColor: colors.gold }, !note.trim() && styles.saveBtnDisabled]}
+                  style={[
+                    styles.saveBtn,
+                    { backgroundColor: colors.gold },
+                    !note.trim() && styles.saveBtnDisabled,
+                  ]}
                   onPress={handleSaveMeditation}
                   disabled={!note.trim()}
                 >
                   <Text style={[styles.saveBtnText, { color: '#0B0A12' }]}>저장</Text>
                 </Pressable>
               </View>
-            </View>
+            </Animated.View>
           </KeyboardAvoidingView>
         </Modal>
 
-        {/* Reader settings sheet */}
-        <Modal visible={showSettings} transparent animationType="slide">
-          <Pressable style={styles.overlay} onPress={() => setShowSettings(false)}>
-            <Pressable onPress={() => {}} style={[styles.settingsSheet, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-              <View style={[styles.modalHandle, { backgroundColor: colors.muted }]} />
+        {/* ── Reader settings sheet ── */}
+        <Modal visible={showSettings} transparent animationType="none">
+          {/* Backdrop */}
+          <Animated.View style={[styles.backdrop, { opacity: settingsBgOpacity }]} />
+
+          <View style={styles.overlayInner}>
+            {/* Tap backdrop to close */}
+            <Pressable style={StyleSheet.absoluteFillObject} onPress={closeSettingsSheet} />
+
+            <Animated.View style={[
+              styles.settingsSheet,
+              { backgroundColor: colors.surface, borderTopColor: colors.border },
+              { transform: [{ translateY: settingsSheetY }] },
+            ]}>
+              {/* Draggable handle */}
+              <View {...settingsPR.panHandlers} style={styles.handleArea}>
+                <View style={[styles.modalHandle, { backgroundColor: colors.muted }]} />
+              </View>
+
               <Text style={[styles.settingsTitle, { color: colors.text }]}>읽기 설정</Text>
 
               {/* Theme */}
@@ -465,7 +684,7 @@ export default function ReadScreen() {
                       style={[
                         styles.themeSwatch,
                         { backgroundColor: tc.bg, borderColor: settings.theme === t ? tc.gold : tc.border },
-                        settings.theme === t && styles.themeSwatchActive,
+                        settings.theme === t && { borderWidth: 2 },
                       ]}
                       onPress={() => updateSettings({ theme: t })}
                     >
@@ -557,8 +776,8 @@ export default function ReadScreen() {
                   thumbColor={meditationPromptEnabled ? colors.gold : colors.muted}
                 />
               </View>
-            </Pressable>
-          </Pressable>
+            </Animated.View>
+          </View>
         </Modal>
       </View>
     </>
@@ -569,16 +788,46 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { fontSize: 16 },
-  list: { padding: 20, paddingBottom: 60 },
 
-  // Progress header
-  progressHeader: {
+  // ── Collapsible header ────────────────────────────────────────────────────
+  headerWrapper: {
+    overflow: 'hidden',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    height: HEADER_H,
+  },
+  backBtn: {
+    padding: 6,
+    marginRight: 2,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginHorizontal: 4,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIconBtn: {
+    padding: 8,
+  },
+
+  // ── Progress strip ────────────────────────────────────────────────────────
+  progressStrip: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
     gap: 10,
-    borderBottomWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    height: PROGRESS_H,
   },
   progressTrack: {
     flex: 1,
@@ -587,33 +836,27 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   progressFill: { height: '100%', borderRadius: 2 },
-  progressLabel: { fontSize: 11, letterSpacing: 0.3, minWidth: 70 },
+  progressLabel: { fontSize: 11, letterSpacing: 0.3, minWidth: 48, textAlign: 'right' },
 
-  // Verse rows
+  // ── Verse rows ────────────────────────────────────────────────────────────
+  list: { padding: 20, paddingBottom: 60 },
   verseRow: {
     flexDirection: 'row',
     marginBottom: 14,
     gap: 10,
-    paddingLeft: 4,
-  },
-  verseRowRead: { paddingLeft: 0 },
-  verseBorder: {
-    width: 2,
-    borderRadius: 1,
-    alignSelf: 'stretch',
-    marginRight: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
   verseNum: {
     fontSize: 11,
     width: 22,
     paddingTop: 4,
     fontWeight: '700',
+    opacity: 0.7,
   },
-  verseText: {
-    flex: 1,
-  },
+  verseText: { flex: 1 },
 
-  // Complete button
+  // ── Complete button ───────────────────────────────────────────────────────
   completeBtn: {
     marginTop: 32,
     backgroundColor: '#D4A847',
@@ -625,70 +868,57 @@ const styles = StyleSheet.create({
   doneBtnDisabled: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: 'rgba(212,168,71,0.3)',
+    borderColor: 'rgba(212,168,71,0.2)',
   },
   doneBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  completeBtnText: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
+  completeBtnText: { fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
 
-  // Confetti
+  // ── Confetti ──────────────────────────────────────────────────────────────
   confettiOverlay: {
-    position: 'absolute',
-    bottom: 80,
-    left: 0,
-    right: 0,
-    height: 0,
-    alignItems: 'center',
-    zIndex: 10,
+    position: 'absolute', bottom: 80, left: 0, right: 0,
+    height: 0, alignItems: 'center', zIndex: 10,
   },
   particle: { position: 'absolute' },
 
-  // Selection bar
+  // ── Selection bar ─────────────────────────────────────────────────────────
   selectionBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: 28,
-    borderTopWidth: 1,
-    gap: 8,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingTop: 12,
+    borderTopWidth: 1, gap: 8,
   },
   selectionLabel: { flex: 1, fontSize: 13, fontWeight: '600' },
   selectionActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   selBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
   },
   selBtnText: { fontSize: 13, fontWeight: '600' },
   selBtnCancel: { padding: 4 },
 
-  // Meditation modal
-  overlay: {
-    flex: 1,
+  // ── Modal shared ──────────────────────────────────────────────────────────
+  backdrop: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  overlayInner: {
+    flex: 1,
     justifyContent: 'flex-end',
   },
-  modal: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 44,
-    borderTopWidth: 1,
+  handleArea: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 4,
   },
   modalHandle: {
     width: 40, height: 4, borderRadius: 2,
-    alignSelf: 'center', marginBottom: 20,
+  },
+
+  // ── Meditation modal ──────────────────────────────────────────────────────
+  modal: {
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 24, paddingBottom: 44,
+    borderTopWidth: 1,
   },
   modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
   modalSub: { fontSize: 13, marginBottom: 16 },
@@ -708,25 +938,23 @@ const styles = StyleSheet.create({
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText: { fontSize: 15, fontWeight: '700' },
 
-  // Reader settings sheet
+  // ── Settings sheet ────────────────────────────────────────────────────────
   settingsSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 48,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 24, paddingBottom: 48,
     borderTopWidth: 1,
   },
   settingsTitle: { fontSize: 18, fontWeight: '800', marginBottom: 20 },
-  settingLabel: { fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, marginTop: 16 },
-
+  settingLabel: {
+    fontSize: 11, letterSpacing: 1, textTransform: 'uppercase',
+    marginBottom: 10, marginTop: 16,
+  },
   themeRow: { flexDirection: 'row', gap: 10 },
   themeSwatch: {
     flex: 1, height: 56, borderRadius: 12,
-    borderWidth: 2, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
   },
-  themeSwatchActive: { borderWidth: 2 },
   themeSwatchLabel: { fontSize: 12, fontWeight: '700' },
-
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   stepBtn: {
     width: 36, height: 36, borderRadius: 10,
@@ -734,20 +962,15 @@ const styles = StyleSheet.create({
   },
   stepValue: { fontSize: 16, fontWeight: '700', minWidth: 32, textAlign: 'center' },
   stepPreview: { flex: 1, textAlign: 'right' },
-
   fontRow: { flexDirection: 'row', gap: 10 },
   fontBtn: {
     flex: 1, paddingVertical: 12,
-    borderRadius: 12, borderWidth: 1,
-    alignItems: 'center',
+    borderRadius: 12, borderWidth: 1, alignItems: 'center',
   },
   fontBtnText: { fontSize: 14, fontWeight: '600' },
-
   toggleRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 20, paddingTop: 20, borderTopWidth: 1,
-    gap: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 20, paddingTop: 20, borderTopWidth: 1, gap: 12,
   },
   toggleInfo: { flex: 1 },
   toggleLabel: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
