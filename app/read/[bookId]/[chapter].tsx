@@ -3,12 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   FlatList,
-  Keyboard,
   KeyboardAvoidingView,
   Modal,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -20,19 +16,26 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import * as Speech from 'expo-speech';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useBibleText } from '../../../hooks/useBibleText';
 import { useReaderSettings, READER_THEMES, ReaderTheme } from '../../../hooks/useReaderSettings';
+import { useTTS, TTS_RATE_LABELS } from '../../../hooks/useTTS';
+import { useHeaderAnim } from '../../../hooks/useHeaderAnim';
+import { useMeditationSheet } from '../../../hooks/useMeditationSheet';
+import { useSettingsSheet } from '../../../hooks/useSettingsSheet';
+import { useConfetti } from '../../../hooks/useConfetti';
 import {
   markChapterComplete, isChapterComplete,
   markVerseRead, unmarkVerseRead, getReadVerses,
 } from '../../../db/readings';
 import { saveMeditation } from '../../../db/meditations';
 import { getSetting, setSetting } from '../../../db/settings';
+import { getAICache, setAICache } from '../../../db/ai_cache';
+import { generateMeditationPrompts, aiErrorMessage } from '../../../utils/ai-meditation';
 import { BOOKS } from '../../../constants/books';
+import { styles, HEADER_H, PROGRESS_H } from './chapter.styles';
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Helper ─────────────────────────────────────────────────────────────────
 function nextAfter(bookId: number, chapter: number): { bookId: number; chapter: number } {
   const book = BOOKS.find(b => b.id === bookId);
   if (!book) return { bookId: 1, chapter: 1 };
@@ -40,32 +43,6 @@ function nextAfter(bookId: number, chapter: number): { bookId: number; chapter: 
   const nextBook = BOOKS.find(b => b.id === bookId + 1);
   return nextBook ? { bookId: nextBook.id, chapter: 1 } : { bookId: 1, chapter: 1 };
 }
-
-// ── Confetti ───────────────────────────────────────────────────────────────
-const PARTICLE_COLORS = ['#D4A847', '#F0C96A', '#FF7B7B', '#7BFFC8', '#7BB8FF', '#D47BFF', '#FFB87B'];
-const PARTICLE_COUNT = 22;
-
-function createParticles() {
-  return Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-    const angle = (i / PARTICLE_COUNT) * Math.PI * 2;
-    const spread = (Math.random() - 0.5) * 0.6;
-    return {
-      x: new Animated.Value(0),
-      y: new Animated.Value(0),
-      opacity: new Animated.Value(0),
-      scale: new Animated.Value(0),
-      angle: angle + spread,
-      distance: 90 + Math.random() * 100,
-      color: PARTICLE_COLORS[i % PARTICLE_COLORS.length],
-      size: 6 + Math.random() * 6,
-    };
-  });
-}
-
-const HEADER_H = 44;
-const PROGRESS_H = 28;
-const TTS_RATES = [0.75, 0.9, 1.1, 1.3];
-const TTS_RATE_LABELS = ['0.75×', '1×', '1.25×', '1.5×'];
 
 // ── Main screen ────────────────────────────────────────────────────────────
 export default function ReadScreen() {
@@ -85,72 +62,45 @@ export default function ReadScreen() {
   // ── State ─────────────────────────────────────────────────────────────────
   const [alreadyDone, setAlreadyDone] = useState(false);
   const [readVerses, setReadVerses] = useState<Set<number>>(new Set());
-  const [showMeditation, setShowMeditation] = useState(false);
-  const [meditationVerse, setMeditationVerse] = useState<{ start: number; end: number } | null>(null);
-  const [note, setNote] = useState('');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
   const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
-  const [isTTS, setIsTTS] = useState(false);
-  const [ttsVerse, setTtsVerse] = useState<number | null>(null);
-  const [ttsRateIdx, setTtsRateIdx] = useState(1); // default 1× (index 1 = 0.9)
-  const [showTTSMenu, setShowTTSMenu] = useState(false);
+  const [aiPrompts, setAiPrompts] = useState<string[] | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [showAiSheet, setShowAiSheet] = useState(false);
+  const [aiVerseRef, setAiVerseRef] = useState('');
 
-  // ── Animated values ───────────────────────────────────────────────────────
-  const headerOpacity = useRef(new Animated.Value(1)).current;
-  const headerHeightAnim = useRef(new Animated.Value(1)).current;
-  const meditationSheetY = useRef(new Animated.Value(600)).current;
-  const meditationBgOpacity = useRef(new Animated.Value(0)).current;
-  const settingsSheetY = useRef(new Animated.Value(600)).current;
-  const settingsBgOpacity = useRef(new Animated.Value(0)).current;
-
-  // ── Refs ──────────────────────────────────────────────────────────────────
   const flatListRef = useRef<FlatList>(null);
-  const particles = useRef<ReturnType<typeof createParticles> | null>(null);
-  if (!particles.current) particles.current = createParticles();
-  const ttsRef = useRef({ cancel: false });
-  const ttsRateIdxRef = useRef(1);
-  const headerVisibleRef = useRef(true);
-  const lastScrollY = useRef(0);
 
-  // PanResponder callbacks as refs (avoids stale closures)
-  const onMeditationSwipeDismiss = useRef<() => void>(() => {});
-  onMeditationSwipeDismiss.current = () => {
-    closeMeditationSheet(() => { if (!meditationVerse) navigateNext(); });
-  };
-  const onSettingsSwipeDismiss = useRef<() => void>(() => {});
-  onSettingsSwipeDismiss.current = closeSettingsSheet;
+  // ── Hooks ─────────────────────────────────────────────────────────────────
+  const HEADER_FULL_H = insets.top + HEADER_H + PROGRESS_H;
 
-  // ── PanResponders ─────────────────────────────────────────────────────────
-  const meditationPR = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onPanResponderMove: (_, { dy }) => {
-      if (dy > 0) meditationSheetY.setValue(dy);
-    },
-    onPanResponderRelease: (_, { dy, vy }) => {
-      if (dy > 100 || vy > 0.5) {
-        onMeditationSwipeDismiss.current();
-      } else {
-        Animated.spring(meditationSheetY, { toValue: 0, useNativeDriver: true }).start();
-      }
-    },
-  })).current;
+  function navigateNext() {
+    const next = nextAfter(bookId, chapter);
+    router.replace(`/read/${next.bookId}/${next.chapter}`);
+  }
 
-  const settingsPR = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onPanResponderMove: (_, { dy }) => {
-      if (dy > 0) settingsSheetY.setValue(dy);
-    },
-    onPanResponderRelease: (_, { dy, vy }) => {
-      if (dy > 100 || vy > 0.5) {
-        onSettingsSwipeDismiss.current();
-      } else {
-        Animated.spring(settingsSheetY, { toValue: 0, useNativeDriver: true }).start();
-      }
-    },
-  })).current;
+  const {
+    isTTS, ttsVerse, ttsRateIdx, showTTSMenu, setShowTTSMenu,
+    toggleTTS, selectTTSRate,
+  } = useTTS(verses);
+
+  const { headerOpacity, headerHeightValue, handleScroll } = useHeaderAnim(HEADER_FULL_H);
+
+  const {
+    showMeditation, meditationVerse, setMeditationVerse,
+    note, setNote,
+    meditationSheetY, meditationBgOpacity, meditationPR,
+    openMeditationSheet, closeMeditationSheet,
+  } = useMeditationSheet(navigateNext);
+
+  const {
+    showSettings,
+    settingsSheetY, settingsBgOpacity, settingsPR,
+    openSettingsSheet, closeSettingsSheet,
+  } = useSettingsSheet();
+
+  const { showConfetti, particles, fireConfetti } = useConfetti();
 
   // ── Initial data load ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -165,7 +115,7 @@ export default function ReadScreen() {
     });
   }, [bookId, chapter]);
 
-  // Auto-scroll to first unread verse — fires once after initial data load
+  // Auto-scroll to first unread verse
   const didAutoScroll = useRef(false);
   useEffect(() => {
     if (didAutoScroll.current) return;
@@ -182,98 +132,6 @@ export default function ReadScreen() {
     }
   }, [verses, readVerses.size]);
 
-  // TTS cleanup
-  useEffect(() => {
-    return () => {
-      ttsRef.current.cancel = true;
-      Speech.stop();
-    };
-  }, []);
-
-  // ── Header auto-hide ──────────────────────────────────────────────────────
-  const HEADER_FULL_H = insets.top + HEADER_H + PROGRESS_H;
-
-  const headerHeightValue = headerHeightAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, HEADER_FULL_H],
-  });
-
-  function animateHeader(show: boolean) {
-    if (headerVisibleRef.current === show) return;
-    headerVisibleRef.current = show;
-    Animated.timing(headerOpacity, { toValue: show ? 1 : 0, duration: 180, useNativeDriver: true }).start();
-    Animated.timing(headerHeightAnim, { toValue: show ? 1 : 0, duration: 200, useNativeDriver: false }).start();
-  }
-
-  function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
-    const y = event.nativeEvent.contentOffset.y;
-    const dy = y - lastScrollY.current;
-    lastScrollY.current = y;
-    if (dy > 6 && y > 80) animateHeader(false);
-    else if (dy < -6) animateHeader(true);
-  }
-
-  // ── Confetti ──────────────────────────────────────────────────────────────
-  function fireConfetti() {
-    const pts = particles.current!;
-    setShowConfetti(true);
-    pts.forEach(p => { p.x.setValue(0); p.y.setValue(0); p.opacity.setValue(1); p.scale.setValue(0); });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const animations = pts.map(p =>
-      Animated.parallel([
-        Animated.timing(p.x, { toValue: Math.cos(p.angle) * p.distance, duration: 700, useNativeDriver: true }),
-        Animated.timing(p.y, { toValue: Math.sin(p.angle) * p.distance - 40, duration: 700, useNativeDriver: true }),
-        Animated.sequence([
-          Animated.timing(p.scale, { toValue: 1, duration: 120, useNativeDriver: true }),
-          Animated.timing(p.opacity, { toValue: 0, duration: 580, useNativeDriver: true }),
-        ]),
-      ])
-    );
-    Animated.parallel(animations).start(() => setShowConfetti(false));
-  }
-
-  // ── TTS ───────────────────────────────────────────────────────────────────
-  async function startTTS() {
-    if (!verses || verses.length === 0) return;
-    setIsTTS(true);
-    ttsRef.current.cancel = false;
-    for (let i = 0; i < verses.length; i++) {
-      if (ttsRef.current.cancel) break;
-      setTtsVerse(verses[i].verse);
-      const rate = TTS_RATES[ttsRateIdxRef.current];
-      await new Promise<void>(resolve => {
-        Speech.speak(verses[i].text, {
-          language: 'ko-KR',
-          rate,
-          onDone: resolve,
-          onStopped: resolve,
-          onError: () => resolve(),
-        });
-      });
-    }
-    setIsTTS(false);
-    setTtsVerse(null);
-  }
-
-  function selectTTSRate(idx: number) {
-    ttsRateIdxRef.current = idx;
-    setTtsRateIdx(idx);
-    setShowTTSMenu(false);
-    // Stop current verse — loop picks up next verse at new rate
-    if (isTTS) Speech.stop();
-  }
-
-  async function stopTTS() {
-    ttsRef.current.cancel = true;
-    await Speech.stop();
-    setIsTTS(false);
-    setTtsVerse(null);
-  }
-
-  function toggleTTS() {
-    if (isTTS) stopTTS(); else startTTS();
-  }
-
   // ── Verse interactions ────────────────────────────────────────────────────
   async function handleVerseTap(verseNum: number) {
     if (selectionMode) {
@@ -283,7 +141,6 @@ export default function ReadScreen() {
       });
       return;
     }
-    // Toggle read state
     if (readVerses.has(verseNum)) {
       await unmarkVerseRead(bookId, chapter, verseNum);
       setReadVerses(prev => { const next = new Set(prev); next.delete(verseNum); return next; });
@@ -305,13 +162,42 @@ export default function ReadScreen() {
     setSelectionRange(null);
   }
 
-  // ── Selection actions ─────────────────────────────────────────────────────
   function openVerseMeditation() {
     if (!selectionRange) return;
     setMeditationVerse(selectionRange);
     setNote('');
     cancelSelection();
     openMeditationSheet();
+  }
+
+  async function openAIMeditation() {
+    if (!selectionRange || !verses) return;
+    const selected = verses.filter(v => v.verse >= selectionRange.start && v.verse <= selectionRange.end);
+    const ref = `${book?.name} ${chapter}:${selectionRange.start}${selectionRange.start !== selectionRange.end ? `–${selectionRange.end}` : ''}`;
+    setAiVerseRef(ref);
+    cancelSelection();
+    setShowAiSheet(true);
+    setAiPrompts(null);
+    setAiLoading(true);
+
+    // Check cache first
+    const cached = await getAICache(bookId, chapter, selectionRange.start, selectionRange.end);
+    if (cached) {
+      setAiPrompts(cached);
+      setAiLoading(false);
+      return;
+    }
+
+    const apiKey = await getSetting('claude_api_key', '');
+    const result = await generateMeditationPrompts(selected, ref, apiKey);
+
+    if (result.data) {
+      setAiPrompts(result.data.prompts);
+      await setAICache(bookId, chapter, result.data.prompts, selectionRange.start, selectionRange.end);
+    } else {
+      setAiPrompts([aiErrorMessage(result.error!)]);
+    }
+    setAiLoading(false);
   }
 
   async function copySelectedVerses() {
@@ -324,47 +210,6 @@ export default function ReadScreen() {
     cancelSelection();
   }
 
-  // ── Modal control ─────────────────────────────────────────────────────────
-  function openMeditationSheet() {
-    meditationSheetY.setValue(600);
-    meditationBgOpacity.setValue(0);
-    setShowMeditation(true);
-    Animated.parallel([
-      Animated.spring(meditationSheetY, { toValue: 0, friction: 9, tension: 100, useNativeDriver: true }),
-      Animated.timing(meditationBgOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-    ]).start();
-  }
-
-  function closeMeditationSheet(afterClose?: () => void) {
-    Keyboard.dismiss();
-    Animated.parallel([
-      Animated.timing(meditationSheetY, { toValue: 600, duration: 220, useNativeDriver: true }),
-      Animated.timing(meditationBgOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
-    ]).start(() => {
-      setShowMeditation(false);
-      setNote('');
-      setMeditationVerse(null);
-      afterClose?.();
-    });
-  }
-
-  function openSettingsSheet() {
-    settingsSheetY.setValue(600);
-    settingsBgOpacity.setValue(0);
-    setShowSettings(true);
-    Animated.parallel([
-      Animated.spring(settingsSheetY, { toValue: 0, friction: 9, tension: 100, useNativeDriver: true }),
-      Animated.timing(settingsBgOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-    ]).start();
-  }
-
-  function closeSettingsSheet() {
-    Animated.parallel([
-      Animated.timing(settingsSheetY, { toValue: 600, duration: 220, useNativeDriver: true }),
-      Animated.timing(settingsBgOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
-    ]).start(() => setShowSettings(false));
-  }
-
   // ── Chapter complete ───────────────────────────────────────────────────────
   async function handleComplete() {
     if (alreadyDone || selectionMode) return;
@@ -372,11 +217,7 @@ export default function ReadScreen() {
     await markChapterComplete(bookId, chapter);
     setAlreadyDone(true);
     if (meditationPromptEnabled) {
-      setTimeout(() => {
-        setMeditationVerse(null);
-        setNote('');
-        openMeditationSheet();
-      }, 400);
+      setTimeout(() => { setMeditationVerse(null); setNote(''); openMeditationSheet(); }, 400);
     } else {
       setTimeout(() => navigateNext(), 400);
     }
@@ -388,11 +229,6 @@ export default function ReadScreen() {
     }
     const wasChapter = meditationVerse === null;
     closeMeditationSheet(() => { if (wasChapter) navigateNext(); });
-  }
-
-  function navigateNext() {
-    const next = nextAfter(bookId, chapter);
-    router.replace(`/read/${next.bookId}/${next.chapter}`);
   }
 
   async function toggleMeditationPrompt(val: boolean) {
@@ -429,21 +265,12 @@ export default function ReadScreen() {
           isTTSActive && { backgroundColor: `${colors.gold}12` },
         ]}
       >
-        <Text style={[
-          styles.verseNum,
-          { color: colors.gold, fontFamily },
-          isRead && { opacity: 0.35 },
-        ]}>
+        <Text style={[styles.verseNum, { color: colors.gold, fontFamily }, isRead && { opacity: 0.35 }]}>
           {item.verse}
         </Text>
         <Text style={[
           styles.verseText,
-          {
-            color: colors.text,
-            fontSize: settings.fontSize,
-            lineHeight: settings.fontSize * settings.lineHeight,
-            fontFamily,
-          },
+          { color: colors.text, fontSize: settings.fontSize, lineHeight: settings.fontSize * settings.lineHeight, fontFamily },
           isRead && { opacity: 0.45 },
         ]}>
           {item.text}
@@ -457,59 +284,37 @@ export default function ReadScreen() {
       <Stack.Screen options={{ headerShown: false, title }} />
       <View style={[styles.container, { backgroundColor: colors.bg }]}>
 
-        {/* Collapsible header — height + opacity animated */}
+        {/* Collapsible header */}
         <Animated.View style={[
           styles.headerWrapper,
-          {
-            height: headerHeightValue,
-            opacity: headerOpacity,
-            backgroundColor: colors.headerBg,
-            borderBottomColor: colors.border,
-          },
-        ]}
-        >
-          {/* Main header row */}
+          { height: headerHeightValue, opacity: headerOpacity, backgroundColor: colors.headerBg, borderBottomColor: colors.border },
+        ]}>
           <View style={[styles.headerInner, { paddingTop: insets.top }]}>
             <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
               <MaterialCommunityIcons name="chevron-left" size={28} color={colors.gold} />
             </Pressable>
-            <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-              {title}
-            </Text>
+            <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>{title}</Text>
             <View style={styles.headerRight}>
               {isTTS && (
                 <Pressable onPress={() => setShowTTSMenu(v => !v)} style={styles.ttsRateBtn} hitSlop={8}>
-                  <Text style={[styles.ttsRateLabel, { color: colors.gold }]}>
-                    {TTS_RATE_LABELS[ttsRateIdx]}
-                  </Text>
+                  <Text style={[styles.ttsRateLabel, { color: colors.gold }]}>{TTS_RATE_LABELS[ttsRateIdx]}</Text>
                   <MaterialCommunityIcons name="chevron-down" size={12} color={colors.gold} style={{ marginLeft: 1 }} />
                 </Pressable>
               )}
               <Pressable onPress={toggleTTS} style={styles.headerIconBtn} hitSlop={8}>
-                <MaterialCommunityIcons
-                  name={isTTS ? 'volume-high' : 'volume-off'}
-                  size={20}
-                  color={isTTS ? colors.gold : colors.muted}
-                />
+                <MaterialCommunityIcons name={isTTS ? 'volume-high' : 'volume-off'} size={20} color={isTTS ? colors.gold : colors.muted} />
               </Pressable>
               <Pressable onPress={openSettingsSheet} style={styles.headerIconBtn} hitSlop={8}>
                 <MaterialCommunityIcons name="format-size" size={20} color={colors.muted} />
               </Pressable>
             </View>
           </View>
-
-          {/* Progress strip */}
           {totalVerses > 0 && (
             <View style={[styles.progressStrip, { borderTopColor: colors.border }]}>
               <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-                <View style={[
-                  styles.progressFill,
-                  { width: `${progressPct * 100}%` as any, backgroundColor: colors.gold },
-                ]} />
+                <View style={[styles.progressFill, { width: `${progressPct * 100}%` as any, backgroundColor: colors.gold }]} />
               </View>
-              <Text style={[styles.progressLabel, { color: colors.muted }]}>
-                {readCount}/{totalVerses}절
-              </Text>
+              <Text style={[styles.progressLabel, { color: colors.muted }]}>{readCount}/{totalVerses}절</Text>
             </View>
           )}
         </Animated.View>
@@ -520,17 +325,9 @@ export default function ReadScreen() {
             <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowTTSMenu(false)} />
             <View style={[styles.ttsMenu, { backgroundColor: colors.surface, borderColor: colors.border, top: insets.top + HEADER_H - 4 }]}>
               {TTS_RATE_LABELS.map((label, idx) => (
-                <Pressable
-                  key={idx}
-                  style={[styles.ttsMenuItem, idx === ttsRateIdx && { backgroundColor: `${colors.gold}18` }]}
-                  onPress={() => selectTTSRate(idx)}
-                >
-                  <Text style={[styles.ttsMenuLabel, { color: idx === ttsRateIdx ? colors.gold : colors.text }]}>
-                    {label}
-                  </Text>
-                  {idx === ttsRateIdx && (
-                    <MaterialCommunityIcons name="check" size={14} color={colors.gold} />
-                  )}
+                <Pressable key={idx} style={[styles.ttsMenuItem, idx === ttsRateIdx && { backgroundColor: `${colors.gold}18` }]} onPress={() => selectTTSRate(idx)}>
+                  <Text style={[styles.ttsMenuLabel, { color: idx === ttsRateIdx ? colors.gold : colors.text }]}>{label}</Text>
+                  {idx === ttsRateIdx && <MaterialCommunityIcons name="check" size={14} color={colors.gold} />}
                 </Pressable>
               ))}
             </View>
@@ -539,15 +336,11 @@ export default function ReadScreen() {
 
         {/* Bible content */}
         {loading ? (
-          <View style={styles.center}>
-            <Text style={[styles.loadingText, { color: colors.muted }]}>읽는 중...</Text>
-          </View>
+          <View style={styles.center}><Text style={[styles.loadingText, { color: colors.muted }]}>읽는 중...</Text></View>
         ) : error ? (
           <View style={styles.center}>
             <MaterialCommunityIcons name="alert-circle-outline" size={40} color={colors.muted} />
-            <Text style={[styles.loadingText, { color: colors.muted, marginTop: 12 }]}>
-              본문을 불러올 수 없어요
-            </Text>
+            <Text style={[styles.loadingText, { color: colors.muted, marginTop: 12 }]}>본문을 불러올 수 없어요</Text>
           </View>
         ) : (
           <FlatList
@@ -561,11 +354,7 @@ export default function ReadScreen() {
             renderItem={renderVerse}
             ListFooterComponent={
               <Pressable
-                style={({ pressed }) => [
-                  styles.completeBtn,
-                  alreadyDone && styles.doneBtnDisabled,
-                  pressed && !alreadyDone && styles.completeBtnPressed,
-                ]}
+                style={({ pressed }) => [styles.completeBtn, alreadyDone && styles.doneBtnDisabled, pressed && !alreadyDone && styles.completeBtnPressed]}
                 onPress={handleComplete}
                 disabled={alreadyDone}
               >
@@ -585,17 +374,14 @@ export default function ReadScreen() {
         {/* Confetti overlay */}
         {showConfetti && (
           <View style={styles.confettiOverlay} pointerEvents="none">
-            {particles.current!.map((p, i) => (
+            {particles.map((p, i) => (
               <Animated.View
                 key={i}
-                style={[
-                  styles.particle,
-                  {
-                    width: p.size, height: p.size, borderRadius: p.size / 2,
-                    backgroundColor: p.color, opacity: p.opacity,
-                    transform: [{ translateX: p.x }, { translateY: p.y }, { scale: p.scale }],
-                  },
-                ]}
+                style={[styles.particle, {
+                  width: p.size, height: p.size, borderRadius: p.size / 2,
+                  backgroundColor: p.color, opacity: p.opacity,
+                  transform: [{ translateX: p.x }, { translateY: p.y }, { scale: p.scale }],
+                }]}
               />
             ))}
           </View>
@@ -603,22 +389,18 @@ export default function ReadScreen() {
 
         {/* Selection bar */}
         {selectionMode && selectionRange && (
-          <View style={[
-            styles.selectionBar,
-            { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: insets.bottom + 12 },
-          ]}>
-            <Text style={[styles.selectionLabel, { color: colors.text }]} numberOfLines={1}>
-              {verseLabel}
-            </Text>
+          <View style={[styles.selectionBar, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: insets.bottom + 12 }]}>
+            <Text style={[styles.selectionLabel, { color: colors.text }]} numberOfLines={1}>{verseLabel}</Text>
             <View style={styles.selectionActions}>
               <Pressable style={[styles.selBtn, { backgroundColor: colors.gold }]} onPress={openVerseMeditation}>
                 <MaterialCommunityIcons name="notebook-edit-outline" size={15} color="#0B0A12" />
                 <Text style={[styles.selBtnText, { color: '#0B0A12' }]}>묵상</Text>
               </Pressable>
-              <Pressable
-                style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]}
-                onPress={copySelectedVerses}
-              >
+              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={openAIMeditation}>
+                <MaterialCommunityIcons name="robot-outline" size={15} color={colors.gold} />
+                <Text style={[styles.selBtnText, { color: colors.gold }]}>AI</Text>
+              </Pressable>
+              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={copySelectedVerses}>
                 <MaterialCommunityIcons name="content-copy" size={15} color={colors.text} />
                 <Text style={[styles.selBtnText, { color: colors.text }]}>복사</Text>
               </Pressable>
@@ -629,31 +411,15 @@ export default function ReadScreen() {
           </View>
         )}
 
-        {/* ── Meditation modal ── */}
+        {/* Meditation modal */}
         <Modal visible={showMeditation} transparent animationType="none">
-          {/* Backdrop */}
           <Animated.View style={[styles.backdrop, { opacity: meditationBgOpacity }]} />
-
-          <KeyboardAvoidingView
-            style={styles.overlayInner}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          >
-            {/* Tap backdrop to close */}
-            <Pressable
-              style={StyleSheet.absoluteFillObject}
-              onPress={() => closeMeditationSheet(() => { if (!meditationVerse) navigateNext(); })}
-            />
-
-            <Animated.View style={[
-              styles.modal,
-              { backgroundColor: colors.surface, borderTopColor: colors.border },
-              { transform: [{ translateY: meditationSheetY }] },
-            ]}>
-              {/* Draggable handle */}
+          <KeyboardAvoidingView style={styles.overlayInner} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => closeMeditationSheet(() => { if (!meditationVerse) navigateNext(); })} />
+            <Animated.View style={[styles.modal, { backgroundColor: colors.surface, borderTopColor: colors.border }, { transform: [{ translateY: meditationSheetY }] }]}>
               <View {...meditationPR.panHandlers} style={styles.handleArea}>
                 <View style={[styles.modalHandle, { backgroundColor: colors.muted }]} />
               </View>
-
               <Text style={[styles.modalTitle, { color: colors.text }]}>오늘의 묵상</Text>
               <Text style={[styles.modalSub, { color: colors.gold }]}>
                 {meditationVerse
@@ -661,35 +427,18 @@ export default function ReadScreen() {
                   : `${book?.name} ${chapter}장 — 한 줄이라도 남겨보세요 (선택)`}
               </Text>
               <TextInput
-                style={[
-                  styles.textInput,
-                  { color: colors.text, backgroundColor: colors.bg, borderColor: colors.border },
-                ]}
+                style={[styles.textInput, { color: colors.text, backgroundColor: colors.bg, borderColor: colors.border }]}
                 placeholder="오늘 읽은 말씀에서 받은 것..."
                 placeholderTextColor={colors.muted}
-                multiline
-                maxLength={200}
-                value={note}
-                onChangeText={setNote}
-                autoFocus
+                multiline maxLength={200}
+                value={note} onChangeText={setNote} autoFocus
               />
               <Text style={[styles.charCount, { color: colors.muted }]}>{note.length}/200</Text>
               <View style={styles.modalActions}>
-                <Pressable
-                  style={[styles.skipBtn, { borderColor: colors.border }]}
-                  onPress={() => closeMeditationSheet(() => { if (!meditationVerse) navigateNext(); })}
-                >
+                <Pressable style={[styles.skipBtn, { borderColor: colors.border }]} onPress={() => closeMeditationSheet(() => { if (!meditationVerse) navigateNext(); })}>
                   <Text style={[styles.skipBtnText, { color: colors.muted }]}>건너뛰기</Text>
                 </Pressable>
-                <Pressable
-                  style={[
-                    styles.saveBtn,
-                    { backgroundColor: colors.gold },
-                    !note.trim() && styles.saveBtnDisabled,
-                  ]}
-                  onPress={handleSaveMeditation}
-                  disabled={!note.trim()}
-                >
+                <Pressable style={[styles.saveBtn, { backgroundColor: colors.gold }, !note.trim() && styles.saveBtnDisabled]} onPress={handleSaveMeditation} disabled={!note.trim()}>
                   <Text style={[styles.saveBtnText, { color: '#0B0A12' }]}>저장</Text>
                 </Pressable>
               </View>
@@ -697,131 +446,115 @@ export default function ReadScreen() {
           </KeyboardAvoidingView>
         </Modal>
 
-        {/* ── Reader settings sheet ── */}
+        {/* Settings sheet */}
         <Modal visible={showSettings} transparent animationType="none">
-          {/* Backdrop */}
           <Animated.View style={[styles.backdrop, { opacity: settingsBgOpacity }]} />
-
           <View style={styles.overlayInner}>
-            {/* Tap backdrop to close */}
             <Pressable style={StyleSheet.absoluteFillObject} onPress={closeSettingsSheet} />
-
-            <Animated.View style={[
-              styles.settingsSheet,
-              { backgroundColor: colors.surface, borderTopColor: colors.border },
-              { transform: [{ translateY: settingsSheetY }] },
-            ]}>
-              {/* Draggable handle */}
+            <Animated.View style={[styles.settingsSheet, { backgroundColor: colors.surface, borderTopColor: colors.border }, { transform: [{ translateY: settingsSheetY }] }]}>
               <View {...settingsPR.panHandlers} style={styles.handleArea}>
                 <View style={[styles.modalHandle, { backgroundColor: colors.muted }]} />
               </View>
-
               <Text style={[styles.settingsTitle, { color: colors.text }]}>읽기 설정</Text>
 
-              {/* Theme */}
               <Text style={[styles.settingLabel, { color: colors.muted }]}>화면 테마</Text>
               <View style={styles.themeRow}>
                 {(['dark', 'sepia', 'light'] as ReaderTheme[]).map(t => {
                   const tc = READER_THEMES[t];
                   return (
-                    <Pressable
-                      key={t}
-                      style={[
-                        styles.themeSwatch,
-                        { backgroundColor: tc.bg, borderColor: settings.theme === t ? tc.gold : tc.border },
-                        settings.theme === t && { borderWidth: 2 },
-                      ]}
-                      onPress={() => updateSettings({ theme: t })}
-                    >
-                      <Text style={[styles.themeSwatchLabel, { color: tc.text }]}>
-                        {t === 'dark' ? '다크' : t === 'sepia' ? '세피아' : '라이트'}
-                      </Text>
+                    <Pressable key={t} style={[styles.themeSwatch, { backgroundColor: tc.bg, borderColor: settings.theme === t ? tc.gold : tc.border }, settings.theme === t && { borderWidth: 2 }]} onPress={() => updateSettings({ theme: t })}>
+                      <Text style={[styles.themeSwatchLabel, { color: tc.text }]}>{t === 'dark' ? '다크' : t === 'sepia' ? '세피아' : '라이트'}</Text>
                     </Pressable>
                   );
                 })}
               </View>
 
-              {/* Font size */}
               <Text style={[styles.settingLabel, { color: colors.muted }]}>글자 크기</Text>
               <View style={styles.stepperRow}>
-                <Pressable
-                  style={[styles.stepBtn, { borderColor: colors.border }]}
-                  onPress={() => updateSettings({ fontSize: Math.max(14, settings.fontSize - 1) })}
-                  hitSlop={8}
-                >
+                <Pressable style={[styles.stepBtn, { borderColor: colors.border }]} onPress={() => updateSettings({ fontSize: Math.max(14, settings.fontSize - 1) })} hitSlop={8}>
                   <MaterialCommunityIcons name="minus" size={18} color={colors.text} />
                 </Pressable>
                 <Text style={[styles.stepValue, { color: colors.text }]}>{settings.fontSize}</Text>
-                <Pressable
-                  style={[styles.stepBtn, { borderColor: colors.border }]}
-                  onPress={() => updateSettings({ fontSize: Math.min(22, settings.fontSize + 1) })}
-                  hitSlop={8}
-                >
+                <Pressable style={[styles.stepBtn, { borderColor: colors.border }]} onPress={() => updateSettings({ fontSize: Math.min(22, settings.fontSize + 1) })} hitSlop={8}>
                   <MaterialCommunityIcons name="plus" size={18} color={colors.text} />
                 </Pressable>
-                <Text style={[styles.stepPreview, { color: colors.text, fontSize: settings.fontSize, fontFamily }]}>
-                  미리보기 가나다
-                </Text>
+                <Text style={[styles.stepPreview, { color: colors.text, fontSize: settings.fontSize, fontFamily }]}>미리보기 가나다</Text>
               </View>
 
-              {/* Line height */}
               <Text style={[styles.settingLabel, { color: colors.muted }]}>줄 간격</Text>
               <View style={styles.stepperRow}>
-                <Pressable
-                  style={[styles.stepBtn, { borderColor: colors.border }]}
-                  onPress={() => updateSettings({ lineHeight: Math.max(1.4, Math.round((settings.lineHeight - 0.1) * 10) / 10) })}
-                  hitSlop={8}
-                >
+                <Pressable style={[styles.stepBtn, { borderColor: colors.border }]} onPress={() => updateSettings({ lineHeight: Math.max(1.4, Math.round((settings.lineHeight - 0.1) * 10) / 10) })} hitSlop={8}>
                   <MaterialCommunityIcons name="minus" size={18} color={colors.text} />
                 </Pressable>
                 <Text style={[styles.stepValue, { color: colors.text }]}>{settings.lineHeight.toFixed(1)}</Text>
-                <Pressable
-                  style={[styles.stepBtn, { borderColor: colors.border }]}
-                  onPress={() => updateSettings({ lineHeight: Math.min(2.0, Math.round((settings.lineHeight + 0.1) * 10) / 10) })}
-                  hitSlop={8}
-                >
+                <Pressable style={[styles.stepBtn, { borderColor: colors.border }]} onPress={() => updateSettings({ lineHeight: Math.min(2.0, Math.round((settings.lineHeight + 0.1) * 10) / 10) })} hitSlop={8}>
                   <MaterialCommunityIcons name="plus" size={18} color={colors.text} />
                 </Pressable>
               </View>
 
-              {/* Font */}
               <Text style={[styles.settingLabel, { color: colors.muted }]}>폰트</Text>
               <View style={styles.fontRow}>
                 {(['default', 'serif'] as const).map(f => (
-                  <Pressable
-                    key={f}
-                    style={[
-                      styles.fontBtn,
-                      { borderColor: settings.font === f ? colors.gold : colors.border },
-                      settings.font === f && { backgroundColor: `${colors.gold}20` },
-                    ]}
-                    onPress={() => updateSettings({ font: f })}
-                  >
-                    <Text style={[
-                      styles.fontBtnText,
-                      { color: settings.font === f ? colors.gold : colors.muted },
-                      f === 'serif' && { fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' },
-                    ]}>
+                  <Pressable key={f} style={[styles.fontBtn, { borderColor: settings.font === f ? colors.gold : colors.border }, settings.font === f && { backgroundColor: `${colors.gold}20` }]} onPress={() => updateSettings({ font: f })}>
+                    <Text style={[styles.fontBtnText, { color: settings.font === f ? colors.gold : colors.muted }, f === 'serif' && { fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' }]}>
                       {f === 'default' ? '기본체' : '세리프체'}
                     </Text>
                   </Pressable>
                 ))}
               </View>
 
-              {/* Meditation prompt toggle */}
               <View style={[styles.toggleRow, { borderTopColor: colors.border }]}>
                 <View style={styles.toggleInfo}>
                   <Text style={[styles.toggleLabel, { color: colors.text }]}>읽기 완료 후 묵상 입력</Text>
                   <Text style={[styles.toggleDesc, { color: colors.muted }]}>끄면 완료 즉시 다음 챕터로 이동</Text>
                 </View>
-                <Switch
-                  value={meditationPromptEnabled}
-                  onValueChange={toggleMeditationPrompt}
-                  trackColor={{ false: colors.border, true: `${colors.gold}80` }}
-                  thumbColor={meditationPromptEnabled ? colors.gold : colors.muted}
-                />
+                <Switch value={meditationPromptEnabled} onValueChange={toggleMeditationPrompt} trackColor={{ false: colors.border, true: `${colors.gold}80` }} thumbColor={meditationPromptEnabled ? colors.gold : colors.muted} />
               </View>
             </Animated.View>
+          </View>
+        </Modal>
+
+        {/* AI 묵상 시트 */}
+        <Modal visible={showAiSheet} transparent animationType="slide">
+          <View style={aiStyles.overlay}>
+            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowAiSheet(false)} />
+            <View style={[aiStyles.sheet, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+              <View style={aiStyles.handle}>
+                <View style={[aiStyles.handleBar, { backgroundColor: colors.muted }]} />
+              </View>
+              <View style={aiStyles.header}>
+                <MaterialCommunityIcons name="robot-outline" size={20} color={colors.gold} />
+                <Text style={[aiStyles.title, { color: colors.text }]}>AI 묵상 질문</Text>
+              </View>
+              <Text style={[aiStyles.ref, { color: colors.gold }]}>{aiVerseRef}</Text>
+
+              {aiLoading ? (
+                <View style={aiStyles.loading}>
+                  <Text style={[aiStyles.loadingText, { color: colors.muted }]}>묵상 질문을 생성하는 중...</Text>
+                </View>
+              ) : (
+                <View style={aiStyles.prompts}>
+                  {aiPrompts?.map((prompt, i) => (
+                    <View key={i} style={[aiStyles.promptRow, { borderColor: colors.border }]}>
+                      <Text style={[aiStyles.promptNum, { color: colors.gold }]}>{i + 1}</Text>
+                      <Text style={[aiStyles.promptText, { color: colors.text }]}>{prompt}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              <Pressable
+                style={[aiStyles.writeBtn, { backgroundColor: colors.gold }]}
+                onPress={() => {
+                  setShowAiSheet(false);
+                  setNote(aiPrompts ? `[AI 질문] ${aiPrompts[0]}\n\n` : '');
+                  setMeditationVerse(null);
+                  openMeditationSheet();
+                }}
+              >
+                <Text style={[aiStyles.writeBtnText, { color: colors.bg }]}>묵상 기록하기</Text>
+              </Pressable>
+            </View>
           </View>
         </Modal>
       </View>
@@ -829,229 +562,30 @@ export default function ReadScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { fontSize: 16 },
-
-  // ── Collapsible header ────────────────────────────────────────────────────
-  headerWrapper: {
-    overflow: 'hidden',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    height: HEADER_H,
-  },
-  backBtn: {
-    padding: 6,
-    marginRight: 2,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginHorizontal: 4,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerIconBtn: {
-    padding: 8,
-  },
-  ttsRateBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
-  ttsRateLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  ttsMenu: {
-    position: 'absolute',
-    right: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    overflow: 'hidden',
-    zIndex: 100,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    minWidth: 100,
-  },
-  ttsMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  ttsMenuLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
-  // ── Progress strip ────────────────────────────────────────────────────────
-  progressStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    gap: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    height: PROGRESS_H,
-  },
-  progressTrack: {
-    flex: 1,
-    height: 3,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: { height: '100%', borderRadius: 2 },
-  progressLabel: { fontSize: 11, letterSpacing: 0.3, minWidth: 48, textAlign: 'right' },
-
-  // ── Verse rows ────────────────────────────────────────────────────────────
-  list: { padding: 20, paddingBottom: 60 },
-  verseRow: {
-    flexDirection: 'row',
-    marginBottom: 14,
-    gap: 10,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  verseNum: {
-    fontSize: 11,
-    width: 22,
-    paddingTop: 4,
-    fontWeight: '700',
-    opacity: 0.7,
-  },
-  verseText: { flex: 1 },
-
-  // ── Complete button ───────────────────────────────────────────────────────
-  completeBtn: {
-    marginTop: 32,
-    backgroundColor: '#D4A847',
-    paddingVertical: 18,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  completeBtnPressed: { opacity: 0.85 },
-  doneBtnDisabled: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(212,168,71,0.2)',
-  },
-  doneBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  completeBtnText: { fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
-
-  // ── Confetti ──────────────────────────────────────────────────────────────
-  confettiOverlay: {
-    position: 'absolute', bottom: 80, left: 0, right: 0,
-    height: 0, alignItems: 'center', zIndex: 10,
-  },
-  particle: { position: 'absolute' },
-
-  // ── Selection bar ─────────────────────────────────────────────────────────
-  selectionBar: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 12,
-    borderTopWidth: 1, gap: 8,
-  },
-  selectionLabel: { flex: 1, fontSize: 13, fontWeight: '600' },
-  selectionActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  selBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
-  },
-  selBtnText: { fontSize: 13, fontWeight: '600' },
-  selBtnCancel: { padding: 4 },
-
-  // ── Modal shared ──────────────────────────────────────────────────────────
-  backdrop: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-  },
-  overlayInner: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  handleArea: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginBottom: 4,
-  },
-  modalHandle: {
-    width: 40, height: 4, borderRadius: 2,
-  },
-
-  // ── Meditation modal ──────────────────────────────────────────────────────
-  modal: {
+const aiStyles = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
+  sheet: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 24, paddingBottom: 44,
+    paddingHorizontal: 24, paddingBottom: 40,
     borderTopWidth: 1,
   },
-  modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
-  modalSub: { fontSize: 13, marginBottom: 16 },
-  textInput: {
+  handle: { alignItems: 'center', paddingVertical: 12 },
+  handleBar: { width: 40, height: 4, borderRadius: 2 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  title: { fontSize: 18, fontWeight: '800' },
+  ref: { fontSize: 13, marginBottom: 16 },
+  loading: { paddingVertical: 24, alignItems: 'center' },
+  loadingText: { fontSize: 14 },
+  prompts: { gap: 12, marginBottom: 24 },
+  promptRow: {
+    flexDirection: 'row', gap: 12,
     borderWidth: 1, borderRadius: 12,
-    padding: 14, fontSize: 16,
-    minHeight: 100, textAlignVertical: 'top',
+    padding: 14,
   },
-  charCount: { fontSize: 11, textAlign: 'right', marginTop: 6 },
-  modalActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
-  skipBtn: {
-    flex: 1, padding: 15, borderRadius: 12,
-    borderWidth: 1, alignItems: 'center',
+  promptNum: { fontSize: 16, fontWeight: '700', width: 20, lineHeight: 22 },
+  promptText: { flex: 1, fontSize: 15, lineHeight: 22 },
+  writeBtn: {
+    paddingVertical: 16, borderRadius: 14, alignItems: 'center',
   },
-  skipBtnText: { fontSize: 15, fontWeight: '600' },
-  saveBtn: { flex: 1, padding: 15, borderRadius: 12, alignItems: 'center' },
-  saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: { fontSize: 15, fontWeight: '700' },
-
-  // ── Settings sheet ────────────────────────────────────────────────────────
-  settingsSheet: {
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 24, paddingBottom: 48,
-    borderTopWidth: 1,
-  },
-  settingsTitle: { fontSize: 18, fontWeight: '800', marginBottom: 20 },
-  settingLabel: {
-    fontSize: 11, letterSpacing: 1, textTransform: 'uppercase',
-    marginBottom: 10, marginTop: 16,
-  },
-  themeRow: { flexDirection: 'row', gap: 10 },
-  themeSwatch: {
-    flex: 1, height: 56, borderRadius: 12,
-    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
-  },
-  themeSwatchLabel: { fontSize: 12, fontWeight: '700' },
-  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
-  },
-  stepValue: { fontSize: 16, fontWeight: '700', minWidth: 32, textAlign: 'center' },
-  stepPreview: { flex: 1, textAlign: 'right' },
-  fontRow: { flexDirection: 'row', gap: 10 },
-  fontBtn: {
-    flex: 1, paddingVertical: 12,
-    borderRadius: 12, borderWidth: 1, alignItems: 'center',
-  },
-  fontBtnText: { fontSize: 14, fontWeight: '600' },
-  toggleRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginTop: 20, paddingTop: 20, borderTopWidth: 1, gap: 12,
-  },
-  toggleInfo: { flex: 1 },
-  toggleLabel: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
-  toggleDesc: { fontSize: 12 },
+  writeBtnText: { fontSize: 16, fontWeight: '700' },
 });

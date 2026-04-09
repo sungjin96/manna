@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -18,29 +19,9 @@ import { getAllMeditations } from '../../db/meditations';
 import { getDb } from '../../db/schema';
 import { theme } from '../../constants/theme';
 import { useReaderSettings, READER_THEMES, ReaderTheme } from '../../hooks/useReaderSettings';
-
-const NOTIFICATION_ID = 'daily-reading-reminder';
-
-async function scheduleReminder(hour: number, minute: number) {
-  await Notifications.cancelAllScheduledNotificationsAsync();
-  await Notifications.scheduleNotificationAsync({
-    identifier: NOTIFICATION_ID,
-    content: {
-      title: '오늘의 만나',
-      body: '매일 한 챕터, 오늘의 말씀을 읽어보세요',
-      sound: true,
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour,
-      minute,
-    },
-  });
-}
-
-async function cancelReminder() {
-  await Notifications.cancelAllScheduledNotificationsAsync();
-}
+import { scheduleReadingReminder, cancelReadingReminder } from '../../utils/notifications';
+import { READING_PLANS, PlanId } from '../../constants/reading-plans';
+import { getActivePlan, setActivePlan, clearActivePlan, todayISO } from '../../db/reading_plans';
 
 export default function SettingsScreen() {
   const [notifEnabled, setNotifEnabled] = useState(false);
@@ -48,6 +29,9 @@ export default function SettingsScreen() {
   const [notifMinute, setNotifMinute] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
+  const [activePlanId, setActivePlanId] = useState<PlanId | null>(null);
+  const [claudeApiKey, setClaudeApiKey] = useState('');
+  const [apiKeyVisible, setApiKeyVisible] = useState(false);
 
   const { settings, update: updateReader } = useReaderSettings();
 
@@ -57,12 +41,31 @@ export default function SettingsScreen() {
       const hour = parseInt(await getSetting('notification_hour', '8'), 10);
       const minute = parseInt(await getSetting('notification_minute', '0'), 10);
       const meditPrompt = await getSetting('meditation_prompt_enabled', '1');
+      const plan = await getActivePlan();
       setNotifEnabled(enabled === '1');
       setNotifHour(hour);
       setNotifMinute(minute);
       setMeditationPromptEnabled(meditPrompt === '1');
+      setActivePlanId((plan?.planId as PlanId) ?? null);
+      const apiKey = await getSetting('claude_api_key', '');
+      setClaudeApiKey(apiKey);
     })();
   }, []);
+
+  async function saveClaudeApiKey(key: string) {
+    setClaudeApiKey(key);
+    await setSetting('claude_api_key', key.trim());
+  }
+
+  async function selectPlan(planId: PlanId | null) {
+    if (planId === null) {
+      await clearActivePlan();
+      setActivePlanId(null);
+    } else {
+      await setActivePlan(planId, todayISO());
+      setActivePlanId(planId);
+    }
+  }
 
   async function toggleMeditationPrompt(val: boolean) {
     setMeditationPromptEnabled(val);
@@ -76,9 +79,9 @@ export default function SettingsScreen() {
         Alert.alert('알림 권한 필요', '설정 앱에서 알림 권한을 허용해주세요.');
         return;
       }
-      await scheduleReminder(notifHour, notifMinute);
+      await scheduleReadingReminder(notifHour, notifMinute);
     } else {
-      await cancelReminder();
+      await cancelReadingReminder();
     }
     setNotifEnabled(value);
     await setSetting('notification_enabled', value ? '1' : '0');
@@ -88,14 +91,14 @@ export default function SettingsScreen() {
     const next = (notifHour + delta + 24) % 24;
     setNotifHour(next);
     await setSetting('notification_hour', String(next));
-    if (notifEnabled) await scheduleReminder(next, notifMinute);
+    if (notifEnabled) await scheduleReadingReminder(next, notifMinute);
   }
 
   async function changeMinute(delta: number) {
     const next = (notifMinute + delta + 60) % 60;
     setNotifMinute(next);
     await setSetting('notification_minute', String(next));
-    if (notifEnabled) await scheduleReminder(notifHour, next);
+    if (notifEnabled) await scheduleReadingReminder(notifHour, next);
   }
 
   async function handleExport() {
@@ -301,6 +304,77 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      {/* AI 묵상 도우미 섹션 */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>AI 묵상 도우미</Text>
+
+        <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
+          <View style={{ gap: 2 }}>
+            <Text style={styles.rowLabel}>Claude API Key</Text>
+            <Text style={styles.rowHint}>성경 구절 선택 후 AI 묵상 질문 생성에 사용됩니다.</Text>
+          </View>
+          <View style={styles.apiKeyRow}>
+            <TextInput
+              style={styles.apiKeyInput}
+              value={claudeApiKey}
+              onChangeText={saveClaudeApiKey}
+              placeholder="sk-ant-..."
+              placeholderTextColor={theme.textMuted}
+              secureTextEntry={!apiKeyVisible}
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            <Pressable onPress={() => setApiKeyVisible(v => !v)} hitSlop={8} style={styles.apiKeyEye}>
+              <MaterialCommunityIcons
+                name={apiKeyVisible ? 'eye-off-outline' : 'eye-outline'}
+                size={18}
+                color={theme.textMuted}
+              />
+            </Pressable>
+          </View>
+          {claudeApiKey.length > 0 && (
+            <Text style={styles.apiKeyStatus}>
+              {claudeApiKey.startsWith('sk-ant-') ? '✓ 유효한 형식' : '⚠ sk-ant- 로 시작해야 합니다'}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {/* 통독 계획 섹션 */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>통독 계획</Text>
+
+        {/* No plan option */}
+        <Pressable
+          style={({ pressed }) => [styles.row, styles.planRow, pressed && styles.rowPressed]}
+          onPress={() => selectPlan(null)}
+        >
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.rowLabel}>계획 없음</Text>
+            <Text style={styles.rowHint}>자유롭게 읽기</Text>
+          </View>
+          {activePlanId === null && (
+            <MaterialCommunityIcons name="check-circle" size={20} color={theme.gold} />
+          )}
+        </Pressable>
+
+        {READING_PLANS.map(plan => (
+          <Pressable
+            key={plan.id}
+            style={({ pressed }) => [styles.row, styles.planRow, pressed && styles.rowPressed]}
+            onPress={() => selectPlan(plan.id as PlanId)}
+          >
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.rowLabel}>{plan.name}</Text>
+              <Text style={styles.rowHint}>{plan.description} · 하루 {plan.chaptersPerDay}챕터</Text>
+            </View>
+            {activePlanId === plan.id && (
+              <MaterialCommunityIcons name="check-circle" size={20} color={theme.gold} />
+            )}
+          </Pressable>
+        ))}
+      </View>
+
       {/* 데이터 섹션 */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>데이터</Text>
@@ -428,4 +502,33 @@ const styles = StyleSheet.create({
     borderRadius: 10, borderWidth: 1, borderColor: theme.goldBorder,
   },
   fontBtnText: { fontSize: 13, fontWeight: '600' },
+
+  planRow: {
+    gap: 4,
+  },
+
+  apiKeyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+    borderRadius: 10,
+    backgroundColor: theme.surface2,
+    paddingHorizontal: 12,
+    width: '100%',
+  },
+  apiKeyInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: theme.text,
+    fontFamily: 'monospace',
+  },
+  apiKeyEye: {
+    padding: 4,
+  },
+  apiKeyStatus: {
+    fontSize: 11,
+    color: theme.textMuted,
+  },
 });

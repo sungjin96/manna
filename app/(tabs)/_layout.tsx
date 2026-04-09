@@ -40,6 +40,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="search"
+        options={{
+          title: '검색',
+          tabBarIcon: ({ color, size }: IconProps) => (
+            <MaterialCommunityIcons name="magnify" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="meditations"
         options={{
           title: '묵상',
@@ -51,9 +60,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="achievements"
         options={{
-          title: '업적',
+          title: '뱃지',
           tabBarIcon: ({ color, size }: IconProps) => (
-            <MaterialCommunityIcons name="trophy-outline" size={size} color={color} />
+            <MaterialCommunityIcons name="medal-outline" size={size} color={color} />
           ),
         }}
       />

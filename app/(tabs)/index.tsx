@@ -15,6 +15,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useStreak } from '../../hooks/useStreak';
 import { getLastReadPosition, getAllCompletedChapters } from '../../db/readings';
 import { getSetting, setSetting } from '../../db/settings';
+import { getActivePlan } from '../../db/reading_plans';
+import { getChaptersForDay, PlanChapter, READING_PLANS, PlanId } from '../../constants/reading-plans';
 import { BOOKS } from '../../constants/books';
 import { theme } from '../../constants/theme';
 
@@ -123,23 +125,33 @@ export default function HomeScreen() {
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingPage, setOnboardingPage] = useState(0);
+  const [todayPlanChapters, setTodayPlanChapters] = useState<PlanChapter[]>([]);
+  const [activePlanName, setActivePlanName] = useState<string | null>(null);
 
   // Animated values
   const xpAnim = useRef(new Animated.Value(0)).current;
   const streakScale = useRef(new Animated.Value(0.7)).current;
   const streakOpacity = useRef(new Animated.Value(0)).current;
   const mapOpacity = useRef(new Animated.Value(0)).current;
-  const fireGlow = useRef(new Animated.Value(0.4)).current;
-
   useFocusEffect(
     useCallback(() => {
       refresh();
       Promise.all([
         getLastReadPosition(),
         getAllCompletedChapters(),
-      ]).then(([pos, comp]) => {
+        getActivePlan(),
+      ]).then(([pos, comp, plan]) => {
         setNextChapter(pos ? nextAfter(pos.bookId, pos.chapter) : { bookId: 1, chapter: 1 });
         setCompleted(comp);
+        if (plan?.planId && plan?.startDate) {
+          const chapters = getChaptersForDay(plan.planId as PlanId, plan.startDate);
+          setTodayPlanChapters(chapters);
+          const planDef = READING_PLANS.find(p => p.id === plan.planId);
+          setActivePlanName(planDef?.name ?? null);
+        } else {
+          setTodayPlanChapters([]);
+          setActivePlanName(null);
+        }
       });
     }, [refresh])
   );
@@ -160,15 +172,6 @@ export default function HomeScreen() {
       }),
     ]).start();
 
-    // Looping fire glow pulse
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(fireGlow, { toValue: 1, duration: 1200, useNativeDriver: true }),
-        Animated.timing(fireGlow, { toValue: 0.4, duration: 1200, useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
   }, []);
 
   // Animate XP bar and map whenever stats change
@@ -251,11 +254,7 @@ export default function HomeScreen() {
 
         {/* Streak hero */}
         <Animated.View style={[styles.streakSection, { opacity: streakOpacity, transform: [{ scale: streakScale }] }]}>
-          {/* Glow ring behind fire */}
-          <View style={styles.fireWrapper}>
-            <Animated.View style={[styles.fireGlow, { opacity: fireGlow }]} />
-            <MaterialCommunityIcons name="fire" size={56} color={theme.gold} />
-          </View>
+          <MaterialCommunityIcons name="fire" size={56} color={theme.gold} />
           <Text style={styles.streakCount}>{stats.currentStreak}</Text>
           <Text style={styles.streakLabel}>일 연속 읽기</Text>
           <Text style={styles.streakSub}>{streakSubtitle()}</Text>
@@ -296,6 +295,31 @@ export default function HomeScreen() {
         <Animated.View style={{ opacity: mapOpacity }}>
           <BookMap completed={completed} />
         </Animated.View>
+
+        {/* 오늘의 계획 */}
+        {todayPlanChapters.length > 0 && (
+          <View style={styles.planSection}>
+            <Text style={styles.planSectionLabel}>{activePlanName} — 오늘의 계획</Text>
+            <View style={styles.planChapters}>
+              {todayPlanChapters.map((ch, i) => {
+                const b = BOOKS.find(bb => bb.id === ch.bookId);
+                return (
+                  <Pressable
+                    key={i}
+                    style={({ pressed }) => [styles.planChip, pressed && styles.planChipPressed]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      router.push(`/read/${ch.bookId}/${ch.chapter}`);
+                    }}
+                  >
+                    <Text style={styles.planChipText}>{b?.name} {ch.chapter}장</Text>
+                    <MaterialCommunityIcons name="chevron-right" size={14} color={theme.gold} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* CTA */}
         <Pressable
@@ -381,20 +405,6 @@ const styles = StyleSheet.create({
   streakSection: {
     alignItems: 'center',
     marginBottom: 24,
-  },
-  fireWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  fireGlow: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: theme.gold,
-    opacity: 0.4,
-    transform: [{ scale: 1.4 }],
   },
   streakCount: {
     fontSize: 80,
@@ -483,6 +493,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.borderSubtle,
     marginHorizontal: 2,
+  },
+
+  planSection: {
+    marginBottom: 20,
+    gap: 10,
+  },
+  planSectionLabel: {
+    fontSize: 10,
+    color: theme.textMuted,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  planChapters: {
+    gap: 8,
+  },
+  planChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+  },
+  planChipPressed: {
+    backgroundColor: theme.surface2,
+  },
+  planChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.text,
   },
 
   readBtn: {

@@ -138,4 +138,33 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     try { await db.execAsync('ALTER TABLE meditations ADD COLUMN verse_end INTEGER'); } catch {}
     await db.execAsync('PRAGMA user_version = 3');
   }
+
+  // v3 → v4: FTS5 full-text search on bible content
+  if (user_version < 4) {
+    await db.execAsync(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS bible_fts USING fts5(
+        book_id UNINDEXED,
+        chapter UNINDEXED,
+        verse   UNINDEXED,
+        text,
+        content='bible',
+        content_rowid='id'
+      );
+    `);
+    // Populate from bible table (one-time cost, ~31k rows)
+    await db.execAsync(`INSERT INTO bible_fts(bible_fts) VALUES('rebuild');`);
+    await db.execAsync('PRAGMA user_version = 4');
+  }
+
+  // v4 → v5: AI meditation prompt cache
+  if (user_version < 5) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS ai_meditation_cache (
+        cache_key  TEXT PRIMARY KEY,
+        prompts    TEXT NOT NULL,   -- JSON array of strings
+        created_at TEXT NOT NULL
+      );
+      PRAGMA user_version = 5;
+    `);
+  }
 }
