@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
   FlatList,
   KeyboardAvoidingView,
@@ -81,7 +82,7 @@ export default function ReadScreen() {
   }
 
   const {
-    isTTS, ttsVerse, ttsRateIdx, showTTSMenu, setShowTTSMenu,
+    isTTS, ttsVerse, ttsRateIdx, showTTSMenu, noKoreanVoice, setShowTTSMenu,
     toggleTTS, selectTTSRate,
   } = useTTS(verses);
 
@@ -301,7 +302,21 @@ export default function ReadScreen() {
                   <MaterialCommunityIcons name="chevron-down" size={12} color={colors.gold} style={{ marginLeft: 1 }} />
                 </Pressable>
               )}
-              <Pressable onPress={toggleTTS} style={styles.headerIconBtn} hitSlop={8}>
+              <Pressable
+                onPress={() => {
+                  if (noKoreanVoice && !isTTS) {
+                    Alert.alert(
+                      '한국어 음성 미설치',
+                      'TTS가 작동하려면 한국어(대한민국) 음성이 필요합니다.\n\n설정 → 손쉬운 사용 → 콘텐츠 말하기 → 음성에서 다운로드하세요.',
+                      [{ text: '확인' }]
+                    );
+                    return;
+                  }
+                  toggleTTS();
+                }}
+                style={styles.headerIconBtn}
+                hitSlop={8}
+              >
                 <MaterialCommunityIcons name={isTTS ? 'volume-high' : 'volume-off'} size={20} color={isTTS ? colors.gold : colors.muted} />
               </Pressable>
               <Pressable onPress={openSettingsSheet} style={styles.headerIconBtn} hitSlop={8}>

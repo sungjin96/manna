@@ -1,12 +1,14 @@
 import { BOOKS } from './books';
 
-export type PlanId = 'sequential' | 'nt-first' | 'chronological';
+export type PlanId = 'sequential' | 'nt-first' | 'chronological' | 'weekday-rhythm';
 
 export interface ReadingPlan {
   id: PlanId;
   name: string;
   description: string;
-  chaptersPerDay: number;
+  chaptersPerDay: number;       // fixed daily chapters (0 = variable)
+  weekdayChapters?: number;     // used when chaptersPerDay === 0
+  weekendChapters?: number;
 }
 
 export const READING_PLANS: ReadingPlan[] = [
@@ -27,6 +29,14 @@ export const READING_PLANS: ReadingPlan[] = [
     name: '연대기 통독',
     description: '성경 사건의 시간 순서대로 읽기 (구약→신약)',
     chaptersPerDay: 3,
+  },
+  {
+    id: 'weekday-rhythm',
+    name: '평일 3장 / 주말 5장',
+    description: '평일 3장, 토·일 5장 — 약 48주 완독',
+    chaptersPerDay: 0,
+    weekdayChapters: 3,
+    weekendChapters: 5,
   },
 ];
 
@@ -102,15 +112,49 @@ const _orderCache: Partial<Record<PlanId, PlanChapter[]>> = {};
 export function getPlanOrder(planId: PlanId): PlanChapter[] {
   if (!_orderCache[planId]) {
     switch (planId) {
-      case 'sequential':    _orderCache[planId] = sequentialOrder(); break;
-      case 'nt-first':      _orderCache[planId] = ntFirstOrder(); break;
-      case 'chronological': _orderCache[planId] = chronologicalOrder(); break;
+      case 'sequential':     _orderCache[planId] = sequentialOrder(); break;
+      case 'nt-first':       _orderCache[planId] = ntFirstOrder(); break;
+      case 'chronological':  _orderCache[planId] = chronologicalOrder(); break;
+      case 'weekday-rhythm': _orderCache[planId] = sequentialOrder(); break; // same order, variable daily count
     }
   }
   return _orderCache[planId]!;
 }
 
-// Get chapters assigned to a specific day (0-indexed from start date)
+// Cache for getVariableStartIndex — keyed by "planId:startDateISO:todayISO"
+const _variableIdxCache: Map<string, { startIdx: number; todayCount: number }> = new Map();
+
+// For variable-chapter plans (weekday-rhythm), compute start index by walking
+// day by day from startDate to today and summing chapters consumed each day.
+function getVariableStartIndex(plan: ReadingPlan, startDateISO: string): { startIdx: number; todayCount: number } {
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const cacheKey = `${plan.id}:${startDateISO}:${todayISO}`;
+  const cached = _variableIdxCache.get(cacheKey);
+  if (cached) return cached;
+  const weekday = plan.weekdayChapters ?? 3;
+  const weekend = plan.weekendChapters ?? 5;
+
+  const start = new Date(startDateISO);
+  start.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let consumed = 0;
+  const d = new Date(start);
+  while (d < today) {
+    const dow = d.getDay(); // 0=Sun, 6=Sat
+    consumed += (dow === 0 || dow === 6) ? weekend : weekday;
+    d.setDate(d.getDate() + 1);
+  }
+
+  const todayDow = today.getDay();
+  const todayCount = (todayDow === 0 || todayDow === 6) ? weekend : weekday;
+  const result = { startIdx: consumed, todayCount };
+  _variableIdxCache.set(cacheKey, result);
+  return result;
+}
+
+// Get chapters assigned to today based on start date
 export function getChaptersForDay(planId: PlanId, startDateISO: string): PlanChapter[] {
   const plan = READING_PLANS.find(p => p.id === planId);
   if (!plan) return [];
@@ -119,23 +163,34 @@ export function getChaptersForDay(planId: PlanId, startDateISO: string): PlanCha
   start.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
-  const dayIndex = Math.floor((today.getTime() - start.getTime()) / 86_400_000);
-  if (dayIndex < 0) return []; // plan hasn't started yet
+  if (today < start) return []; // plan hasn't started yet
 
   const order = getPlanOrder(planId);
+
+  if (plan.chaptersPerDay === 0) {
+    // Variable daily count (e.g. weekday-rhythm)
+    const { startIdx, todayCount } = getVariableStartIndex(plan, startDateISO);
+    if (startIdx >= order.length) return []; // plan complete
+    return order.slice(startIdx, Math.min(startIdx + todayCount, order.length));
+  }
+
+  const dayIndex = Math.floor((today.getTime() - start.getTime()) / 86_400_000);
   const startIdx = dayIndex * plan.chaptersPerDay;
   if (startIdx >= order.length) return []; // plan complete
-
   return order.slice(startIdx, Math.min(startIdx + plan.chaptersPerDay, order.length));
 }
 
 // How far into the plan are we? Returns 0..1
 export function getPlanProgress(planId: PlanId, startDateISO: string): number {
-  const today = getChaptersForDay(planId, startDateISO);
-  if (today.length === 0) return 1;
+  const plan = READING_PLANS.find(p => p.id === planId);
+  if (!plan) return 0;
   const order = getPlanOrder(planId);
-  const plan = READING_PLANS.find(p => p.id === planId)!;
+
+  if (plan.chaptersPerDay === 0) {
+    const { startIdx } = getVariableStartIndex(plan, startDateISO);
+    return Math.min(startIdx / order.length, 1);
+  }
+
   const start = new Date(startDateISO);
   start.setHours(0, 0, 0, 0);
   const now = new Date();

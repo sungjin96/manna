@@ -4,7 +4,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Switch,
   Text,
@@ -15,9 +14,9 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getSetting, setSetting } from '../../db/settings';
-import { getAllMeditations } from '../../db/meditations';
-import { getDb } from '../../db/schema';
 import { theme } from '../../constants/theme';
+import { exportToJSON, importFromJSON, backupErrorMessage } from '../../utils/backup';
+import { checkAIEntitlement, purchasePremium, restorePurchases, purchaseErrorMessage } from '../../utils/subscriptions';
 import { useReaderSettings, READER_THEMES, ReaderTheme } from '../../hooks/useReaderSettings';
 import { scheduleReadingReminder, cancelReadingReminder } from '../../utils/notifications';
 import { READING_PLANS, PlanId } from '../../constants/reading-plans';
@@ -28,6 +27,9 @@ export default function SettingsScreen() {
   const [notifHour, setNotifHour] = useState(8);
   const [notifMinute, setNotifMinute] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
   const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
   const [activePlanId, setActivePlanId] = useState<PlanId | null>(null);
   const [claudeApiKey, setClaudeApiKey] = useState('');
@@ -49,6 +51,8 @@ export default function SettingsScreen() {
       setActivePlanId((plan?.planId as PlanId) ?? null);
       const apiKey = await getSetting('claude_api_key', '');
       setClaudeApiKey(apiKey);
+      const premium = await checkAIEntitlement();
+      setIsPremium(premium);
     })();
   }, []);
 
@@ -103,37 +107,60 @@ export default function SettingsScreen() {
 
   async function handleExport() {
     setExporting(true);
-    try {
-      const db = await getDb();
-      const readings = await db.getAllAsync<{
-        book_id: number; chapter: number; completed_at: string;
-      }>('SELECT book_id, chapter, completed_at FROM readings ORDER BY completed_at');
-      const meditations = await getAllMeditations();
+    const { error } = await exportToJSON();
+    setExporting(false);
+    if (error && error !== 'pick_cancelled') {
+      Alert.alert('내보내기 실패', backupErrorMessage(error));
+    }
+  }
 
-      const payload = {
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        readings: readings.map(r => ({
-          bookId: r.book_id,
-          chapter: r.chapter,
-          completedAt: r.completed_at,
-        })),
-        meditations: meditations.map(m => ({
-          bookId: m.bookId,
-          chapter: m.chapter,
-          note: m.note,
-          createdAt: m.createdAt,
-        })),
-      };
+  async function handleImport() {
+    Alert.alert(
+      '데이터 가져오기',
+      '기존 데이터가 모두 삭제되고 백업 파일로 덮어씁니다. 계속하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '가져오기',
+          style: 'destructive',
+          onPress: async () => {
+            setImporting(true);
+            const { data, error } = await importFromJSON();
+            setImporting(false);
+            if (error) {
+              if (error !== 'pick_cancelled') {
+                Alert.alert('가져오기 실패', backupErrorMessage(error));
+              }
+            } else {
+              Alert.alert('가져오기 완료', data?.counts ?? '복원 완료');
+            }
+          },
+        },
+      ]
+    );
+  }
 
-      await Share.share({
-        message: JSON.stringify(payload, null, 2),
-        title: 'Manna 데이터 백업',
-      });
-    } catch {
-      Alert.alert('내보내기 실패', '다시 시도해주세요.');
-    } finally {
-      setExporting(false);
+  async function handlePurchase() {
+    setPurchasing(true);
+    const { success, error } = await purchasePremium();
+    setPurchasing(false);
+    if (success) {
+      setIsPremium(true);
+      Alert.alert('구독 완료', 'AI 묵상 기능을 사용할 수 있습니다!');
+    } else if (error && error !== 'cancelled') {
+      Alert.alert('구독 실패', purchaseErrorMessage(error));
+    }
+  }
+
+  async function handleRestorePurchases() {
+    setPurchasing(true);
+    const restored = await restorePurchases();
+    setPurchasing(false);
+    if (restored) {
+      setIsPremium(true);
+      Alert.alert('복원 완료', '구독이 복원되었습니다.');
+    } else {
+      Alert.alert('복원 실패', '복원할 구독을 찾을 수 없습니다.');
     }
   }
 
@@ -304,6 +331,52 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      {/* 구독 섹션 */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>구독</Text>
+
+        {isPremium ? (
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <MaterialCommunityIcons name="crown" size={20} color={theme.gold} />
+              <Text style={styles.rowLabel}>프리미엄 구독 중</Text>
+            </View>
+            <MaterialCommunityIcons name="check-circle" size={18} color={theme.gold} />
+          </View>
+        ) : (
+          <>
+            <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+              <Text style={styles.rowLabel}>Manna 프리미엄</Text>
+              <Text style={styles.rowHint}>AI 묵상 질문 생성 · 월 구독</Text>
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [styles.row, styles.rowPressable, pressed && styles.rowPressed]}
+              onPress={handlePurchase}
+              disabled={purchasing}
+            >
+              <View style={styles.rowLeft}>
+                <MaterialCommunityIcons name="crown-outline" size={20} color={theme.gold} />
+                <Text style={styles.rowLabel}>{purchasing ? '처리 중...' : '프리미엄 구독하기'}</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.row, styles.rowPressable, pressed && styles.rowPressed]}
+              onPress={handleRestorePurchases}
+              disabled={purchasing}
+            >
+              <View style={styles.rowLeft}>
+                <MaterialCommunityIcons name="restore" size={20} color={theme.textMuted} />
+                <Text style={[styles.rowLabel, { color: theme.textMuted }]}>구매 복원</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
+            </Pressable>
+          </>
+        )}
+      </View>
+
       {/* AI 묵상 도우미 섹션 */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>AI 묵상 도우미</Text>
@@ -382,11 +455,29 @@ export default function SettingsScreen() {
         <Pressable
           style={({ pressed }) => [styles.row, styles.rowPressable, pressed && styles.rowPressed]}
           onPress={handleExport}
-          disabled={exporting}
+          disabled={exporting || importing}
         >
           <View style={styles.rowLeft}>
             <MaterialCommunityIcons name="export-variant" size={20} color={theme.gold} />
-            <Text style={styles.rowLabel}>읽기 기록 내보내기</Text>
+            <View style={{ gap: 2 }}>
+              <Text style={styles.rowLabel}>{exporting ? '내보내는 중...' : '데이터 내보내기'}</Text>
+              <Text style={styles.rowHint}>전체 백업 파일 저장</Text>
+            </View>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.row, styles.rowPressable, pressed && styles.rowPressed]}
+          onPress={handleImport}
+          disabled={exporting || importing}
+        >
+          <View style={styles.rowLeft}>
+            <MaterialCommunityIcons name="import" size={20} color={theme.gold} />
+            <View style={{ gap: 2 }}>
+              <Text style={styles.rowLabel}>{importing ? '가져오는 중...' : '데이터 가져오기'}</Text>
+              <Text style={styles.rowHint}>백업 파일에서 복원</Text>
+            </View>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
         </Pressable>

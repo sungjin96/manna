@@ -11,14 +11,16 @@ import {
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as Notifications from 'expo-notifications';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useStreak } from '../../hooks/useStreak';
 import { getLastReadPosition, getAllCompletedChapters } from '../../db/readings';
 import { getSetting, setSetting } from '../../db/settings';
-import { getActivePlan } from '../../db/reading_plans';
+import { getActivePlan, setActivePlan, todayISO } from '../../db/reading_plans';
 import { getChaptersForDay, PlanChapter, READING_PLANS, PlanId } from '../../constants/reading-plans';
 import { BOOKS } from '../../constants/books';
 import { theme } from '../../constants/theme';
+import { scheduleReadingReminder } from '../../utils/notifications';
 
 const XP_PER_LEVEL = 1200;
 
@@ -38,19 +40,34 @@ function todayLabel(): string {
 
 const ONBOARDING_PAGES = [
   {
+    type: 'content' as const,
     icon: 'fire' as const,
     title: '매일, 한 챕터',
     body: '하루 5분. 성경 한 챕터를 읽고\n연속 읽기 기록을 쌓아보세요.',
   },
   {
+    type: 'content' as const,
     icon: 'notebook-edit-outline' as const,
     title: '묵상을 기록하세요',
     body: '오늘 읽은 말씀에서\n마음에 닿은 한 줄을 남겨보세요.',
   },
   {
+    type: 'content' as const,
     icon: 'trophy-outline' as const,
     title: 'XP와 레벨업',
     body: '챕터를 읽을수록 XP를 얻고\n레벨이 올라갑니다. 성경 완독까지!',
+  },
+  {
+    type: 'plan' as const,
+    icon: 'calendar-check-outline' as const,
+    title: '통독 계획',
+    body: '체계적으로 읽고 싶다면 계획을 선택하세요.\n나중에 설정에서 바꿀 수 있어요.',
+  },
+  {
+    type: 'notification' as const,
+    icon: 'bell-ring-outline' as const,
+    title: '매일 말씀 알림',
+    body: '매일 같은 시간에 알림을 받으면\n꾸준한 읽기 습관을 만들 수 있어요.',
   },
 ];
 
@@ -125,6 +142,7 @@ export default function HomeScreen() {
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingPage, setOnboardingPage] = useState(0);
+  const [onboardingPlan, setOnboardingPlan] = useState<PlanId | null>(null);
   const [todayPlanChapters, setTodayPlanChapters] = useState<PlanChapter[]>([]);
   const [activePlanName, setActivePlanName] = useState<string | null>(null);
 
@@ -145,7 +163,7 @@ export default function HomeScreen() {
         setCompleted(comp);
         if (plan?.planId && plan?.startDate) {
           const chapters = getChaptersForDay(plan.planId as PlanId, plan.startDate);
-          setTodayPlanChapters(chapters);
+          setTodayPlanChapters(chapters.filter(ch => !comp.has(`${ch.bookId}:${ch.chapter}`)));
           const planDef = READING_PLANS.find(p => p.id === plan.planId);
           setActivePlanName(planDef?.name ?? null);
         } else {
@@ -201,6 +219,13 @@ export default function HomeScreen() {
   }, []);
 
   async function completeOnboarding() {
+    if (onboardingPlan) {
+      await setActivePlan(onboardingPlan, todayISO());
+      const planDef = READING_PLANS.find(p => p.id === onboardingPlan);
+      setActivePlanName(planDef?.name ?? null);
+      const chapters = getChaptersForDay(onboardingPlan, todayISO());
+      setTodayPlanChapters(chapters.filter(ch => !completed.has(`${ch.bookId}:${ch.chapter}`)));
+    }
     await setSetting('onboarding_complete', '1');
     setShowOnboarding(false);
   }
@@ -211,6 +236,19 @@ export default function HomeScreen() {
     } else {
       completeOnboarding();
     }
+  }
+
+  async function requestNotificationAndComplete() {
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status === 'granted') {
+        await setSetting('notification_enabled', '1');
+        await scheduleReadingReminder(8, 0);
+      }
+    } catch {
+      // permission denied or error — continue silently
+    }
+    completeOnboarding();
   }
 
   const { bookId, chapter } = nextChapter;
@@ -231,6 +269,7 @@ export default function HomeScreen() {
   const levelTitle = levelTitles[Math.min(level, levelTitles.length - 1)];
 
   const page = ONBOARDING_PAGES[onboardingPage];
+  const isLastPage = onboardingPage === ONBOARDING_PAGES.length - 1;
 
   const xpBarWidth = xpAnim.interpolate({
     inputRange: [0, 100],
@@ -297,27 +336,42 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* 오늘의 계획 */}
-        {todayPlanChapters.length > 0 && (
+        {activePlanName !== null && (
           <View style={styles.planSection}>
             <Text style={styles.planSectionLabel}>{activePlanName} — 오늘의 계획</Text>
-            <View style={styles.planChapters}>
-              {todayPlanChapters.map((ch, i) => {
-                const b = BOOKS.find(bb => bb.id === ch.bookId);
-                return (
-                  <Pressable
-                    key={i}
-                    style={({ pressed }) => [styles.planChip, pressed && styles.planChipPressed]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      router.push(`/read/${ch.bookId}/${ch.chapter}`);
-                    }}
-                  >
-                    <Text style={styles.planChipText}>{b?.name} {ch.chapter}장</Text>
-                    <MaterialCommunityIcons name="chevron-right" size={14} color={theme.gold} />
-                  </Pressable>
-                );
-              })}
-            </View>
+            {todayPlanChapters.length > 0 ? (
+              <View style={styles.planChapters}>
+                {todayPlanChapters.map((ch, i) => {
+                  const b = BOOKS.find(bb => bb.id === ch.bookId);
+                  return (
+                    <Pressable
+                      key={i}
+                      style={({ pressed }) => [styles.planChip, pressed && styles.planChipPressed]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push(`/read/${ch.bookId}/${ch.chapter}`);
+                      }}
+                    >
+                      <Text style={styles.planChipText}>{b?.name} {ch.chapter}장</Text>
+                      <MaterialCommunityIcons name="chevron-right" size={14} color={theme.gold} />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.planDoneRow}>
+                <MaterialCommunityIcons name="check-circle" size={16} color={theme.gold} />
+                <Text style={styles.planDoneText}>오늘 계획을 모두 완료했습니다!</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Empty state — first-time user */}
+        {stats.totalChapters === 0 && !showOnboarding && (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>오늘 창세기 1장부터 시작해볼까요?</Text>
+            <Text style={styles.emptyBody}>매일 한 챕터씩 읽으면 3년 안에 성경 전체를 완독할 수 있어요.</Text>
           </View>
         )}
 
@@ -350,6 +404,36 @@ export default function HomeScreen() {
             <Text style={styles.onboardingTitle}>{page.title}</Text>
             <Text style={styles.onboardingBody}>{page.body}</Text>
 
+            {/* Plan selection page */}
+            {page.type === 'plan' && (
+              <View style={styles.onboardingPlanList}>
+                <Pressable
+                  style={[styles.onboardingPlanChip, onboardingPlan === null && styles.onboardingPlanChipSelected]}
+                  onPress={() => setOnboardingPlan(null)}
+                >
+                  <Text style={[styles.onboardingPlanChipText, onboardingPlan === null && styles.onboardingPlanChipTextSelected]}>
+                    없음 (자유롭게 읽기)
+                  </Text>
+                  {onboardingPlan === null && <MaterialCommunityIcons name="check" size={14} color={theme.bg} />}
+                </Pressable>
+                {READING_PLANS.map(plan => (
+                  <Pressable
+                    key={plan.id}
+                    style={[styles.onboardingPlanChip, onboardingPlan === plan.id && styles.onboardingPlanChipSelected]}
+                    onPress={() => setOnboardingPlan(plan.id as PlanId)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.onboardingPlanChipText, onboardingPlan === plan.id && styles.onboardingPlanChipTextSelected]}>
+                        {plan.name}
+                      </Text>
+                      <Text style={styles.onboardingPlanChipHint}>{plan.description}</Text>
+                    </View>
+                    {onboardingPlan === plan.id && <MaterialCommunityIcons name="check" size={14} color={theme.bg} />}
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
             <View style={styles.dots}>
               {ONBOARDING_PAGES.map((_, i) => (
                 <View
@@ -359,14 +443,28 @@ export default function HomeScreen() {
               ))}
             </View>
 
-            <Pressable
-              style={({ pressed }) => [styles.onboardingBtn, pressed && styles.onboardingBtnPressed]}
-              onPress={nextPage}
-            >
-              <Text style={styles.onboardingBtnText}>
-                {onboardingPage < ONBOARDING_PAGES.length - 1 ? '다음' : '시작하기'}
-              </Text>
-            </Pressable>
+            {page.type === 'notification' ? (
+              <View style={styles.onboardingNotifBtns}>
+                <Pressable
+                  style={({ pressed }) => [styles.onboardingBtn, pressed && styles.onboardingBtnPressed]}
+                  onPress={requestNotificationAndComplete}
+                >
+                  <Text style={styles.onboardingBtnText}>알림 켜기</Text>
+                </Pressable>
+                <Pressable onPress={completeOnboarding} hitSlop={8}>
+                  <Text style={styles.onboardingSkipText}>나중에 설정에서 켤게요</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                style={({ pressed }) => [styles.onboardingBtn, pressed && styles.onboardingBtnPressed]}
+                onPress={nextPage}
+              >
+                <Text style={styles.onboardingBtnText}>
+                  {isLastPage ? '시작하기' : '다음'}
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
       </Modal>
@@ -527,6 +625,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.text,
   },
+  planDoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  planDoneText: {
+    fontSize: 14,
+    color: theme.gold,
+    fontWeight: '600',
+  },
 
   readBtn: {
     backgroundColor: theme.gold,
@@ -574,6 +683,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(11,10,18,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // Empty state
+  emptyCard: {
+    backgroundColor: theme.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+    gap: 6,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.gold,
+  },
+  emptyBody: {
+    fontSize: 13,
+    color: theme.textSub,
+    lineHeight: 20,
   },
 
   // Onboarding
@@ -636,5 +766,47 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: theme.bg,
     letterSpacing: 0.3,
+  },
+  onboardingNotifBtns: {
+    width: '100%',
+    gap: 12,
+    alignItems: 'center',
+  },
+  onboardingSkipText: {
+    fontSize: 13,
+    color: theme.textMuted,
+  },
+  onboardingPlanList: {
+    width: '100%',
+    gap: 8,
+  },
+  onboardingPlanChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+    backgroundColor: theme.surface2,
+    gap: 8,
+  },
+  onboardingPlanChipSelected: {
+    backgroundColor: theme.gold,
+    borderColor: theme.gold,
+  },
+  onboardingPlanChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.text,
+    flex: 1,
+  },
+  onboardingPlanChipTextSelected: {
+    color: theme.bg,
+  },
+  onboardingPlanChipHint: {
+    fontSize: 11,
+    color: theme.textMuted,
+    marginTop: 1,
   },
 });

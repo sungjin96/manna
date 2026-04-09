@@ -5,6 +5,7 @@ export interface MeditationPrompts {
 
 export type AIMeditationError =
   | 'no_api_key'
+  | 'no_subscription'
   | 'network_error'
   | 'api_error'
   | 'parse_error';
@@ -21,9 +22,11 @@ export async function generateMeditationPrompts(
   verses: Array<{ verse: number; text: string }>,
   verseRef: string,
   apiKey: string,
+  hasEntitlement?: boolean,
 ): Promise<AIMeditationResult> {
+  // Beta policy: API key required regardless of entitlement (proxy not yet available)
   if (!apiKey.trim()) {
-    return { data: null, error: 'no_api_key' };
+    return { data: null, error: hasEntitlement ? 'no_subscription' : 'no_api_key' };
   }
 
   const verseText = verses.map(v => `${v.verse}절: ${v.text}`).join('\n');
@@ -34,9 +37,13 @@ JSON 형식으로만 응답하세요: {"prompts": ["질문1", "질문2", "질문
 
   const userMessage = `다음 구절을 묵상하는 데 도움이 되는 질문 3개를 생성해주세요:\n\n${verseRef}\n\n${verseText}`;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15_000);
+
   try {
     const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
@@ -49,9 +56,10 @@ JSON 형식으로만 응답하세요: {"prompts": ["질문1", "질문2", "질문
         messages: [{ role: 'user', content: userMessage }],
       }),
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return { data: null, error: 'api_error' };
+      return { data: null, error: response.status === 429 ? 'api_error' : 'api_error' };
     }
 
     const json = await response.json();
@@ -69,7 +77,8 @@ JSON 형식으로만 응답하세요: {"prompts": ["질문1", "질문2", "질문
       data: { prompts: parsed.prompts.slice(0, 3), verseRef },
       error: null,
     };
-  } catch {
+  } catch (e: unknown) {
+    clearTimeout(timeoutId);
     return { data: null, error: 'network_error' };
   }
 }
@@ -78,6 +87,8 @@ export function aiErrorMessage(error: AIMeditationError): string {
   switch (error) {
     case 'no_api_key':
       return '설정에서 Claude API key를 입력해주세요.';
+    case 'no_subscription':
+      return 'AI 묵상은 프리미엄 구독자 전용입니다. 설정에서 구독하거나 API key를 입력해주세요.';
     case 'network_error':
       return '오프라인 상태입니다. 직접 기록해보세요.';
     case 'api_error':

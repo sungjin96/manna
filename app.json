@@ -42,7 +42,8 @@
           "color": "#D4A847",
           "sounds": []
         }
-      ]
+      ],
+      "react-native-purchases"
     ]
   }
 }

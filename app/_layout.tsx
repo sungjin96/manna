@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { getDb } from '../db/schema';
 import { getSetting } from '../db/settings';
 import { scheduleReadingReminder } from '../utils/notifications';
+import { configureRevenueCat } from '../utils/subscriptions';
 import { theme } from '../constants/theme';
 
 // Show alerts even when app is in foreground
@@ -12,6 +13,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -19,6 +22,9 @@ export default function RootLayout() {
   useEffect(() => {
     // Initialize DB on first mount
     getDb().catch(console.error);
+
+    // Configure RevenueCat (no-op if API key not set)
+    configureRevenueCat();
 
     // Re-register notification on app start (in case system cleared it)
     (async () => {

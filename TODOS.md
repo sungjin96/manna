@@ -13,7 +13,15 @@
 | 3 | 성경 검색 (SQLite FTS5) | P2 | ✅ 완료 |
 | 4 | 통독 계획 (1년 읽기 플랜) | P2 | ✅ 완료 |
 | 5 | AI 묵상 도우미 (Claude API) | P3 | ✅ 완료 |
-| 6 | 크로스플랫폼 백업 | P3 | 🗓️ 보류 |
+| 6 | 크로스플랫폼 백업 Phase 1 (JSON export/import) | P2 | ✅ 완료 |
+| 7 | RevenueCat 구독 모델 (AI paywall) | P2 | ✅ 완료 |
+| 8 | Jest 핵심 경로 테스트 추가 | P2 | ✅ 완료 |
+| 9 | 온보딩 개선 (Day-7 리텐션) | P2 | ✅ 완료 |
+| 10 | Privacy Policy + 앱스토어 제출 준비 | P1 | 🗓️ 보류 |
+| 11 | Sentry 크래시 리포팅 | P2 | 🗓️ 보류 |
+| 12 | nextAfter() 중복 제거 | P3 | 🗓️ 보류 |
+| 13 | 크로스플랫폼 백업 Phase 2 (iCloud/Google Drive) | P3 | 🗓️ 보류 |
+| 14 | AI 프록시 (Cloudflare Workers) — RevenueCat 전제 | P2 | 🗓️ 보류 |
 
 ---
 
@@ -99,6 +107,51 @@
 
 ---
 
+---
+
+## Phase 2 항목 상세
+
+### P2: 크로스플랫폼 백업 Phase 1 (JSON export/import)
+**WHY:** 앱 삭제 시 readings/meditations/streak 전체 유실. 출시 전 기본 보호 필요.
+**구현:** `utils/backup.ts` → `exportToJSON()` + `importFromJSON()`, `expo-sharing` + `expo-document-picker`, settings.tsx 섹션 추가.
+
+### P2: RevenueCat 구독 모델
+**WHY:** AI 묵상 기능이 API key 직접 입력 필요. UX 가파. 수익화 경로 필요.
+**구현:** `react-native-purchases` + EAS Build, Free/Premium tier, AI 묵상 paywall.
+**참고:** EAS Build 전제. App Review 1-3일 대기 필요.
+
+### P2: Jest 핵심 경로 테스트
+**WHY:** streak/reading plan 버그 리포트 대응력. 현재 getChaptersForDay, AI cache key 테스트 없음.
+**대상:** `__tests__/unit/reading-plans.test.ts`, `ai-cache.test.ts`, `search.test.ts`
+
+### P2: 온보딩 개선
+**WHY:** 첫 7일 리텐션. 현재 ONBOARDING_PAGES 있지만 빈 상태 카드 UI 미흡.
+**구현:** empty state 카드, 알림 권한 유도, 통독 계획 추천.
+
+### P1: Privacy Policy + 앱스토어 제출 준비 (보류)
+**WHY:** App Review 필수. Claude API key 저장 = 개인정보 수집 항목.
+**구현:** GitHub Pages Privacy Policy, app.json 메타데이터, 스크린샷 5장.
+
+### P2: Sentry 크래시 리포팅 (보류)
+**WHY:** 유저 버그 리포트 전에 크래시 원인 파악.
+**구현:** `expo-sentry` 설치 + DSN 설정.
+
+### P3: nextAfter() 중복 제거 (보류)
+**WHY:** `index.tsx:25`와 `chapter.tsx:39`에 동일 함수 중복.
+**구현:** `utils/navigation.ts`로 추출.
+
+### P3: 크로스플랫폼 백업 Phase 2 (보류)
+**WHY:** iCloud/Google Drive 자동 동기화. OAuth 필요. 복잡도 높음.
+**조건:** RevenueCat 구독 도입 + 구독자 확보 후 결정.
+
+### P2: AI 프록시 (Cloudflare Workers) — RevenueCat 전제 (보류)
+**WHY:** RevenueCat 정식 출시 시 API key UI를 제거하면 구독자가 Anthropic API를 호출할 방법이 없음. 클라이언트에 API key 번들은 보안상 불가. 서버리스 프록시 필수.
+**아키텍처:** `앱 → Cloudflare Worker (RevenueCat JWT 검증) → Anthropic API`. Worker에서 entitlement 확인 후 호출.
+**구현:** `utils/ai-meditation.ts`의 fetch endpoint를 Worker URL로 교체 + JWT 헤더 추가.
+**조건:** RevenueCat 구현 완료 후 착수. 정식 출시 전 완료 필수.
+
+---
+
 ## 아키텍처 결정 기록
 
 | 날짜 | 결정 | 이유 |
@@ -106,3 +159,6 @@
 | 2026-04-09 | 구독 없이 RevenueCat으로 IAP 처리 가능 | 계정 불필요 |
 | 2026-04-09 | AI API key 유저 직접 입력 (1차) | 서버 인프라 없이 시작 |
 | 2026-04-09 | 검색 = FTS5 내장 SQLite | 추가 패키지 불필요 |
+| 2026-04-09 | AI fetch에 AbortController 15초 timeout 추가 | 무한 스피너 방지 |
+| 2026-04-09 | getVariableStartIndex 결과 캐싱 | 1년 사용 시 루프 365회 방지 |
+| 2026-04-09 | TTS: voice ID 동적 조회 후 사용 | language 코드로는 팩 미설치 시 무음 |
