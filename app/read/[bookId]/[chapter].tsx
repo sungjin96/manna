@@ -2,7 +2,10 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -110,7 +113,12 @@ export default function ReadScreen() {
 
         {/* Meditation bottom sheet */}
         <Modal visible={showMeditation} transparent animationType="slide">
-          <View style={styles.overlay}>
+          <KeyboardAvoidingView
+            style={styles.overlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            {/* Tap dark area to dismiss keyboard */}
+            <Pressable style={StyleSheet.absoluteFillObject} onPress={Keyboard.dismiss} />
             <View style={styles.modal}>
               <View style={styles.modalHandle} />
               <Text style={styles.modalTitle}>오늘의 묵상</Text>
@@ -129,7 +137,7 @@ export default function ReadScreen() {
               <View style={styles.modalActions}>
                 <Pressable
                   style={styles.skipBtn}
-                  onPress={() => { setShowMeditation(false); router.back(); }}
+                  onPress={() => { Keyboard.dismiss(); setShowMeditation(false); router.back(); }}
                 >
                   <Text style={styles.skipBtnText}>건너뛰기</Text>
                 </Pressable>
@@ -138,7 +146,7 @@ export default function ReadScreen() {
                 </Pressable>
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
       </View>
     </>

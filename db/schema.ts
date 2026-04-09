@@ -15,11 +15,18 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
 }
 
 async function _initDb(): Promise<SQLite.SQLiteDatabase> {
+  // expo-sqlite openDatabaseAsync stores files in documentDirectory/SQLite/
+  const sqliteDir = FileSystem.documentDirectory + 'SQLite/';
+  const dbPath = sqliteDir + DB_NAME;
 
-  // First launch: copy bundled bible.db from assets to writable location
-  const dbPath = FileSystem.documentDirectory + DB_NAME;
+  // Ensure the SQLite directory exists
+  const { exists: dirExists } = await FileSystem.getInfoAsync(sqliteDir);
+  if (!dirExists) {
+    await FileSystem.makeDirectoryAsync(sqliteDir, { intermediates: true });
+  }
+
+  // First launch: copy bundled manna.db (with KorRV bible content) to writable location
   const { exists } = await FileSystem.getInfoAsync(dbPath);
-
   if (!exists) {
     const asset = Asset.fromModule(require('../assets/manna.db'));
     await asset.downloadAsync();

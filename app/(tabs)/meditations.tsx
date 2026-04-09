@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -129,7 +132,11 @@ export default function MeditationsScreen() {
 
       {/* Edit modal */}
       <Modal visible={editTarget !== null} transparent animationType="slide">
-        <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={Keyboard.dismiss} />
           <View style={styles.modal}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>묵상 수정</Text>
@@ -165,7 +172,7 @@ export default function MeditationsScreen() {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
