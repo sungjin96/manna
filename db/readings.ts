@@ -47,6 +47,24 @@ export async function getLastReadPosition(): Promise<{ bookId: number; chapter: 
   return row ? { bookId: row.book_id, chapter: row.chapter } : null;
 }
 
+export async function markVerseRead(bookId: number, chapter: number, verse: number): Promise<void> {
+  const db = await getDb();
+  const now = new Date().toISOString();
+  await db.runAsync(
+    'INSERT OR IGNORE INTO verse_readings (book_id, chapter, verse, read_at) VALUES (?, ?, ?, ?)',
+    [bookId, chapter, verse, now]
+  );
+}
+
+export async function getReadVerses(bookId: number, chapter: number): Promise<Set<number>> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ verse: number }>(
+    'SELECT verse FROM verse_readings WHERE book_id = ? AND chapter = ?',
+    [bookId, chapter]
+  );
+  return new Set(rows.map(r => r.verse));
+}
+
 // Returns a Set of "bookId:chapter" strings for O(1) lookup in progress screen
 export async function getAllCompletedChapters(): Promise<Set<string>> {
   const db = await getDb();

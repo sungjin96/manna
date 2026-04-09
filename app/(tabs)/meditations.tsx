@@ -26,8 +26,13 @@ function formatDate(iso: string): string {
   return `${y}.${m}.${day}`;
 }
 
-function bookChapterLabel(bookId: number, chapter: number): string {
+function bookChapterLabel(bookId: number, chapter: number, verseStart?: number, verseEnd?: number): string {
   const book = BOOKS.find(b => b.id === bookId);
+  const base = book ? book.name : String(bookId);
+  if (verseStart !== undefined) {
+    const range = verseEnd !== undefined && verseEnd !== verseStart ? `${verseStart}–${verseEnd}` : String(verseStart);
+    return `${base} ${chapter}:${range}`;
+  }
   return book ? `${book.name} ${chapter}장` : `${bookId}:${chapter}`;
 }
 
@@ -105,7 +110,7 @@ export default function MeditationsScreen() {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardTop}>
-                <Text style={styles.cardRef}>{bookChapterLabel(item.bookId, item.chapter)}</Text>
+                <Text style={styles.cardRef}>{bookChapterLabel(item.bookId, item.chapter, item.verseStart, item.verseEnd)}</Text>
                 <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
               </View>
               <Text style={styles.cardNote}>{item.note}</Text>
@@ -142,7 +147,7 @@ export default function MeditationsScreen() {
             <Text style={styles.modalTitle}>묵상 수정</Text>
             {editTarget && (
               <Text style={styles.modalSub}>
-                {bookChapterLabel(editTarget.bookId, editTarget.chapter)}
+                {bookChapterLabel(editTarget.bookId, editTarget.chapter, editTarget.verseStart, editTarget.verseEnd)}
               </Text>
             )}
             <TextInput

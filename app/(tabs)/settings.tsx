@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -16,6 +17,7 @@ import { getSetting, setSetting } from '../../db/settings';
 import { getAllMeditations } from '../../db/meditations';
 import { getDb } from '../../db/schema';
 import { theme } from '../../constants/theme';
+import { useReaderSettings, READER_THEMES, ReaderTheme } from '../../hooks/useReaderSettings';
 
 const NOTIFICATION_ID = 'daily-reading-reminder';
 
@@ -45,17 +47,27 @@ export default function SettingsScreen() {
   const [notifHour, setNotifHour] = useState(8);
   const [notifMinute, setNotifMinute] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
+
+  const { settings, update: updateReader } = useReaderSettings();
 
   useEffect(() => {
     (async () => {
       const enabled = await getSetting('notification_enabled', '0');
       const hour = parseInt(await getSetting('notification_hour', '8'), 10);
       const minute = parseInt(await getSetting('notification_minute', '0'), 10);
+      const meditPrompt = await getSetting('meditation_prompt_enabled', '1');
       setNotifEnabled(enabled === '1');
       setNotifHour(hour);
       setNotifMinute(minute);
+      setMeditationPromptEnabled(meditPrompt === '1');
     })();
   }, []);
+
+  async function toggleMeditationPrompt(val: boolean) {
+    setMeditationPromptEnabled(val);
+    await setSetting('meditation_prompt_enabled', val ? '1' : '0');
+  }
 
   async function toggleNotification(value: boolean) {
     if (value) {
@@ -129,6 +141,119 @@ export default function SettingsScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>설정</Text>
+      </View>
+
+      {/* 독서 설정 섹션 */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>독서 설정</Text>
+
+        {/* Theme */}
+        <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 12 }]}>
+          <Text style={styles.rowLabel}>화면 테마</Text>
+          <View style={styles.themeRow}>
+            {(['dark', 'sepia', 'light'] as ReaderTheme[]).map(t => {
+              const tc = READER_THEMES[t];
+              return (
+                <Pressable
+                  key={t}
+                  style={[
+                    styles.themeSwatch,
+                    { backgroundColor: tc.bg, borderColor: settings.theme === t ? tc.gold : tc.border },
+                    settings.theme === t && { borderWidth: 2 },
+                  ]}
+                  onPress={() => updateReader({ theme: t })}
+                >
+                  <Text style={[styles.themeSwatchLabel, { color: tc.text }]}>
+                    {t === 'dark' ? '다크' : t === 'sepia' ? '세피아' : '라이트'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Font size */}
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>글자 크기</Text>
+          <View style={styles.stepperRow}>
+            <Pressable
+              style={styles.stepBtn}
+              onPress={() => updateReader({ fontSize: Math.max(14, settings.fontSize - 1) })}
+              hitSlop={8}
+            >
+              <MaterialCommunityIcons name="minus" size={16} color={theme.gold} />
+            </Pressable>
+            <Text style={styles.stepValue}>{settings.fontSize}</Text>
+            <Pressable
+              style={styles.stepBtn}
+              onPress={() => updateReader({ fontSize: Math.min(22, settings.fontSize + 1) })}
+              hitSlop={8}
+            >
+              <MaterialCommunityIcons name="plus" size={16} color={theme.gold} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Line height */}
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>줄 간격</Text>
+          <View style={styles.stepperRow}>
+            <Pressable
+              style={styles.stepBtn}
+              onPress={() => updateReader({ lineHeight: Math.max(1.4, Math.round((settings.lineHeight - 0.1) * 10) / 10) })}
+              hitSlop={8}
+            >
+              <MaterialCommunityIcons name="minus" size={16} color={theme.gold} />
+            </Pressable>
+            <Text style={styles.stepValue}>{settings.lineHeight.toFixed(1)}</Text>
+            <Pressable
+              style={styles.stepBtn}
+              onPress={() => updateReader({ lineHeight: Math.min(2.0, Math.round((settings.lineHeight + 0.1) * 10) / 10) })}
+              hitSlop={8}
+            >
+              <MaterialCommunityIcons name="plus" size={16} color={theme.gold} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Font */}
+        <View style={[styles.row, { gap: 12 }]}>
+          <Text style={styles.rowLabel}>폰트</Text>
+          <View style={styles.fontRow}>
+            {(['default', 'serif'] as const).map(f => (
+              <Pressable
+                key={f}
+                style={[
+                  styles.fontBtn,
+                  settings.font === f && { backgroundColor: `${theme.gold}20`, borderColor: theme.gold },
+                ]}
+                onPress={() => updateReader({ font: f })}
+              >
+                <Text style={[
+                  styles.fontBtnText,
+                  { color: settings.font === f ? theme.gold : theme.textMuted },
+                  f === 'serif' && { fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' },
+                ]}>
+                  {f === 'default' ? '기본체' : '세리프체'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* Meditation prompt toggle */}
+        <View style={styles.row}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.rowLabel}>읽기 완료 후 묵상 입력</Text>
+            <Text style={styles.rowHint}>끄면 완료 즉시 다음 챕터로 이동</Text>
+          </View>
+          <Switch
+            value={meditationPromptEnabled}
+            onValueChange={toggleMeditationPrompt}
+            trackColor={{ false: theme.borderSubtle, true: `${theme.gold}80` }}
+            thumbColor={meditationPromptEnabled ? theme.gold : theme.textMuted}
+          />
+        </View>
       </View>
 
       {/* 알림 섹션 */}
@@ -281,4 +406,26 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   timeSep: { fontSize: 28, fontWeight: '700', color: theme.gold, marginBottom: 4 },
+
+  // Reader settings
+  themeRow: { flexDirection: 'row', gap: 8, width: '100%' },
+  themeSwatch: {
+    flex: 1, height: 52, borderRadius: 10,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+  },
+  themeSwatchLabel: { fontSize: 12, fontWeight: '700' },
+  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepBtn: {
+    width: 32, height: 32, borderRadius: 8,
+    borderWidth: 1, borderColor: theme.goldBorder,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: theme.surface2,
+  },
+  stepValue: { fontSize: 16, fontWeight: '700', color: theme.gold, minWidth: 28, textAlign: 'center' },
+  fontRow: { flexDirection: 'row', gap: 8 },
+  fontBtn: {
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 10, borderWidth: 1, borderColor: theme.goldBorder,
+  },
+  fontBtnText: { fontSize: 13, fontWeight: '600' },
 });

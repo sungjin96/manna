@@ -121,4 +121,21 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       PRAGMA user_version = 2;
     `);
   }
+
+  // v2 → v3: verse-level reading tracking + verse range on meditations
+  if (user_version < 3) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS verse_readings (
+        book_id  INTEGER NOT NULL,
+        chapter  INTEGER NOT NULL,
+        verse    INTEGER NOT NULL,
+        read_at  TEXT    NOT NULL,
+        PRIMARY KEY (book_id, chapter, verse)
+      );
+      CREATE INDEX IF NOT EXISTS idx_verse_readings ON verse_readings (book_id, chapter);
+    `);
+    try { await db.execAsync('ALTER TABLE meditations ADD COLUMN verse_start INTEGER'); } catch {}
+    try { await db.execAsync('ALTER TABLE meditations ADD COLUMN verse_end INTEGER'); } catch {}
+    await db.execAsync('PRAGMA user_version = 3');
+  }
 }
