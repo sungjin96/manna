@@ -19,11 +19,14 @@ function todayLocal(): string {
 export async function markChapterComplete(bookId: number, chapter: number): Promise<void> {
   const db = await getDb();
   const today = todayLocal();
-  await db.runAsync(
+  const result = await db.runAsync(
     'INSERT OR IGNORE INTO readings (book_id, chapter, completed_at) VALUES (?, ?, ?)',
     [bookId, chapter, today]
   );
-  await updateStatsOnComplete(today);
+  // Only update stats if the insert actually happened (not a duplicate)
+  if (result.changes > 0) {
+    await updateStatsOnComplete(today);
+  }
 }
 
 export async function isChapterComplete(bookId: number, chapter: number): Promise<boolean> {
@@ -33,6 +36,15 @@ export async function isChapterComplete(bookId: number, chapter: number): Promis
     [bookId, chapter]
   );
   return (row?.count ?? 0) > 0;
+}
+
+// Returns the last completed chapter position, or null if none
+export async function getLastReadPosition(): Promise<{ bookId: number; chapter: number } | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ book_id: number; chapter: number }>(
+    'SELECT book_id, chapter FROM readings ORDER BY completed_at DESC, id DESC LIMIT 1'
+  );
+  return row ? { bookId: row.book_id, chapter: row.chapter } : null;
 }
 
 // Returns a Set of "bookId:chapter" strings for O(1) lookup in progress screen

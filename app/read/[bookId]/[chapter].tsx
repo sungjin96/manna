@@ -9,10 +9,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useBibleText } from '../../../hooks/useBibleText';
 import { markChapterComplete, isChapterComplete } from '../../../db/readings';
 import { saveMeditation } from '../../../db/meditations';
 import { BOOKS } from '../../../constants/books';
+import { theme } from '../../../constants/theme';
 
 export default function ReadScreen() {
   const { bookId: bookIdStr, chapter: chapterStr } = useLocalSearchParams<{
@@ -25,7 +27,7 @@ export default function ReadScreen() {
   const chapter = Number(chapterStr);
   const book = BOOKS.find(b => b.id === bookId);
 
-  const { verses, loading } = useBibleText(bookId, chapter);
+  const { verses, loading, error } = useBibleText(bookId, chapter);
   const [alreadyDone, setAlreadyDone] = useState(false);
   const [showMeditation, setShowMeditation] = useState(false);
   const [note, setNote] = useState('');
@@ -49,17 +51,28 @@ export default function ReadScreen() {
     router.back();
   }
 
-  const title = book
-    ? `${book.name} ${chapter}장`
-    : `${bookId}:${chapter}`;
+  const title = book ? `${book.name} ${chapter}장` : `${bookId}:${chapter}`;
 
   return (
     <>
-      <Stack.Screen options={{ title }} />
+      <Stack.Screen
+        options={{
+          title,
+          headerStyle: { backgroundColor: theme.surface },
+          headerTintColor: theme.gold,
+          headerTitleStyle: { color: theme.text, fontWeight: '700' },
+          headerShadowVisible: false,
+        }}
+      />
       <View style={styles.container}>
         {loading ? (
           <View style={styles.center}>
             <Text style={styles.loadingText}>읽는 중...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.center}>
+            <MaterialCommunityIcons name="alert-circle-outline" size={40} color={theme.textMuted} />
+            <Text style={[styles.loadingText, { marginTop: 12 }]}>본문을 불러올 수 없어요</Text>
           </View>
         ) : (
           <FlatList
@@ -74,27 +87,38 @@ export default function ReadScreen() {
             )}
             ListFooterComponent={
               <Pressable
-                style={[styles.completeBtn, alreadyDone && styles.doneBtnDisabled]}
+                style={({ pressed }) => [
+                  styles.completeBtn,
+                  alreadyDone && styles.doneBtnDisabled,
+                  pressed && !alreadyDone && styles.completeBtnPressed,
+                ]}
                 onPress={handleComplete}
                 disabled={alreadyDone}
               >
-                <Text style={styles.completeBtnText}>
-                  {alreadyDone ? '✓ 완료됨' : '읽기 완료'}
-                </Text>
+                {alreadyDone ? (
+                  <View style={styles.doneBtnInner}>
+                    <MaterialCommunityIcons name="check-circle" size={20} color={theme.bg} />
+                    <Text style={styles.completeBtnText}>완료됨</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.completeBtnText}>읽기 완료</Text>
+                )}
               </Pressable>
             }
           />
         )}
 
-        {/* Meditation popup */}
+        {/* Meditation bottom sheet */}
         <Modal visible={showMeditation} transparent animationType="slide">
           <View style={styles.overlay}>
             <View style={styles.modal}>
+              <View style={styles.modalHandle} />
               <Text style={styles.modalTitle}>오늘의 묵상</Text>
               <Text style={styles.modalSub}>한 줄이라도 남겨보세요 (선택)</Text>
               <TextInput
                 style={styles.textInput}
                 placeholder="오늘 읽은 말씀에서 받은 것..."
+                placeholderTextColor={theme.textMuted}
                 multiline
                 maxLength={200}
                 value={note}
@@ -103,7 +127,10 @@ export default function ReadScreen() {
               />
               <Text style={styles.charCount}>{note.length}/200</Text>
               <View style={styles.modalActions}>
-                <Pressable style={styles.skipBtn} onPress={() => { setShowMeditation(false); router.back(); }}>
+                <Pressable
+                  style={styles.skipBtn}
+                  onPress={() => { setShowMeditation(false); router.back(); }}
+                >
                   <Text style={styles.skipBtnText}>건너뛰기</Text>
                 </Pressable>
                 <Pressable style={styles.saveBtn} onPress={handleSaveMeditation}>
@@ -119,46 +146,112 @@ export default function ReadScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: theme.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: '#999', fontSize: 16 },
-  list: { padding: 20, paddingBottom: 40 },
-  verseRow: { flexDirection: 'row', marginBottom: 12, gap: 10 },
-  verseNum: { fontSize: 12, color: '#999', width: 24, paddingTop: 3 },
-  verseText: { fontSize: 17, lineHeight: 26, flex: 1, color: '#222' },
+  loadingText: { color: theme.textMuted, fontSize: 16 },
+  list: { padding: 20, paddingBottom: 48 },
+
+  verseRow: { flexDirection: 'row', marginBottom: 14, gap: 12 },
+  verseNum: {
+    fontSize: 11,
+    color: theme.gold,
+    width: 24,
+    paddingTop: 4,
+    fontWeight: '700',
+    opacity: 0.7,
+  },
+  verseText: {
+    fontSize: 17,
+    lineHeight: 28,
+    flex: 1,
+    color: theme.text,
+    letterSpacing: 0.2,
+  },
+
   completeBtn: {
     marginTop: 32,
-    backgroundColor: '#4A90D9',
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: theme.gold,
+    paddingVertical: 18,
+    borderRadius: 14,
     alignItems: 'center',
   },
-  doneBtnDisabled: { backgroundColor: '#B0C8E8' },
-  completeBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  // Meditation modal
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modal: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    paddingBottom: 40,
+  completeBtnPressed: { backgroundColor: theme.goldDark },
+  doneBtnDisabled: {
+    backgroundColor: theme.surface2,
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
   },
-  modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
-  modalSub: { fontSize: 14, color: '#888', marginBottom: 16 },
+  doneBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  completeBtnText: {
+    color: theme.bg,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+
+  // Meditation modal
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modal: {
+    backgroundColor: theme.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 44,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: theme.borderSubtle,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: theme.text,
+    marginBottom: 4,
+  },
+  modalSub: { fontSize: 13, color: theme.textMuted, marginBottom: 16 },
   textInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 12,
+    borderColor: theme.border,
+    borderRadius: 12,
+    padding: 14,
     fontSize: 16,
     minHeight: 100,
     textAlignVertical: 'top',
+    color: theme.text,
+    backgroundColor: theme.surface2,
   },
-  charCount: { fontSize: 12, color: '#bbb', textAlign: 'right', marginTop: 4 },
+  charCount: {
+    fontSize: 11,
+    color: theme.textMuted,
+    textAlign: 'right',
+    marginTop: 6,
+  },
   modalActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
-  skipBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#ddd', alignItems: 'center' },
-  skipBtnText: { color: '#666', fontSize: 16 },
-  saveBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: '#4A90D9', alignItems: 'center' },
-  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  skipBtn: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    alignItems: 'center',
+  },
+  skipBtnText: { color: theme.textSub, fontSize: 15, fontWeight: '600' },
+  saveBtn: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 12,
+    backgroundColor: theme.gold,
+    alignItems: 'center',
+  },
+  saveBtnText: { color: theme.bg, fontSize: 15, fontWeight: '700' },
 });

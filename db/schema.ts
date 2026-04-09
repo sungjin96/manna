@@ -5,9 +5,16 @@ import { Asset } from 'expo-asset';
 const DB_NAME = 'manna.db';
 
 let _db: SQLite.SQLiteDatabase | null = null;
+let _dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export async function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (_db) return _db;
+  if (_dbPromise) return _dbPromise;
+  _dbPromise = _initDb();
+  return _dbPromise;
+}
+
+async function _initDb(): Promise<SQLite.SQLiteDatabase> {
 
   // First launch: copy bundled bible.db from assets to writable location
   const dbPath = FileSystem.documentDirectory + DB_NAME;
@@ -83,12 +90,17 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     `);
   }
 
-  // v1 → v2 (Phase 2): XP, badge columns
-  // if (user_version < 2) {
-  //   await db.execAsync(`
-  //     ALTER TABLE user_stats ADD COLUMN xp INTEGER NOT NULL DEFAULT 0;
-  //     ALTER TABLE user_stats ADD COLUMN level INTEGER NOT NULL DEFAULT 1;
-  //     PRAGMA user_version = 2;
-  //   `);
-  // }
+  // v1 → v2: app settings key-value store
+  if (user_version < 2) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+      INSERT OR IGNORE INTO app_settings (key, value) VALUES ('notification_enabled', '0');
+      INSERT OR IGNORE INTO app_settings (key, value) VALUES ('notification_hour', '8');
+      INSERT OR IGNORE INTO app_settings (key, value) VALUES ('notification_minute', '0');
+      PRAGMA user_version = 2;
+    `);
+  }
 }
