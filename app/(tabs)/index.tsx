@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -10,9 +12,9 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useStreak } from '../../hooks/useStreak';
-import { getLastReadPosition } from '../../db/readings';
+import { getLastReadPosition, getAllCompletedChapters } from '../../db/readings';
 import { getSetting, setSetting } from '../../db/settings';
-import { BOOKS, TOTAL_CHAPTERS } from '../../constants/books';
+import { BOOKS } from '../../constants/books';
 import { theme } from '../../constants/theme';
 
 const XP_PER_LEVEL = 1200;
@@ -23,6 +25,12 @@ function nextAfter(bookId: number, chapter: number): { bookId: number; chapter: 
   if (chapter < book.chapters) return { bookId, chapter: chapter + 1 };
   const nextBook = BOOKS.find(b => b.id === bookId + 1);
   return nextBook ? { bookId: nextBook.id, chapter: 1 } : { bookId: 1, chapter: 1 };
+}
+
+function todayLabel(): string {
+  const d = new Date();
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
 const ONBOARDING_PAGES = [
@@ -43,21 +51,133 @@ const ONBOARDING_PAGES = [
   },
 ];
 
+// ── Book mini-map ──────────────────────────────────────────────────────────
+function BookMap({ completed }: { completed: Set<string> }) {
+  return (
+    <View style={mapStyles.container}>
+      <Text style={mapStyles.label}>66권 진행 현황</Text>
+      <View style={mapStyles.grid}>
+        {BOOKS.map(book => {
+          let readCount = 0;
+          for (let ch = 1; ch <= book.chapters; ch++) {
+            if (completed.has(`${book.id}:${ch}`)) readCount++;
+          }
+          const isDone = readCount === book.chapters;
+          const isPartial = readCount > 0 && !isDone;
+          return (
+            <View
+              key={book.id}
+              style={[
+                mapStyles.sq,
+                isDone && mapStyles.sqDone,
+                isPartial && mapStyles.sqPartial,
+              ]}
+            />
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const mapStyles = StyleSheet.create({
+  container: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 10,
+    color: theme.textMuted,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 3,
+  },
+  sq: {
+    width: 11,
+    height: 11,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
+  },
+  sqDone: {
+    backgroundColor: theme.gold,
+    borderColor: theme.gold,
+  },
+  sqPartial: {
+    backgroundColor: 'rgba(212,168,71,0.35)',
+    borderColor: 'rgba(212,168,71,0.25)',
+  },
+});
+
+// ── Home screen ────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const router = useRouter();
   const { stats, loading, refresh } = useStreak();
   const [nextChapter, setNextChapter] = useState<{ bookId: number; chapter: number }>({ bookId: 1, chapter: 1 });
+  const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingPage, setOnboardingPage] = useState(0);
+
+  // Animated values
+  const xpAnim = useRef(new Animated.Value(0)).current;
+  const streakScale = useRef(new Animated.Value(0.7)).current;
+  const streakOpacity = useRef(new Animated.Value(0)).current;
+  const mapOpacity = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
     useCallback(() => {
       refresh();
-      getLastReadPosition().then(pos => {
+      Promise.all([
+        getLastReadPosition(),
+        getAllCompletedChapters(),
+      ]).then(([pos, comp]) => {
         setNextChapter(pos ? nextAfter(pos.bookId, pos.chapter) : { bookId: 1, chapter: 1 });
+        setCompleted(comp);
       });
     }, [refresh])
   );
+
+  // Animate streak hero on mount
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(streakScale, {
+        toValue: 1,
+        friction: 4,
+        tension: 80,
+        useNativeDriver: true,
+      }),
+      Animated.timing(streakOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  // Animate XP bar and map whenever stats change
+  useEffect(() => {
+    const xp = stats.totalChapters * 45;
+    const xpInLevel = xp % XP_PER_LEVEL;
+    const targetPct = Math.round((xpInLevel / XP_PER_LEVEL) * 100);
+
+    Animated.parallel([
+      Animated.timing(xpAnim, {
+        toValue: targetPct,
+        duration: 800,
+        useNativeDriver: false, // width animation can't use native driver
+      }),
+      Animated.timing(mapOpacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [stats.totalChapters]);
 
   useEffect(() => {
     getSetting('onboarding_complete', '0').then(val => {
@@ -84,59 +204,87 @@ export default function HomeScreen() {
   const xp = stats.totalChapters * 45;
   const level = Math.floor(xp / XP_PER_LEVEL) + 1;
   const xpInLevel = xp % XP_PER_LEVEL;
-  const xpPct = Math.round((xpInLevel / XP_PER_LEVEL) * 100);
   const levelTitles = ['', '구도자', '순례자', '제자', '선지자', '사도', '장로'];
   const levelTitle = levelTitles[Math.min(level, levelTitles.length - 1)];
 
   const page = ONBOARDING_PAGES[onboardingPage];
 
+  const xpBarWidth = xpAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
+
+  if (loading) return null;
+
   return (
     <View style={styles.container}>
-      {/* Streak hero */}
-      <View style={styles.streakSection}>
-        <MaterialCommunityIcons name="fire" size={48} color={theme.gold} />
-        <Text style={styles.streakCount}>{stats.currentStreak}</Text>
-        <Text style={styles.streakLabel}>일 연속 읽기</Text>
-        {stats.longestStreak > 0 && (
-          <Text style={styles.longestStreak}>최장 기록 {stats.longestStreak}일</Text>
-        )}
-      </View>
-
-      {/* XP bar */}
-      <View style={styles.xpSection}>
-        <View style={styles.xpMeta}>
-          <Text style={styles.xpLevel}>Lv.{level} {levelTitle}</Text>
-          <Text style={styles.xpValue}>{xpInLevel} / {XP_PER_LEVEL} XP</Text>
-        </View>
-        <View style={styles.xpBar}>
-          <View style={[styles.xpFill, { width: `${xpPct}%` as any }]} />
-        </View>
-      </View>
-
-      {/* Stats */}
-      <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={styles.statNum}>{stats.totalChapters}</Text>
-          <Text style={styles.statLabel}>읽은 챕터</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNum}>
-            {Math.round((stats.totalChapters / 1189) * 100)}%
-          </Text>
-          <Text style={styles.statLabel}>전체 진행률</Text>
-        </View>
-      </View>
-
-      {/* CTA */}
-      <Pressable
-        style={({ pressed }) => [styles.readBtn, pressed && styles.readBtnPressed]}
-        onPress={() => router.push(`/read/${bookId}/${chapter}`)}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.readBtnTitle}>오늘 읽기</Text>
-        <Text style={styles.readBtnSub}>
-          {book?.name} {chapter}장
-        </Text>
-      </Pressable>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.wordmark}>MANNA</Text>
+          <Text style={styles.dateLabel}>{todayLabel()}</Text>
+        </View>
+
+        {/* Streak hero */}
+        <Animated.View style={[styles.streakSection, { opacity: streakOpacity, transform: [{ scale: streakScale }] }]}>
+          <MaterialCommunityIcons name="fire" size={44} color={theme.gold} />
+          <Text style={styles.streakCount}>{stats.currentStreak}</Text>
+          <Text style={styles.streakLabel}>일 연속 읽기</Text>
+          {stats.longestStreak > 0 && (
+            <Text style={styles.longestStreak}>최장 기록 {stats.longestStreak}일</Text>
+          )}
+        </Animated.View>
+
+        {/* XP bar */}
+        <View style={styles.xpSection}>
+          <View style={styles.xpMeta}>
+            <Text style={styles.xpLevel}>Lv.{level} {levelTitle}</Text>
+            <Text style={styles.xpValue}>{xpInLevel} / {XP_PER_LEVEL} XP</Text>
+          </View>
+          <View style={styles.xpBar}>
+            <Animated.View style={[styles.xpFill, { width: xpBarWidth }]} />
+            {/* Glowing dot at the fill edge */}
+            <Animated.View style={[styles.xpDot, { left: xpBarWidth }]} />
+          </View>
+        </View>
+
+        {/* Stats */}
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Text style={styles.statNum}>{stats.totalChapters}</Text>
+            <Text style={styles.statLabel}>읽은 챕터</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNum}>
+              {Math.round((stats.totalChapters / 1189) * 100)}%
+            </Text>
+            <Text style={styles.statLabel}>전체 진행률</Text>
+          </View>
+        </View>
+
+        {/* 66-book mini-map */}
+        <Animated.View style={{ opacity: mapOpacity }}>
+          <BookMap completed={completed} />
+        </Animated.View>
+
+        {/* CTA */}
+        <Pressable
+          style={({ pressed }) => [styles.readBtn, pressed && styles.readBtnPressed]}
+          onPress={() => router.push(`/read/${bookId}/${chapter}`)}
+        >
+          <View>
+            <Text style={styles.readBtnEyebrow}>오늘 읽기</Text>
+            <Text style={styles.readBtnTitle}>{book?.name} {chapter}장</Text>
+          </View>
+          <View style={styles.readBtnArrow}>
+            <MaterialCommunityIcons name="chevron-right" size={22} color={theme.bg} />
+          </View>
+        </Pressable>
+      </ScrollView>
 
       {/* Onboarding modal */}
       <Modal visible={showOnboarding} transparent animationType="fade">
@@ -146,7 +294,6 @@ export default function HomeScreen() {
             <Text style={styles.onboardingTitle}>{page.title}</Text>
             <Text style={styles.onboardingBody}>{page.body}</Text>
 
-            {/* Page dots */}
             <View style={styles.dots}>
               {ONBOARDING_PAGES.map((_, i) => (
                 <View
@@ -175,34 +322,55 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.bg,
-    padding: 24,
-    paddingTop: 64,
   },
+  scroll: {
+    padding: 24,
+    paddingTop: 60,
+    paddingBottom: 32,
+  },
+
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  wordmark: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 5,
+    color: theme.gold,
+  },
+  dateLabel: {
+    fontSize: 11,
+    color: theme.textMuted,
+  },
+
   streakSection: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
   },
   streakCount: {
-    fontSize: 88,
+    fontSize: 80,
     fontWeight: '900',
     color: theme.gold,
-    lineHeight: 96,
+    lineHeight: 88,
     letterSpacing: -4,
   },
   streakLabel: {
-    fontSize: 16,
+    fontSize: 15,
     color: theme.textSub,
     marginTop: 2,
     letterSpacing: 0.5,
   },
   longestStreak: {
-    fontSize: 12,
+    fontSize: 11,
     color: theme.textMuted,
-    marginTop: 6,
+    marginTop: 5,
   },
 
   xpSection: {
-    marginBottom: 24,
+    marginBottom: 20,
     gap: 8,
   },
   xpMeta: {
@@ -210,7 +378,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   xpLevel: {
-    fontSize: 12,
+    fontSize: 11,
     color: theme.gold,
     fontWeight: '600',
     letterSpacing: 0.4,
@@ -223,9 +391,10 @@ const styles = StyleSheet.create({
     height: 6,
     backgroundColor: theme.goldBg,
     borderRadius: 3,
-    overflow: 'hidden',
+    overflow: 'visible',
     borderWidth: 1,
     borderColor: theme.goldBorder,
+    position: 'relative',
   },
   xpFill: {
     height: '100%',
@@ -236,28 +405,43 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.7,
     shadowRadius: 6,
   },
+  xpDot: {
+    position: 'absolute',
+    top: -3,
+    marginLeft: -6,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: theme.gold,
+    borderWidth: 2,
+    borderColor: theme.bg,
+    shadowColor: theme.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+  },
 
   statsRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 28,
+    marginBottom: 20,
   },
   statBox: {
     flex: 1,
     backgroundColor: theme.surface,
     borderRadius: 14,
-    padding: 18,
+    padding: 16,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.goldBorder,
   },
   statNum: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     color: theme.gold,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: theme.textMuted,
     marginTop: 4,
     letterSpacing: 0.3,
@@ -265,23 +449,40 @@ const styles = StyleSheet.create({
 
   readBtn: {
     backgroundColor: theme.gold,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 22,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    shadowColor: theme.gold,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
   },
   readBtnPressed: {
     backgroundColor: theme.goldDark,
   },
+  readBtnEyebrow: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 2,
+    color: 'rgba(11,10,18,0.6)',
+    textTransform: 'uppercase',
+    marginBottom: 3,
+  },
   readBtnTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     color: theme.bg,
-    letterSpacing: 0.3,
   },
-  readBtnSub: {
-    fontSize: 13,
-    color: 'rgba(11,10,18,0.65)',
-    marginTop: 4,
+  readBtnArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(11,10,18,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Onboarding
