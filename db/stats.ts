@@ -28,21 +28,23 @@ export async function getStats(): Promise<UserStats> {
 // Called after each markChapterComplete
 export async function updateStatsOnComplete(today: string): Promise<void> {
   const db = await getDb();
-  const stats = await getStats();
+  await db.withTransactionAsync(async () => {
+    const stats = await getStats();
 
-  const { newStreak, newLongest } = computeNewStreak(
-    stats.currentStreak,
-    stats.longestStreak,
-    stats.lastReadDate,
-    today
-  );
+    const { newStreak, newLongest } = computeNewStreak(
+      stats.currentStreak,
+      stats.longestStreak,
+      stats.lastReadDate,
+      today
+    );
 
-  const isNewDay = stats.lastReadDate !== today;
-  await db.runAsync(
-    `UPDATE user_stats
-     SET current_streak = ?, longest_streak = ?, total_chapters = total_chapters + 1,
-         last_read_date = ?
-     WHERE id = 1`,
-    [newStreak, newLongest, isNewDay ? today : stats.lastReadDate]
-  );
+    const isNewDay = stats.lastReadDate !== today;
+    await db.runAsync(
+      `UPDATE user_stats
+       SET current_streak = ?, longest_streak = ?, total_chapters = total_chapters + 1,
+           last_read_date = ?
+       WHERE id = 1`,
+      [newStreak, newLongest, isNewDay ? today : stats.lastReadDate]
+    );
+  });
 }

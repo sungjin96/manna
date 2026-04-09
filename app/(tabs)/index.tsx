@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useStreak } from '../../hooks/useStreak';
 import { getLastReadPosition, getAllCompletedChapters } from '../../db/readings';
@@ -97,9 +98,9 @@ const mapStyles = StyleSheet.create({
     gap: 3,
   },
   sq: {
-    width: 11,
-    height: 11,
-    borderRadius: 2,
+    width: 13,
+    height: 13,
+    borderRadius: 3,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.04)',
@@ -128,6 +129,7 @@ export default function HomeScreen() {
   const streakScale = useRef(new Animated.Value(0.7)).current;
   const streakOpacity = useRef(new Animated.Value(0)).current;
   const mapOpacity = useRef(new Animated.Value(0)).current;
+  const fireGlow = useRef(new Animated.Value(0.4)).current;
 
   useFocusEffect(
     useCallback(() => {
@@ -157,6 +159,16 @@ export default function HomeScreen() {
         useNativeDriver: true,
       }),
     ]).start();
+
+    // Looping fire glow pulse
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(fireGlow, { toValue: 1, duration: 1200, useNativeDriver: true }),
+        Animated.timing(fireGlow, { toValue: 0.4, duration: 1200, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
   }, []);
 
   // Animate XP bar and map whenever stats change
@@ -201,6 +213,14 @@ export default function HomeScreen() {
   const { bookId, chapter } = nextChapter;
   const book = BOOKS.find(b => b.id === bookId);
 
+  function streakSubtitle(): string {
+    if (stats.currentStreak === 0) return '오늘부터 시작해보세요';
+    if (stats.currentStreak === 1) return '첫 번째 날! 내일도 만나요';
+    if (stats.currentStreak < 7) return `${stats.currentStreak}일 연속 중이에요`;
+    if (stats.currentStreak < 30) return `대단해요. ${stats.currentStreak}일 연속 읽고 있어요`;
+    return `${stats.currentStreak}일. 놀랍습니다.`;
+  }
+
   const xp = stats.totalChapters * 45;
   const level = Math.floor(xp / XP_PER_LEVEL) + 1;
   const xpInLevel = xp % XP_PER_LEVEL;
@@ -231,12 +251,14 @@ export default function HomeScreen() {
 
         {/* Streak hero */}
         <Animated.View style={[styles.streakSection, { opacity: streakOpacity, transform: [{ scale: streakScale }] }]}>
-          <MaterialCommunityIcons name="fire" size={44} color={theme.gold} />
+          {/* Glow ring behind fire */}
+          <View style={styles.fireWrapper}>
+            <Animated.View style={[styles.fireGlow, { opacity: fireGlow }]} />
+            <MaterialCommunityIcons name="fire" size={56} color={theme.gold} />
+          </View>
           <Text style={styles.streakCount}>{stats.currentStreak}</Text>
           <Text style={styles.streakLabel}>일 연속 읽기</Text>
-          {stats.longestStreak > 0 && (
-            <Text style={styles.longestStreak}>최장 기록 {stats.longestStreak}일</Text>
-          )}
+          <Text style={styles.streakSub}>{streakSubtitle()}</Text>
         </Animated.View>
 
         {/* XP bar */}
@@ -247,23 +269,27 @@ export default function HomeScreen() {
           </View>
           <View style={styles.xpBar}>
             <Animated.View style={[styles.xpFill, { width: xpBarWidth }]} />
-            {/* Glowing dot at the fill edge */}
             <Animated.View style={[styles.xpDot, { left: xpBarWidth }]} />
           </View>
         </View>
 
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>{stats.totalChapters}</Text>
-            <Text style={styles.statLabel}>읽은 챕터</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>
-              {Math.round((stats.totalChapters / 1189) * 100)}%
-            </Text>
-            <Text style={styles.statLabel}>전체 진행률</Text>
-          </View>
+        {/* Inline stat line */}
+        <View style={styles.statLine}>
+          <MaterialCommunityIcons name="book-open-variant" size={13} color={theme.textMuted} />
+          <Text style={styles.statLineText}>
+            {stats.totalChapters}챕터 읽음
+          </Text>
+          <Text style={styles.statLineDot}>·</Text>
+          <Text style={styles.statLineText}>
+            전체의 {Math.round((stats.totalChapters / 1189) * 100)}%
+          </Text>
+          {stats.longestStreak > 0 && (
+            <>
+              <Text style={styles.statLineDot}>·</Text>
+              <MaterialCommunityIcons name="trophy-outline" size={13} color={theme.textMuted} />
+              <Text style={styles.statLineText}>최장 {stats.longestStreak}일</Text>
+            </>
+          )}
         </View>
 
         {/* 66-book mini-map */}
@@ -274,11 +300,17 @@ export default function HomeScreen() {
         {/* CTA */}
         <Pressable
           style={({ pressed }) => [styles.readBtn, pressed && styles.readBtnPressed]}
-          onPress={() => router.push(`/read/${bookId}/${chapter}`)}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            router.push(`/read/${bookId}/${chapter}`);
+          }}
         >
-          <View>
+          <View style={styles.readBtnLeft}>
             <Text style={styles.readBtnEyebrow}>오늘 읽기</Text>
             <Text style={styles.readBtnTitle}>{book?.name} {chapter}장</Text>
+            <Text style={styles.readBtnSub}>
+              {book?.testament === 'old' ? '구약' : '신약'} · 약 5분
+            </Text>
           </View>
           <View style={styles.readBtnArrow}>
             <MaterialCommunityIcons name="chevron-right" size={22} color={theme.bg} />
@@ -350,6 +382,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
+  fireWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  fireGlow: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: theme.gold,
+    opacity: 0.4,
+    transform: [{ scale: 1.4 }],
+  },
   streakCount: {
     fontSize: 80,
     fontWeight: '900',
@@ -363,10 +409,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
     letterSpacing: 0.5,
   },
-  longestStreak: {
-    fontSize: 11,
+  streakSub: {
+    fontSize: 12,
     color: theme.textMuted,
-    marginTop: 5,
+    marginTop: 6,
+    letterSpacing: 0.2,
   },
 
   xpSection: {
@@ -421,30 +468,21 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
 
-  statsRow: {
+  statLine: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: theme.surface,
-    borderRadius: 14,
-    padding: 16,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.goldBorder,
+    gap: 5,
+    marginBottom: 20,
+    paddingHorizontal: 2,
   },
-  statNum: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: theme.gold,
-  },
-  statLabel: {
-    fontSize: 10,
+  statLineText: {
+    fontSize: 12,
     color: theme.textMuted,
-    marginTop: 4,
-    letterSpacing: 0.3,
+  },
+  statLineDot: {
+    fontSize: 12,
+    color: theme.borderSubtle,
+    marginHorizontal: 2,
   },
 
   readBtn: {
@@ -463,6 +501,9 @@ const styles = StyleSheet.create({
   readBtnPressed: {
     backgroundColor: theme.goldDark,
   },
+  readBtnLeft: {
+    flex: 1,
+  },
   readBtnEyebrow: {
     fontSize: 10,
     fontWeight: '600',
@@ -472,9 +513,16 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   readBtnTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: theme.bg,
+    letterSpacing: -0.3,
+  },
+  readBtnSub: {
+    fontSize: 11,
+    color: 'rgba(11,10,18,0.5)',
+    marginTop: 3,
+    letterSpacing: 0.2,
   },
   readBtnArrow: {
     width: 36,

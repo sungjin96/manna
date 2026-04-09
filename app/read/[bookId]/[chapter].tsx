@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   FlatList,
@@ -64,6 +64,8 @@ function createParticles() {
 
 const HEADER_H = 44;
 const PROGRESS_H = 28;
+const TTS_RATES = [0.75, 0.9, 1.1, 1.3];
+const TTS_RATE_LABELS = ['0.75×', '1×', '1.25×', '1.5×'];
 
 // ── Main screen ────────────────────────────────────────────────────────────
 export default function ReadScreen() {
@@ -93,6 +95,8 @@ export default function ReadScreen() {
   const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
   const [isTTS, setIsTTS] = useState(false);
   const [ttsVerse, setTtsVerse] = useState<number | null>(null);
+  const [ttsRateIdx, setTtsRateIdx] = useState(1); // default 1× (index 1 = 0.9)
+  const [showTTSMenu, setShowTTSMenu] = useState(false);
 
   // ── Animated values ───────────────────────────────────────────────────────
   const headerOpacity = useRef(new Animated.Value(1)).current;
@@ -107,6 +111,7 @@ export default function ReadScreen() {
   const particles = useRef<ReturnType<typeof createParticles> | null>(null);
   if (!particles.current) particles.current = createParticles();
   const ttsRef = useRef({ cancel: false });
+  const ttsRateIdxRef = useRef(1);
   const headerVisibleRef = useRef(true);
   const lastScrollY = useRef(0);
 
@@ -160,10 +165,13 @@ export default function ReadScreen() {
     });
   }, [bookId, chapter]);
 
-  // Auto-scroll to first unread verse
+  // Auto-scroll to first unread verse — fires once after initial data load
+  const didAutoScroll = useRef(false);
   useEffect(() => {
+    if (didAutoScroll.current) return;
     if (!verses || verses.length === 0 || readVerses.size === 0) return;
     if (readVerses.size >= verses.length) return;
+    didAutoScroll.current = true;
     const firstUnreadIndex = verses.findIndex(v => !readVerses.has(v.verse));
     if (firstUnreadIndex > 2) {
       setTimeout(() => {
@@ -193,10 +201,8 @@ export default function ReadScreen() {
   function animateHeader(show: boolean) {
     if (headerVisibleRef.current === show) return;
     headerVisibleRef.current = show;
-    Animated.parallel([
-      Animated.timing(headerOpacity, { toValue: show ? 1 : 0, duration: 180, useNativeDriver: true }),
-      Animated.timing(headerHeightAnim, { toValue: show ? 1 : 0, duration: 200, useNativeDriver: false }),
-    ]).start();
+    Animated.timing(headerOpacity, { toValue: show ? 1 : 0, duration: 180, useNativeDriver: true }).start();
+    Animated.timing(headerHeightAnim, { toValue: show ? 1 : 0, duration: 200, useNativeDriver: false }).start();
   }
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -234,10 +240,11 @@ export default function ReadScreen() {
     for (let i = 0; i < verses.length; i++) {
       if (ttsRef.current.cancel) break;
       setTtsVerse(verses[i].verse);
+      const rate = TTS_RATES[ttsRateIdxRef.current];
       await new Promise<void>(resolve => {
         Speech.speak(verses[i].text, {
           language: 'ko-KR',
-          rate: 0.9,
+          rate,
           onDone: resolve,
           onStopped: resolve,
           onError: () => resolve(),
@@ -246,6 +253,14 @@ export default function ReadScreen() {
     }
     setIsTTS(false);
     setTtsVerse(null);
+  }
+
+  function selectTTSRate(idx: number) {
+    ttsRateIdxRef.current = idx;
+    setTtsRateIdx(idx);
+    setShowTTSMenu(false);
+    // Stop current verse — loop picks up next verse at new rate
+    if (isTTS) Speech.stop();
   }
 
   async function stopTTS() {
@@ -397,7 +412,7 @@ export default function ReadScreen() {
     : '';
 
   // ── Render verse row ──────────────────────────────────────────────────────
-  const renderVerse = ({ item }: { item: { verse: number; text: string } }) => {
+  const renderVerse = useCallback(({ item }: { item: { verse: number; text: string } }) => {
     const isRead = readVerses.has(item.verse);
     const inSelection = selectionMode && selectionRange
       && item.verse >= selectionRange.start && item.verse <= selectionRange.end;
@@ -435,7 +450,7 @@ export default function ReadScreen() {
         </Text>
       </Pressable>
     );
-  };
+  }, [readVerses, selectionMode, selectionRange, isTTS, ttsVerse, settings, colors, fontFamily]);
 
   return (
     <>
@@ -452,7 +467,6 @@ export default function ReadScreen() {
             borderBottomColor: colors.border,
           },
         ]}
-          pointerEvents={headerVisibleRef.current ? 'auto' : 'none'}
         >
           {/* Main header row */}
           <View style={[styles.headerInner, { paddingTop: insets.top }]}>
@@ -463,6 +477,14 @@ export default function ReadScreen() {
               {title}
             </Text>
             <View style={styles.headerRight}>
+              {isTTS && (
+                <Pressable onPress={() => setShowTTSMenu(v => !v)} style={styles.ttsRateBtn} hitSlop={8}>
+                  <Text style={[styles.ttsRateLabel, { color: colors.gold }]}>
+                    {TTS_RATE_LABELS[ttsRateIdx]}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-down" size={12} color={colors.gold} style={{ marginLeft: 1 }} />
+                </Pressable>
+              )}
               <Pressable onPress={toggleTTS} style={styles.headerIconBtn} hitSlop={8}>
                 <MaterialCommunityIcons
                   name={isTTS ? 'volume-high' : 'volume-off'}
@@ -491,6 +513,29 @@ export default function ReadScreen() {
             </View>
           )}
         </Animated.View>
+
+        {/* TTS speed dropdown */}
+        {showTTSMenu && (
+          <>
+            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowTTSMenu(false)} />
+            <View style={[styles.ttsMenu, { backgroundColor: colors.surface, borderColor: colors.border, top: insets.top + HEADER_H - 4 }]}>
+              {TTS_RATE_LABELS.map((label, idx) => (
+                <Pressable
+                  key={idx}
+                  style={[styles.ttsMenuItem, idx === ttsRateIdx && { backgroundColor: `${colors.gold}18` }]}
+                  onPress={() => selectTTSRate(idx)}
+                >
+                  <Text style={[styles.ttsMenuLabel, { color: idx === ttsRateIdx ? colors.gold : colors.text }]}>
+                    {label}
+                  </Text>
+                  {idx === ttsRateIdx && (
+                    <MaterialCommunityIcons name="check" size={14} color={colors.gold} />
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
 
         {/* Bible content */}
         {loading ? (
@@ -817,6 +862,40 @@ const styles = StyleSheet.create({
   },
   headerIconBtn: {
     padding: 8,
+  },
+  ttsRateBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  ttsRateLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  ttsMenu: {
+    position: 'absolute',
+    right: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    minWidth: 100,
+  },
+  ttsMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  ttsMenuLabel: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   // ── Progress strip ────────────────────────────────────────────────────────
