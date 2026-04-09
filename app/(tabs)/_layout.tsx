@@ -13,12 +13,12 @@ export default function TabLayout() {
           backgroundColor: theme.tab.bg,
           borderTopColor: theme.tab.border,
           borderTopWidth: 1,
-          height: 60,
+          height: 62,
           paddingBottom: 8,
         },
         tabBarActiveTintColor: theme.tab.active,
         tabBarInactiveTintColor: theme.tab.inactive,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}
     >
       <Tabs.Screen
@@ -45,6 +45,15 @@ export default function TabLayout() {
           title: '묵상',
           tabBarIcon: ({ color, size }: IconProps) => (
             <MaterialCommunityIcons name="notebook-edit-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="achievements"
+        options={{
+          title: '업적',
+          tabBarIcon: ({ color, size }: IconProps) => (
+            <MaterialCommunityIcons name="trophy-outline" size={size} color={color} />
           ),
         }}
       />
