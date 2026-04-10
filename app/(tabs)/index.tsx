@@ -304,6 +304,15 @@ export default function HomeScreen() {
           <Text style={styles.dateLabel}>{todayLabel()}</Text>
         </View>
 
+        {/* Search bar — 탭하면 검색 화면으로 이동 */}
+        <Pressable
+          style={styles.searchBar}
+          onPress={() => router.push('/(tabs)/search')}
+        >
+          <MaterialCommunityIcons name="magnify" size={18} color={theme.textMuted} />
+          <Text style={styles.searchPlaceholder}>성경 구절 검색</Text>
+        </Pressable>
+
         {/* Streak hero */}
         <Animated.View style={[styles.streakSection, { opacity: streakOpacity, transform: [{ scale: streakScale }] }]}>
           <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
@@ -522,6 +531,23 @@ const styles = StyleSheet.create({
   },
   dateLabel: {
     fontSize: 11,
+    color: theme.textMuted,
+  },
+
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+  },
+  searchPlaceholder: {
+    fontSize: 14,
     color: theme.textMuted,
   },
 

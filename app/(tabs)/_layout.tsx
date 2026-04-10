@@ -42,10 +42,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: '검색',
-          tabBarIcon: ({ color, size }: IconProps) => (
-            <MaterialCommunityIcons name="magnify" size={size} color={color} />
-          ),
+          href: null,  // 탭바에서 숨김 — 홈 검색바로 접근
         }}
       />
       <Tabs.Screen
@@ -60,10 +57,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="achievements"
         options={{
-          title: '뱃지',
-          tabBarIcon: ({ color, size }: IconProps) => (
-            <MaterialCommunityIcons name="medal-outline" size={size} color={color} />
-          ),
+          href: null,  // 탭바에서 숨김 — 진행률에서 '전체 보기'로 접근
         }}
       />
       <Tabs.Screen

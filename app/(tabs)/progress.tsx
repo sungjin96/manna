@@ -5,9 +5,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BOOKS } from '../../constants/books';
 import { useReadingProgress } from '../../hooks/useReadingProgress';
 import { checkAIEntitlement, purchasePremium } from '../../utils/subscriptions';
+import { getStats, type UserStats } from '../../db/stats';
+import { getMeditationCount } from '../../db/meditations';
+import { BADGES, BOOK_BADGES, type Badge, type Tier } from './achievements';
 import StreakHeatmap from '../../components/StreakHeatmap';
 import PaywallSheet from '../../components/PaywallSheet';
 import { theme } from '../../constants/theme';
+
+const TIER_COLORS: Record<Tier, string> = {
+  bronze: '#CD7F32', silver: '#A8B0BB', gold: '#D4A847', diamond: '#7EC8E3',
+};
 
 type AccordionItem =
   | { type: 'section'; label: string }
@@ -21,9 +28,13 @@ export default function ProgressScreen() {
   const [isPro, setIsPro] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallLoading, setPaywallLoading] = useState(false);
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [meditationCount, setMeditationCount] = useState(0);
 
   useEffect(() => {
     checkAIEntitlement().then(setIsPro).catch(() => {});
+    getStats().then(setStats);
+    getMeditationCount().then(setMeditationCount);
   }, []);
 
   async function handlePurchase() {
@@ -155,6 +166,32 @@ export default function ProgressScreen() {
             <StreakHeatmap isPro={isPro} onUpgrade={() => setShowPaywall(true)} />
           </Pressable>
         }
+        ListFooterComponent={stats ? (
+          <View style={styles.badgeSection}>
+            <View style={styles.badgeSectionHeader}>
+              <Text style={styles.badgeSectionTitle}>뱃지</Text>
+              <Pressable onPress={() => router.push('/(tabs)/achievements')} hitSlop={8}>
+                <Text style={styles.badgeSeeAll}>전체 보기</Text>
+              </Pressable>
+            </View>
+            <View style={styles.badgeGrid}>
+              {[...BADGES, ...BOOK_BADGES]
+                .filter(b => b.check(stats, completed, meditationCount))
+                .slice(0, 8)
+                .map(b => (
+                  <View key={b.id} style={styles.badgeItem}>
+                    <View style={[styles.badgeIcon, { backgroundColor: `${TIER_COLORS[b.tier]}15` }]}>
+                      <MaterialCommunityIcons name={b.icon} size={20} color={TIER_COLORS[b.tier]} />
+                    </View>
+                    <Text style={styles.badgeName} numberOfLines={1}>{b.title}</Text>
+                  </View>
+                ))}
+            </View>
+            {[...BADGES, ...BOOK_BADGES].filter(b => b.check(stats, completed, meditationCount)).length === 0 && (
+              <Text style={styles.badgeEmpty}>아직 획득한 뱃지가 없습니다</Text>
+            )}
+          </View>
+        ) : null}
       />
       <PaywallSheet
         visible={showPaywall}
@@ -226,6 +263,58 @@ const styles = StyleSheet.create({
   },
   chapterNum: { fontSize: 14, color: theme.textSub },
   chapterDone: { color: theme.gold, fontWeight: '600' },
+  // 뱃지 섹션
+  badgeSection: {
+    padding: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: theme.borderSubtle,
+    marginTop: 8,
+  },
+  badgeSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  badgeSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.text,
+  },
+  badgeSeeAll: {
+    fontSize: 12,
+    color: theme.gold,
+    fontWeight: '600',
+  },
+  badgeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  badgeItem: {
+    width: '22%' as any,
+    alignItems: 'center',
+    gap: 4,
+  },
+  badgeIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeName: {
+    fontSize: 10,
+    color: theme.textMuted,
+    textAlign: 'center',
+  },
+  badgeEmpty: {
+    fontSize: 13,
+    color: theme.textMuted,
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
   sectionHeader: {
     paddingHorizontal: 20,
     paddingVertical: 10,
