@@ -148,9 +148,12 @@ export default function ProgressScreen() {
         maxToRenderPerBatch={20}
         windowSize={10}
         ListHeaderComponent={
-          <View style={styles.heatmapWrapper}>
+          <Pressable
+            style={styles.heatmapWrapper}
+            onPress={() => isPro ? router.push('/reading-history') : setShowPaywall(true)}
+          >
             <StreakHeatmap isPro={isPro} onUpgrade={() => setShowPaywall(true)} />
-          </View>
+          </Pressable>
         }
       />
       <PaywallSheet
@@ -165,7 +168,7 @@ export default function ProgressScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
-  heatmapWrapper: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
+  heatmapWrapper: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 },
   center: {
     flex: 1,
     backgroundColor: theme.bg,
