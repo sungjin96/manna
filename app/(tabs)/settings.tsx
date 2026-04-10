@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -33,9 +32,6 @@ export default function SettingsScreen() {
   const [purchasing, setPurchasing] = useState(false);
   const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
   const [activePlanId, setActivePlanId] = useState<PlanId | null>(null);
-  const [claudeApiKey, setClaudeApiKey] = useState('');
-  const [apiKeyVisible, setApiKeyVisible] = useState(false);
-
   const { settings, update: updateReader } = useReaderSettings();
 
   useEffect(() => {
@@ -50,18 +46,11 @@ export default function SettingsScreen() {
       setNotifMinute(minute);
       setMeditationPromptEnabled(meditPrompt === '1');
       setActivePlanId((plan?.planId as PlanId) ?? null);
-      const apiKey = await getSetting('claude_api_key', '');
-      setClaudeApiKey(apiKey);
       const premium = await checkAIEntitlement();
       setIsPremium(premium);
       setIsPremiumLoading(false);
     })();
   }, []);
-
-  async function saveClaudeApiKey(key: string) {
-    setClaudeApiKey(key);
-    await setSetting('claude_api_key', key.trim());
-  }
 
   async function selectPlan(planId: PlanId | null) {
     if (planId === null) {
@@ -331,43 +320,6 @@ export default function SettingsScreen() {
             </View>
           </View>
         )}
-      </View>
-
-      {/* AI 묵상 도우미 섹션 */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>AI 묵상 도우미</Text>
-
-        <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
-          <View style={{ gap: 2 }}>
-            <Text style={styles.rowLabel}>Claude API Key</Text>
-            <Text style={styles.rowHint}>성경 구절 선택 후 AI 묵상 질문 생성에 사용됩니다.</Text>
-          </View>
-          <View style={styles.apiKeyRow}>
-            <TextInput
-              style={styles.apiKeyInput}
-              value={claudeApiKey}
-              onChangeText={saveClaudeApiKey}
-              placeholder="sk-ant-..."
-              placeholderTextColor={theme.textMuted}
-              secureTextEntry={!apiKeyVisible}
-              autoCorrect={false}
-              autoCapitalize="none"
-              accessibilityLabel="Claude API 키 입력"
-            />
-            <Pressable onPress={() => setApiKeyVisible(v => !v)} hitSlop={8} style={styles.apiKeyEye}>
-              <MaterialCommunityIcons
-                name={apiKeyVisible ? 'eye-off-outline' : 'eye-outline'}
-                size={18}
-                color={theme.textMuted}
-              />
-            </Pressable>
-          </View>
-          {claudeApiKey.length > 0 && (
-            <Text style={styles.apiKeyStatus}>
-              {claudeApiKey.startsWith('sk-ant-') ? '✓ 유효한 형식' : '⚠ sk-ant- 로 시작해야 합니다'}
-            </Text>
-          )}
-        </View>
       </View>
 
       {/* 구독 섹션 */}
@@ -680,28 +632,4 @@ const styles = StyleSheet.create({
     color: theme.textMuted,
   },
 
-  apiKeyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.goldBorder,
-    borderRadius: 10,
-    backgroundColor: theme.surface2,
-    paddingHorizontal: 12,
-    width: '100%',
-  },
-  apiKeyInput: {
-    flex: 1,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: theme.text,
-    fontFamily: 'monospace',
-  },
-  apiKeyEye: {
-    padding: 4,
-  },
-  apiKeyStatus: {
-    fontSize: 11,
-    color: theme.textMuted,
-  },
 });

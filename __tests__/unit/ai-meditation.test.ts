@@ -5,21 +5,7 @@ const MOCK_VERSES = [
   { verse: 2, text: '땅이 혼돈하고 공허하며 흑암이 깊음 위에 있고' },
 ];
 const MOCK_VERSE_REF = '창세기 1:1-2';
-const MOCK_API_KEY = 'sk-ant-test-key';
-
-// ── apiKey 검증 ──────────────────────────────────────────────────────────────
-
-describe('generateMeditationPrompts — apiKey 검증', () => {
-  test('빈 apiKey → no_api_key 에러', async () => {
-    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, '');
-    expect(result).toEqual({ data: null, error: 'no_api_key' });
-  });
-
-  test('공백만 있는 apiKey → no_api_key 에러', async () => {
-    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, '   ');
-    expect(result).toEqual({ data: null, error: 'no_api_key' });
-  });
-});
+const MOCK_USER_ID = 'test-user-123';
 
 // ── fetch 모킹 헬퍼 ──────────────────────────────────────────────────────────
 
@@ -43,74 +29,75 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-// ── 성공 경로 ────────────────────────────────────────────────────────────────
+// ── DEV 모드 ─────────────────────────────────────────────────────────────────
 
-describe('generateMeditationPrompts — 성공', () => {
+describe('generateMeditationPrompts — DEV 모드', () => {
+  test('__DEV__ = true 이면 mock 데이터 반환', async () => {
+    // __DEV__ is true in Jest; no fetch spy needed
+    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
+    expect(result.error).toBeNull();
+    expect(result.data?.prompts).toHaveLength(3);
+    expect(result.data?.verseRef).toBe(MOCK_VERSE_REF);
+  });
+});
+
+// ── 성공 경로 (PROD 시뮬레이션) ──────────────────────────────────────────────
+// Note: In prod, Worker returns { prompts: string[] } directly
+
+describe('generateMeditationPrompts — Worker 응답 파싱', () => {
+  // Override __DEV__ for prod-path tests
+  const originalDev = (global as any).__DEV__;
+  beforeEach(() => { (global as any).__DEV__ = false; });
+  afterEach(() => { (global as any).__DEV__ = originalDev; });
+
   test('정상 응답: prompts 3개 반환', async () => {
-    mockFetch(makeResponse({
-      content: [{ text: '{"prompts":["질문1","질문2","질문3"]}' }],
-    }));
-
-    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_API_KEY);
+    mockFetch(makeResponse({ prompts: ['질문1', '질문2', '질문3'] }));
+    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
     expect(result.error).toBeNull();
     expect(result.data?.prompts).toHaveLength(3);
     expect(result.data?.verseRef).toBe(MOCK_VERSE_REF);
   });
 
-  test('마크다운 코드펜스 포함 응답도 파싱 성공', async () => {
-    mockFetch(makeResponse({
-      content: [{ text: '```json\n{"prompts":["Q1","Q2","Q3"]}\n```' }],
-    }));
-
-    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_API_KEY);
-    expect(result.error).toBeNull();
-    expect(result.data?.prompts).toHaveLength(3);
-  });
-
   test('prompts 4개 이상이면 3개만 잘라냄', async () => {
-    mockFetch(makeResponse({
-      content: [{ text: '{"prompts":["Q1","Q2","Q3","Q4","Q5"]}' }],
-    }));
-
-    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_API_KEY);
+    mockFetch(makeResponse({ prompts: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5'] }));
+    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
     expect(result.data?.prompts).toHaveLength(3);
   });
-});
 
-// ── API 에러 경로 ─────────────────────────────────────────────────────────────
+  test('403 응답 → no_subscription', async () => {
+    mockFetch(makeResponse({}, false, 403));
+    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
+    expect(result).toEqual({ data: null, error: 'no_subscription' });
+  });
 
-describe('generateMeditationPrompts — API 에러', () => {
-  test('response.ok === false → api_error', async () => {
-    mockFetch(makeResponse({}, false, 401));
-    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_API_KEY);
+  test('5xx 응답 → api_error', async () => {
+    mockFetch(makeResponse({}, false, 502));
+    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
     expect(result).toEqual({ data: null, error: 'api_error' });
   });
 
-  test('content 없는 응답 → parse_error', async () => {
-    mockFetch(makeResponse({ content: [] }));
-    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_API_KEY);
-    expect(result).toEqual({ data: null, error: 'parse_error' });
-  });
-
-  test('JSON 없는 text → parse_error', async () => {
-    mockFetch(makeResponse({ content: [{ text: '죄송합니다, 오류가 발생했습니다.' }] }));
-    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_API_KEY);
-    expect(result).toEqual({ data: null, error: 'parse_error' });
-  });
-
   test('prompts 배열 아닌 응답 → parse_error', async () => {
-    mockFetch(makeResponse({ content: [{ text: '{"prompts":"문자열"}' }] }));
-    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_API_KEY);
+    mockFetch(makeResponse({ prompts: '문자열' }));
+    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
     expect(result).toEqual({ data: null, error: 'parse_error' });
+  });
+
+  test('빈 appUserId → no_subscription', async () => {
+    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, '');
+    expect(result).toEqual({ data: null, error: 'no_subscription' });
   });
 });
 
 // ── 네트워크/타임아웃 ────────────────────────────────────────────────────────
 
 describe('generateMeditationPrompts — 네트워크 에러', () => {
+  const originalDev = (global as any).__DEV__;
+  beforeEach(() => { (global as any).__DEV__ = false; });
+  afterEach(() => { (global as any).__DEV__ = originalDev; });
+
   test('fetch 거절 (오프라인) → network_error', async () => {
     mockFetchReject(new Error('Network request failed'));
-    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_API_KEY);
+    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
     expect(result).toEqual({ data: null, error: 'network_error' });
   });
 
@@ -118,7 +105,7 @@ describe('generateMeditationPrompts — 네트워크 에러', () => {
     const abortError = new Error('The operation was aborted');
     abortError.name = 'AbortError';
     mockFetchReject(abortError);
-    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_API_KEY);
+    const result = await generateMeditationPrompts(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
     expect(result).toEqual({ data: null, error: 'network_error' });
   });
 });
@@ -126,16 +113,16 @@ describe('generateMeditationPrompts — 네트워크 에러', () => {
 // ── aiErrorMessage ───────────────────────────────────────────────────────────
 
 describe('aiErrorMessage', () => {
-  test('no_api_key 메시지 포함 "API key"', () => {
-    expect(aiErrorMessage('no_api_key')).toContain('API key');
+  test('no_subscription 메시지 포함 "프리미엄"', () => {
+    expect(aiErrorMessage('no_subscription')).toContain('프리미엄');
   });
 
   test('network_error 메시지 포함 "오프라인"', () => {
     expect(aiErrorMessage('network_error')).toContain('오프라인');
   });
 
-  test('api_error 메시지 포함 "API"', () => {
-    expect(aiErrorMessage('api_error')).toContain('API');
+  test('api_error 메시지 포함 "서버"', () => {
+    expect(aiErrorMessage('api_error')).toContain('서버');
   });
 
   test('parse_error 메시지 포함 "오류"', () => {

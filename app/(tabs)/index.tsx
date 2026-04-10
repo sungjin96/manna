@@ -150,6 +150,7 @@ export default function HomeScreen() {
   const xpAnim = useRef(new Animated.Value(0)).current;
   const streakScale = useRef(new Animated.Value(0.7)).current;
   const streakOpacity = useRef(new Animated.Value(0)).current;
+  const flamePulse = useRef(new Animated.Value(1)).current;
   const mapOpacity = useRef(new Animated.Value(0)).current;
   useFocusEffect(
     useCallback(() => {
@@ -190,7 +191,18 @@ export default function HomeScreen() {
       }),
     ]).start();
 
-  }, []);
+    // Flame pulse loop (only when streak > 0)
+    if (stats.currentStreak > 0) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(flamePulse, { toValue: 1.12, duration: 800, useNativeDriver: true }),
+          Animated.timing(flamePulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    }
+  }, [stats.currentStreak]);
 
   // Animate XP bar and map whenever stats change
   useEffect(() => {
@@ -293,7 +305,9 @@ export default function HomeScreen() {
 
         {/* Streak hero */}
         <Animated.View style={[styles.streakSection, { opacity: streakOpacity, transform: [{ scale: streakScale }] }]}>
-          <MaterialCommunityIcons name="fire" size={56} color={theme.gold} />
+          <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
+            <MaterialCommunityIcons name="fire" size={56} color={theme.gold} />
+          </Animated.View>
           <Text style={styles.streakCount}>{stats.currentStreak}</Text>
           <Text style={styles.streakLabel}>일 연속 읽기</Text>
           <Text style={styles.streakSub}>{streakSubtitle()}</Text>

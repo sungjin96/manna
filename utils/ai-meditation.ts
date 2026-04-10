@@ -4,7 +4,6 @@ export interface MeditationPrompts {
 }
 
 export type AIMeditationError =
-  | 'no_api_key'
   | 'no_subscription'
   | 'network_error'
   | 'api_error'
@@ -15,69 +14,66 @@ export interface AIMeditationResult {
   error: AIMeditationError | null;
 }
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-haiku-4-5-20251001'; // Fast + cheap for mobile
+// Set after `wrangler deploy` — update EXPO_PUBLIC_WORKER_URL in .env.local
+const WORKER_URL = process.env.EXPO_PUBLIC_WORKER_URL ?? '';
 
 export async function generateMeditationPrompts(
   verses: Array<{ verse: number; text: string }>,
   verseRef: string,
-  apiKey: string,
-  hasEntitlement?: boolean,
+  appUserId: string,
 ): Promise<AIMeditationResult> {
-  // Beta policy: API key required regardless of entitlement (proxy not yet available)
-  if (!apiKey.trim()) {
-    return { data: null, error: hasEntitlement ? 'no_subscription' : 'no_api_key' };
+  if (__DEV__) {
+    // Avoid needing RC sandbox subscription during development
+    await new Promise<void>(r => setTimeout(r, 600));
+    return {
+      data: {
+        prompts: [
+          '이 구절에서 하나님께서 오늘 나에게 주시는 핵심 메시지는 무엇인가요?',
+          '이 말씀을 오늘 하루 구체적으로 어떻게 실천할 수 있을까요?',
+          '주님, 이 말씀이 제 삶에 뿌리내리게 하시고 오늘 하루 실천하게 도와주세요.',
+        ],
+        verseRef,
+      },
+      error: null,
+    };
+  }
+
+  if (!appUserId) {
+    return { data: null, error: 'no_subscription' };
   }
 
   const verseText = verses.map(v => `${v.verse}절: ${v.text}`).join('\n');
-  const systemPrompt = `당신은 성경 묵상을 돕는 조용하고 따뜻한 도우미입니다.
-사용자가 읽은 성경 구절을 바탕으로 깊이 있는 묵상 질문 3개를 한국어로 생성해주세요.
-질문은 개인의 신앙과 삶에 적용 가능한 것이어야 합니다.
-JSON 형식으로만 응답하세요: {"prompts": ["질문1", "질문2", "질문3"]}`;
-
-  const userMessage = `다음 구절을 묵상하는 데 도움이 되는 질문 3개를 생성해주세요:\n\n${verseRef}\n\n${verseText}`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15_000);
+  const timeoutId = setTimeout(() => controller.abort(), 20_000);
 
   try {
-    const response = await fetch(ANTHROPIC_API_URL, {
+    const response = await fetch(`${WORKER_URL}/meditate`, {
       method: 'POST',
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'X-RC-App-User-Id': appUserId,
       },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 512,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }],
-      }),
+      body: JSON.stringify({ verses: [`${verseRef}\n${verseText}`] }),
     });
     clearTimeout(timeoutId);
 
+    if (response.status === 403) {
+      return { data: null, error: 'no_subscription' };
+    }
     if (!response.ok) {
-      return { data: null, error: response.status === 429 ? 'api_error' : 'api_error' };
+      return { data: null, error: 'api_error' };
     }
 
-    const json = await response.json();
-    const content = json?.content?.[0]?.text;
-    if (!content) return { data: null, error: 'parse_error' };
-
-    // Extract JSON from response (handle possible markdown code fences)
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return { data: null, error: 'parse_error' };
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (!Array.isArray(parsed?.prompts)) return { data: null, error: 'parse_error' };
+    const json = await response.json() as { prompts?: unknown };
+    if (!Array.isArray(json?.prompts)) return { data: null, error: 'parse_error' };
 
     return {
-      data: { prompts: parsed.prompts.slice(0, 3), verseRef },
+      data: { prompts: (json.prompts as string[]).slice(0, 3), verseRef },
       error: null,
     };
-  } catch (e: unknown) {
+  } catch {
     clearTimeout(timeoutId);
     return { data: null, error: 'network_error' };
   }
@@ -85,14 +81,12 @@ JSON 형식으로만 응답하세요: {"prompts": ["질문1", "질문2", "질문
 
 export function aiErrorMessage(error: AIMeditationError): string {
   switch (error) {
-    case 'no_api_key':
-      return '설정에서 Claude API key를 입력해주세요.';
     case 'no_subscription':
-      return 'AI 묵상은 프리미엄 구독자 전용입니다. 설정에서 구독하거나 API key를 입력해주세요.';
+      return 'AI 묵상은 프리미엄 구독자 전용입니다.';
     case 'network_error':
       return '오프라인 상태입니다. 직접 기록해보세요.';
     case 'api_error':
-      return 'API 오류가 발생했습니다. API key를 확인해주세요.';
+      return '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
     case 'parse_error':
       return '응답 처리 중 오류가 발생했습니다.';
   }

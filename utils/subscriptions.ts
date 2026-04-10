@@ -3,7 +3,7 @@ import Purchases, { LOG_LEVEL, PurchasesPackage } from 'react-native-purchases';
 // RevenueCat API key (iOS only for now)
 const IOS_RC_API_KEY = process.env.EXPO_PUBLIC_RC_IOS_KEY ?? '';
 
-const AI_ENTITLEMENT_ID = 'ai_meditation';
+const AI_ENTITLEMENT_ID = 'Manna Pro';
 
 let _configured = false;
 
@@ -14,6 +14,22 @@ export function configureRevenueCat() {
   }
   Purchases.configure({ apiKey: IOS_RC_API_KEY });
   _configured = true;
+}
+
+// ── App User ID ───────────────────────────────────────────────────────────
+
+/**
+ * Returns the RevenueCat app user ID for use as Worker auth header.
+ * In __DEV__ returns a fixed sentinel so mocked Worker calls have a stable ID.
+ */
+export async function getAppUserId(): Promise<string> {
+  if (__DEV__) return '__dev__';
+  try {
+    const info = await Purchases.getCustomerInfo();
+    return info.originalAppUserId;
+  } catch {
+    return '';
+  }
 }
 
 // ── Entitlement check ─────────────────────────────────────────────────────

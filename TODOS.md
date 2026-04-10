@@ -21,9 +21,13 @@
 | 11 | Sentry 크래시 리포팅 | P2 | 🗓️ 보류 |
 | 12 | nextAfter() 중복 제거 | P3 | 🗓️ 보류 |
 | 13 | 크로스플랫폼 백업 Phase 2 (iCloud/Google Drive) | P3 | 🗓️ 보류 |
-| 14 | AI 프록시 (Cloudflare Workers) — RevenueCat 전제 | P2 | 🗓️ 보류 |
+| 14 | AI 프록시 (Cloudflare Workers) — RevenueCat 전제 | P2 | ✅ 완료 |
 | 15 | EAS Build 설정 + RC API 키 등록 | P1 | 🗓️ 보류 |
 | 16 | RevenueCat 상품 ID 앱스토어 등록 | P1 | 🗓️ 보류 |
+| 17 | 게임화 강화 (streak 보상 애니메이션) | P2 | ✅ 완료 |
+| 18 | 감정 기반 말씀 추천 (AI 확장) | P2 | 🗓️ 보류 |
+| 19 | 학습 레이어 / Quiz 시스템 | P3 | 🗓️ 보류 |
+| 20 | Supabase 도입 (로그인/커뮤니티) | P3 | 🗓️ 보류 |
 
 ---
 
@@ -164,3 +168,46 @@
 | 2026-04-09 | AI fetch에 AbortController 15초 timeout 추가 | 무한 스피너 방지 |
 | 2026-04-09 | getVariableStartIndex 결과 캐싱 | 1년 사용 시 루프 365회 방지 |
 | 2026-04-09 | TTS: voice ID 동적 조회 후 사용 | language 코드로는 팩 미설치 시 무음 |
+| 2026-04-10 | SQLite 유지, Supabase는 MAU 100+ 이후 검토 | 지금은 출시 집중 |
+| 2026-04-10 | 앱 정체성: "AI 성경 동역자" — 읽기 메인, AI 개인화, 커뮤니티는 Phase 4+ | CEO 리뷰 결정 |
+
+---
+
+## Phase 3 항목 상세
+
+### P2: AI 프록시 (Cloudflare Workers) — #14
+**WHY:** RevenueCat 구독 체크와 실제 AI 호출 사이에 갭. 구독해도 API key 없으면 AI 기능 불가. 출시 전 필수.
+**아키텍처:** `앱 → Worker (RevenueCat JWT) → entitlement 검증 → Anthropic API → 앱`
+**구현:**
+- Cloudflare Worker 생성 (wrangler 사용)
+- `Purchases.getCustomerInfo()` → JWT → Worker 헤더에 포함
+- Worker에서 RC REST API로 entitlement 검증
+- `utils/ai-meditation.ts`의 fetch endpoint를 Worker URL로 교체
+- `app/(tabs)/settings.tsx`에서 API key 입력 섹션 제거
+
+### P2: 게임화 강화 — #17
+**WHY:** "게임처럼 재미있게" 비전. 현재 streak + 업적 있지만 시각적 보상 부족.
+**구현:**
+- Streak 5일/30일/100일 달성 시 전용 축하 애니메이션 (Lottie 또는 React Native Animated)
+- 매일 읽기 완료 시 체크마크 + 미니 피드백 애니메이션
+- 홈 화면 streak 카운터 강조 (불꽃 이모지 애니메이션)
+
+### P2: 감정 기반 말씀 추천 — #18 (Worker 완성 후)
+**WHY:** "말씀이 나를 아는 경험" — 만나의 핵심 차별화. YouVersion엔 없는 기능.
+**구현 옵션 A:** 오늘 기분 선택 (기뻐요/힘들어요/감사해요/불안해요 등 6종) → AI가 맞는 구절 3개 추천
+**구현 옵션 B:** 이전 묵상 내용을 참고해서 "다음에 읽으면 좋을 말씀" 추천
+**경계:** 일기/다이어리 앱이 되면 안 됨. 말씀이 중심, 감정은 입력값.
+**전제:** Cloudflare Worker 구현 완료 후 착수.
+
+### P3: 학습 레이어 / Quiz — #19
+**WHY:** "읽고 배우는" 경험. 게임화 비전의 핵심.
+**구현 아이디어:**
+- 읽은 장에서 자동 생성 빈칸 채우기 (AI 활용)
+- 장 완독 후 "오늘 읽은 내용 퀴즈" (3문제)
+- 조간 복습 알림 ("어제 읽은 요한복음 3장 16절 기억하세요?")
+**전제:** MAU 확보 후, 감정 추천 기능 완성 후 착수.
+
+### P3: Supabase 도입 — #20
+**WHY:** 크로스디바이스 동기화, 커뮤니티, 랭킹.
+**조건:** MAU 100명 이상 확인 후 결정. 지금은 SQLite 유지.
+**구현 시:** 기존 SQLite 스키마 → Supabase 마이그레이션 필요 (대규모 작업).

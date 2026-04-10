@@ -13,12 +13,14 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "ios": {
         "simulator": false
       }
     },
     "production": {
       "autoIncrement": true,
+      "channel": "production",
       "ios": {
         "resourceClass": "m-medium"
       }
@@ -28,8 +30,8 @@
     "production": {
       "ios": {
         "appleId": "sungjin5891@gmail.com",
-        "ascAppId": "",
-        "appleTeamId": ""
+        "ascAppId": "6761963940",
+        "appleTeamId": "L7CVXJLT48"
       }
     }
   }

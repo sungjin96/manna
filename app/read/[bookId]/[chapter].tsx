@@ -29,10 +29,12 @@ import {
   markChapterComplete, isChapterComplete,
   markVerseRead, unmarkVerseRead, getReadVerses,
 } from '../../../db/readings';
+import { getStats } from '../../../db/stats';
 import { saveMeditation } from '../../../db/meditations';
 import { getSetting, setSetting } from '../../../db/settings';
 import { getAICache, setAICache } from '../../../db/ai_cache';
 import { generateMeditationPrompts, aiErrorMessage } from '../../../utils/ai-meditation';
+import { getAppUserId, checkAIEntitlement, purchasePremium } from '../../../utils/subscriptions';
 import { BOOKS } from '../../../constants/books';
 import { styles, HEADER_H, PROGRESS_H } from './chapter.styles';
 
@@ -70,6 +72,11 @@ export default function ReadScreen() {
   const [aiLoading, setAiLoading] = useState(false);
   const [showAiSheet, setShowAiSheet] = useState(false);
   const [aiVerseRef, setAiVerseRef] = useState('');
+  const [streakMilestone, setStreakMilestone] = useState<number | null>(null);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallLoading, setPaywallLoading] = useState(false);
+  const milestoneScale = useRef(new Animated.Value(0)).current;
+  const milestoneOpacity = useRef(new Animated.Value(0)).current;
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -173,6 +180,14 @@ export default function ReadScreen() {
 
   async function openAIMeditation() {
     if (!selectionRange || !verses) return;
+
+    const entitled = await checkAIEntitlement();
+    if (!entitled) {
+      cancelSelection();
+      setShowPaywall(true);
+      return;
+    }
+
     const selected = verses.filter(v => v.verse >= selectionRange.start && v.verse <= selectionRange.end);
     const ref = `${book?.name} ${chapter}:${selectionRange.start}${selectionRange.start !== selectionRange.end ? `–${selectionRange.end}` : ''}`;
     setAiVerseRef(ref);
@@ -189,8 +204,8 @@ export default function ReadScreen() {
       return;
     }
 
-    const apiKey = await getSetting('claude_api_key', '');
-    const result = await generateMeditationPrompts(selected, ref, apiKey);
+    const appUserId = await getAppUserId();
+    const result = await generateMeditationPrompts(selected, ref, appUserId);
 
     if (result.data) {
       setAiPrompts(result.data.prompts);
@@ -199,6 +214,16 @@ export default function ReadScreen() {
       setAiPrompts([aiErrorMessage(result.error!)]);
     }
     setAiLoading(false);
+  }
+
+  async function handlePurchase() {
+    setPaywallLoading(true);
+    const result = await purchasePremium();
+    setPaywallLoading(false);
+    if (result.success) {
+      setShowPaywall(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
   }
 
   async function copySelectedVerses() {
@@ -212,16 +237,42 @@ export default function ReadScreen() {
   }
 
   // ── Chapter complete ───────────────────────────────────────────────────────
+  const STREAK_MILESTONES = [5, 30, 100];
+
   async function handleComplete() {
     if (alreadyDone || selectionMode) return;
     fireConfetti();
     await markChapterComplete(bookId, chapter);
     setAlreadyDone(true);
+
+    const { currentStreak } = await getStats();
+    if (STREAK_MILESTONES.includes(currentStreak)) {
+      milestoneScale.setValue(0);
+      milestoneOpacity.setValue(0);
+      setStreakMilestone(currentStreak);
+      Animated.parallel([
+        Animated.spring(milestoneScale, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
+        Animated.timing(milestoneOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start();
+      return;
+    }
+
     if (meditationPromptEnabled) {
       setTimeout(() => { setMeditationVerse(null); setNote(''); openMeditationSheet(); }, 400);
     } else {
       setTimeout(() => navigateNext(), 400);
     }
+  }
+
+  function closeMilestone() {
+    Animated.timing(milestoneOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+      setStreakMilestone(null);
+      if (meditationPromptEnabled) {
+        setMeditationVerse(null); setNote(''); openMeditationSheet();
+      } else {
+        navigateNext();
+      }
+    });
   }
 
   async function handleSaveMeditation() {
@@ -402,6 +453,25 @@ export default function ReadScreen() {
           </View>
         )}
 
+        {/* Streak milestone modal */}
+        {streakMilestone !== null && (
+          <Animated.View style={[milestoneStyles.overlay, { opacity: milestoneOpacity }]}>
+            <Animated.View style={[milestoneStyles.card, { backgroundColor: colors.surface, transform: [{ scale: milestoneScale }] }]}>
+              <Text style={milestoneStyles.flame}>🔥</Text>
+              <Text style={[milestoneStyles.count, { color: colors.gold }]}>{streakMilestone}일</Text>
+              <Text style={[milestoneStyles.title, { color: colors.text }]}>연속 읽기 달성!</Text>
+              <Text style={[milestoneStyles.desc, { color: colors.muted }]}>
+                {streakMilestone === 5 && '첫 번째 마일스톤을 달성했어요.\n말씀의 습관이 자리잡고 있습니다.'}
+                {streakMilestone === 30 && '30일 연속! 놀라운 헌신이에요.\n한 달 동안 매일 말씀을 읽었습니다.'}
+                {streakMilestone === 100 && '100일 연속! 이것은 기적이에요.\n당신의 믿음이 빛나고 있습니다.'}
+              </Text>
+              <Pressable style={[milestoneStyles.btn, { backgroundColor: colors.gold }]} onPress={closeMilestone}>
+                <Text style={[milestoneStyles.btnText, { color: colors.bg }]}>계속 읽기</Text>
+              </Pressable>
+            </Animated.View>
+          </Animated.View>
+        )}
+
         {/* Selection bar */}
         {selectionMode && selectionRange && (
           <View style={[styles.selectionBar, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: insets.bottom + 12 }]}>
@@ -529,6 +599,45 @@ export default function ReadScreen() {
           </View>
         </Modal>
 
+        {/* Paywall 바텀시트 */}
+        <Modal visible={showPaywall} transparent animationType="slide">
+          <View style={aiStyles.overlay}>
+            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowPaywall(false)} />
+            <View style={[paywallStyles.sheet, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+              <View style={aiStyles.handle}>
+                <View style={[aiStyles.handleBar, { backgroundColor: colors.muted }]} />
+              </View>
+              <MaterialCommunityIcons name="star-circle" size={40} color={colors.gold} style={{ alignSelf: 'center', marginBottom: 8 }} />
+              <Text style={[paywallStyles.title, { color: colors.text }]}>Manna Pro</Text>
+              <Text style={[paywallStyles.subtitle, { color: colors.muted }]}>AI가 당신의 말씀을{'\n'}알아가는 경험</Text>
+              <View style={[paywallStyles.benefits, { borderColor: colors.border }]}>
+                {[
+                  'AI 묵상 질문 무제한',
+                  '감정 기반 말씀 추천',
+                  '읽기 통계 강화',
+                ].map((b, i) => (
+                  <View key={i} style={paywallStyles.benefitRow}>
+                    <MaterialCommunityIcons name="check-circle" size={18} color={colors.gold} />
+                    <Text style={[paywallStyles.benefitText, { color: colors.text }]}>{b}</Text>
+                  </View>
+                ))}
+              </View>
+              <Pressable
+                style={[paywallStyles.buyBtn, { backgroundColor: colors.gold }, paywallLoading && { opacity: 0.6 }]}
+                onPress={handlePurchase}
+                disabled={paywallLoading}
+              >
+                <Text style={[paywallStyles.buyBtnText, { color: colors.bg }]}>
+                  {paywallLoading ? '처리 중...' : '₩3,300 / 월 구독하기'}
+                </Text>
+              </Pressable>
+              <Pressable onPress={() => setShowPaywall(false)} style={paywallStyles.skipBtn}>
+                <Text style={[paywallStyles.skipText, { color: colors.muted }]}>나중에</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+
         {/* AI 묵상 시트 */}
         <Modal visible={showAiSheet} transparent animationType="slide">
           <View style={aiStyles.overlay}>
@@ -603,4 +712,53 @@ const aiStyles = StyleSheet.create({
     paddingVertical: 16, borderRadius: 14, alignItems: 'center',
   },
   writeBtnText: { fontSize: 16, fontWeight: '700' },
+});
+
+const paywallStyles = StyleSheet.create({
+  sheet: {
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 24, paddingBottom: 40,
+    borderTopWidth: 1, alignItems: 'center',
+  },
+  title: { fontSize: 24, fontWeight: '900', marginBottom: 4 },
+  subtitle: { fontSize: 15, textAlign: 'center', marginBottom: 20, lineHeight: 22 },
+  benefits: {
+    width: '100%', borderWidth: 1, borderRadius: 16,
+    padding: 16, gap: 12, marginBottom: 24,
+  },
+  benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  benefitText: { fontSize: 15 },
+  buyBtn: {
+    width: '100%', paddingVertical: 16,
+    borderRadius: 14, alignItems: 'center', marginBottom: 12,
+  },
+  buyBtnText: { fontSize: 16, fontWeight: '700' },
+  skipBtn: { paddingVertical: 8 },
+  skipText: { fontSize: 14 },
+});
+
+const milestoneStyles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  card: {
+    width: '82%',
+    borderRadius: 28,
+    padding: 32,
+    alignItems: 'center',
+    gap: 8,
+  },
+  flame: { fontSize: 64, marginBottom: 4 },
+  count: { fontSize: 56, fontWeight: '900', lineHeight: 64 },
+  title: { fontSize: 22, fontWeight: '800', marginBottom: 4 },
+  desc: { fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 12 },
+  btn: {
+    paddingVertical: 16, paddingHorizontal: 40,
+    borderRadius: 14, marginTop: 8,
+  },
+  btnText: { fontSize: 16, fontWeight: '700' },
 });
