@@ -122,8 +122,9 @@ export default function ReadScreen() {
   }
 
   const {
-    isTTS, ttsVerse, ttsRateIdx, showTTSMenu, noKoreanVoice, setShowTTSMenu,
-    toggleTTS, selectTTSRate,
+    isTTS, ttsVerse, ttsRateIdx, showTTSMenu, noKoreanVoice,
+    availableVoices, selectedVoiceId, setShowTTSMenu,
+    toggleTTS, selectTTSRate, selectVoice,
   } = useTTS(verses);
 
   const { headerOpacity, headerHeightValue, bottomNavOpacity, handleScroll } = useHeaderAnim(HEADER_FULL_H);
@@ -663,17 +664,47 @@ export default function ReadScreen() {
           )}
         </Animated.View>
 
-        {/* TTS speed dropdown */}
+        {/* TTS settings panel (speed + voice) */}
         {showTTSMenu && (
           <>
             <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowTTSMenu(false)} />
             <View style={[styles.ttsMenu, { backgroundColor: colors.surface, borderColor: colors.border, top: insets.top + HEADER_H - 4 }]}>
+              {/* 읽기 속도 */}
+              <Text style={[styles.ttsMenuSection, { color: colors.muted }]}>읽기 속도</Text>
               {TTS_RATE_LABELS.map((label, idx) => (
                 <Pressable key={idx} style={[styles.ttsMenuItem, idx === ttsRateIdx && { backgroundColor: `${colors.gold}18` }]} onPress={() => selectTTSRate(idx)}>
                   <Text style={[styles.ttsMenuLabel, { color: idx === ttsRateIdx ? colors.gold : colors.text }]}>{label}</Text>
                   {idx === ttsRateIdx && <MaterialCommunityIcons name="check" size={14} color={colors.gold} />}
                 </Pressable>
               ))}
+
+              {/* 목소리 선택 */}
+              {availableVoices.length > 1 && (
+                <>
+                  <View style={[styles.ttsMenuDivider, { backgroundColor: colors.border }]} />
+                  <Text style={[styles.ttsMenuSection, { color: colors.muted }]}>목소리</Text>
+                  {availableVoices.map(voice => {
+                    const active = voice.identifier === selectedVoiceId;
+                    return (
+                      <Pressable
+                        key={voice.identifier}
+                        style={[styles.ttsMenuItem, active && { backgroundColor: `${colors.gold}18` }]}
+                        onPress={() => selectVoice(voice.identifier)}
+                      >
+                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={[styles.ttsMenuLabel, { color: active ? colors.gold : colors.text }]}>{voice.name}</Text>
+                          {voice.quality === 'Enhanced' && (
+                            <View style={{ backgroundColor: `${colors.gold}20`, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3 }}>
+                              <Text style={{ fontSize: 9, color: colors.gold, fontWeight: '600' }}>HD</Text>
+                            </View>
+                          )}
+                        </View>
+                        {active && <MaterialCommunityIcons name="check" size={14} color={colors.gold} />}
+                      </Pressable>
+                    );
+                  })}
+                </>
+              )}
             </View>
           </>
         )}

@@ -332,7 +332,40 @@ export default function SettingsScreen() {
 
         {notifEnabled && (
           <View style={styles.timePicker}>
-            <Text style={styles.timePickerLabel}>알림 시간</Text>
+            {/* 프리셋 시간대 */}
+            <View style={styles.presetRow}>
+              {([
+                { label: '새벽', hour: 5, minute: 0 },
+                { label: '아침', hour: 7, minute: 0 },
+                { label: '점심', hour: 12, minute: 0 },
+                { label: '저녁', hour: 21, minute: 0 },
+              ] as const).map(p => {
+                const active = notifHour === p.hour && notifMinute === p.minute;
+                return (
+                  <Pressable
+                    key={p.label}
+                    style={[styles.presetChip, active && styles.presetChipActive]}
+                    onPress={async () => {
+                      setNotifHour(p.hour);
+                      setNotifMinute(p.minute);
+                      await setSetting('notification_hour', String(p.hour));
+                      await setSetting('notification_minute', String(p.minute));
+                      await scheduleReadingReminder(p.hour, p.minute);
+                    }}
+                  >
+                    <Text style={[styles.presetLabel, active && styles.presetLabelActive]}>
+                      {p.label}
+                    </Text>
+                    <Text style={[styles.presetTime, active && styles.presetTimeActive]}>
+                      {pad(p.hour)}:{pad(p.minute)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* 직접 설정 — 가운데 정렬 */}
+            <Text style={styles.timePickerLabel}>직접 설정</Text>
             <View style={styles.timeRow}>
               <View style={styles.timeUnit}>
                 <Pressable style={styles.timeBtn} onPress={() => changeHour(1)} hitSlop={8}>
@@ -622,8 +655,23 @@ const styles = StyleSheet.create({
     borderTopColor: theme.borderSubtle,
     gap: 12,
   },
-  timePickerLabel: { fontSize: 13, color: theme.textMuted },
-  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  presetRow: {
+    flexDirection: 'row', gap: 8, marginBottom: 16,
+  },
+  presetChip: {
+    flex: 1, alignItems: 'center', paddingVertical: 10,
+    borderRadius: 10, borderWidth: 1, borderColor: theme.borderSubtle,
+    gap: 2,
+  },
+  presetChipActive: {
+    borderColor: theme.gold, backgroundColor: 'rgba(212,168,71,0.1)',
+  },
+  presetLabel: { fontSize: 11, color: theme.textMuted },
+  presetLabelActive: { color: theme.gold },
+  presetTime: { fontSize: 13, fontWeight: '600', color: theme.textSub },
+  presetTimeActive: { color: theme.gold },
+  timePickerLabel: { fontSize: 13, color: theme.textMuted, textAlign: 'center' },
+  timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   timeUnit: { alignItems: 'center', gap: 4 },
   timeBtn: { padding: 4 },
   timeValue: {

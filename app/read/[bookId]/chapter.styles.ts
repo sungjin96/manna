@@ -58,7 +58,7 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    minWidth: 100,
+    minWidth: 160,
   },
   ttsMenuItem: {
     flexDirection: 'row',
@@ -70,6 +70,18 @@ export const styles = StyleSheet.create({
   ttsMenuLabel: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  ttsMenuSection: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  ttsMenuDivider: {
+    height: 1,
+    marginVertical: 4,
   },
 
   // ── Progress strip ────────────────────────────────────────────────────────

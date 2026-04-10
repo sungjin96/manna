@@ -10,6 +10,7 @@ import PaywallSheet from '../../components/PaywallSheet';
 import { theme } from '../../constants/theme';
 
 type AccordionItem =
+  | { type: 'section'; label: string }
   | { type: 'header'; bookId: number }
   | { type: 'chapter'; bookId: number; chapter: number };
 
@@ -46,7 +47,10 @@ export default function ProgressScreen() {
 
   const items = useMemo<AccordionItem[]>(() => {
     const out: AccordionItem[] = [];
+    // 구약/신약 섹션 헤더 삽입
+    out.push({ type: 'section', label: '구약 (39권)' });
     for (const book of BOOKS) {
+      if (book.id === 40) out.push({ type: 'section', label: '신약 (27권)' });
       out.push({ type: 'header', bookId: book.id });
       if (expanded.has(book.id)) {
         for (let ch = 1; ch <= book.chapters; ch++) {
@@ -59,6 +63,14 @@ export default function ProgressScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: AccordionItem }) => {
+      if (item.type === 'section') {
+        return (
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>{item.label}</Text>
+          </View>
+        );
+      }
+
       if (item.type === 'header') {
         const book = BOOKS[item.bookId - 1];
         const doneCount = Array.from({ length: book.chapters }, (_, i) =>
@@ -125,7 +137,9 @@ export default function ProgressScreen() {
       <FlatList
         data={items}
         keyExtractor={item =>
-          item.type === 'header'
+          item.type === 'section'
+            ? `s-${item.label}`
+            : item.type === 'header'
             ? `h-${item.bookId}`
             : `c-${item.bookId}-${item.chapter}`
         }
@@ -209,4 +223,17 @@ const styles = StyleSheet.create({
   },
   chapterNum: { fontSize: 14, color: theme.textSub },
   chapterDone: { color: theme.gold, fontWeight: '600' },
+  sectionHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(212,168,71,0.06)',
+    borderBottomWidth: 1,
+    borderBottomColor: theme.borderSubtle,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.gold,
+    letterSpacing: 0.5,
+  },
 });
