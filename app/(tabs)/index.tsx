@@ -301,17 +301,13 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.wordmark}>MANNA</Text>
-          <Text style={styles.dateLabel}>{todayLabel()}</Text>
+          <View style={styles.headerRight}>
+            <Pressable onPress={() => router.push('/(tabs)/search')} hitSlop={10}>
+              <MaterialCommunityIcons name="magnify" size={20} color={theme.textMuted} />
+            </Pressable>
+            <Text style={styles.dateLabel}>{todayLabel()}</Text>
+          </View>
         </View>
-
-        {/* Search bar — 탭하면 검색 화면으로 이동 */}
-        <Pressable
-          style={styles.searchBar}
-          onPress={() => router.push('/(tabs)/search')}
-        >
-          <MaterialCommunityIcons name="magnify" size={18} color={theme.textMuted} />
-          <Text style={styles.searchPlaceholder}>성경 구절 검색</Text>
-        </Pressable>
 
         {/* Streak hero */}
         <Animated.View style={[styles.streakSection, { opacity: streakOpacity, transform: [{ scale: streakScale }] }]}>
@@ -404,26 +400,24 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* CTA */}
-        <Pressable
-          style={({ pressed }) => [styles.readBtn, pressed && styles.readBtnPressed]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push(`/read/${bookId}/${chapter}`);
-          }}
-        >
-          <View style={styles.readBtnLeft}>
-            <Text style={styles.readBtnEyebrow}>오늘 읽기</Text>
-            <Text style={styles.readBtnTitle}>{book?.name} {chapter}장</Text>
-            <Text style={styles.readBtnSub}>
-              {book?.testament === 'old' ? '구약' : '신약'} · 약 5분
-            </Text>
-          </View>
-          <View style={styles.readBtnArrow}>
-            <MaterialCommunityIcons name="chevron-right" size={22} color={theme.bg} />
-          </View>
-        </Pressable>
       </ScrollView>
+
+      {/* Floating CTA — 항상 보이는 "오늘 읽기" 버튼 */}
+      <Pressable
+        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          router.push(`/read/${bookId}/${chapter}`);
+        }}
+      >
+        <View style={styles.fabLeft}>
+          <Text style={styles.fabTitle}>{book?.name} {chapter}장</Text>
+          <Text style={styles.fabSub}>오늘 읽기</Text>
+        </View>
+        <View style={styles.fabArrow}>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={theme.bg} />
+        </View>
+      </Pressable>
 
       {/* Onboarding modal */}
       <Modal visible={showOnboarding} transparent animationType="fade">
@@ -514,7 +508,7 @@ const styles = StyleSheet.create({
   scroll: {
     padding: 24,
     paddingTop: 60,
-    paddingBottom: 32,
+    paddingBottom: 90, // FAB 높이 확보
   },
 
   header: {
@@ -522,6 +516,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   wordmark: {
     fontSize: 13,
@@ -531,23 +530,6 @@ const styles = StyleSheet.create({
   },
   dateLabel: {
     fontSize: 11,
-    color: theme.textMuted,
-  },
-
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: theme.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: theme.borderSubtle,
-  },
-  searchPlaceholder: {
-    fontSize: 14,
     color: theme.textMuted,
   },
 
@@ -692,50 +674,48 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  readBtn: {
+  // Floating action button
+  fab: {
+    position: 'absolute',
+    bottom: 16,
+    left: 24,
+    right: 24,
     backgroundColor: theme.gold,
-    borderRadius: 18,
-    paddingVertical: 18,
-    paddingHorizontal: 22,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     shadowColor: theme.gold,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
   },
-  readBtnPressed: {
+  fabPressed: {
     backgroundColor: theme.goldDark,
   },
-  readBtnLeft: {
+  fabLeft: {
     flex: 1,
   },
-  readBtnEyebrow: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 2,
-    color: 'rgba(11,10,18,0.6)',
-    textTransform: 'uppercase',
-    marginBottom: 3,
-  },
-  readBtnTitle: {
-    fontSize: 20,
+  fabTitle: {
+    fontSize: 16,
     fontWeight: '800',
     color: theme.bg,
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
-  readBtnSub: {
-    fontSize: 11,
+  fabSub: {
+    fontSize: 10,
     color: 'rgba(11,10,18,0.5)',
-    marginTop: 3,
-    letterSpacing: 0.2,
+    marginTop: 1,
+    letterSpacing: 0.3,
   },
-  readBtnArrow: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(11,10,18,0.15)',
+  fabArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(11,10,18,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
