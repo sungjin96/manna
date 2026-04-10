@@ -87,17 +87,17 @@ export default function ReadingHistoryScreen() {
         {/* 통계 카드 */}
         <View style={s.statsRow}>
           <View style={s.statCard}>
-            <Text style={s.statEmoji}>🔥</Text>
+            <MaterialCommunityIcons name="fire" size={22} color={theme.gold} style={{ marginBottom: 2 }} />
             <Text style={s.statValue}>{stats?.currentStreak ?? 0}</Text>
             <Text style={s.statLabel}>연속 읽기</Text>
           </View>
           <View style={s.statCard}>
-            <Text style={s.statEmoji}>🏆</Text>
+            <MaterialCommunityIcons name="trophy-outline" size={22} color={theme.gold} style={{ marginBottom: 2 }} />
             <Text style={s.statValue}>{stats?.longestStreak ?? 0}</Text>
             <Text style={s.statLabel}>최장 기록</Text>
           </View>
           <View style={s.statCard}>
-            <Text style={s.statEmoji}>📖</Text>
+            <MaterialCommunityIcons name="calendar-check-outline" size={22} color={theme.gold} style={{ marginBottom: 2 }} />
             <Text style={s.statValue}>{yearDays}</Text>
             <Text style={s.statLabel}>올해 읽은 날</Text>
           </View>
@@ -173,7 +173,6 @@ const s = StyleSheet.create({
     backgroundColor: theme.surface, borderRadius: 14, paddingVertical: 16,
     borderWidth: 1, borderColor: theme.border,
   },
-  statEmoji: { fontSize: 22, marginBottom: 2 },
   statValue: { fontSize: 24, fontWeight: '800', color: theme.gold },
   statLabel: { fontSize: 11, color: theme.textMuted },
 
