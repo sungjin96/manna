@@ -604,7 +604,16 @@ export default function ReadScreen() {
           styles.verseRow,
           inSelection && { backgroundColor: `${colors.gold}20`, borderRadius: 6 },
           isTTSActive && { backgroundColor: `${colors.gold}12` },
-          isHighlighted && { backgroundColor: `${colors.gold}25`, borderRadius: 6 },
+          isHighlighted && {
+            borderRadius: 8,
+            borderWidth: 1.5,
+            borderColor: colors.gold,
+            shadowColor: colors.gold,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.6,
+            shadowRadius: 8,
+            elevation: 6,
+          },
         ]}
       >
         <View style={{ alignItems: 'center' }}>
