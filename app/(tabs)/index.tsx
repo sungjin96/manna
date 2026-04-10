@@ -207,13 +207,13 @@ export default function HomeScreen() {
     }
   }, [stats.currentStreak]);
 
-  // FAB bouncy spring loop
+  // FAB soft bounce loop
   useEffect(() => {
     const bounce = Animated.loop(
       Animated.sequence([
-        Animated.timing(fabBounce, { toValue: -6, duration: 400, useNativeDriver: true }),
-        Animated.spring(fabBounce, { toValue: 0, friction: 3, tension: 200, useNativeDriver: true }),
-        Animated.delay(2000),
+        Animated.timing(fabBounce, { toValue: -3, duration: 500, useNativeDriver: true }),
+        Animated.spring(fabBounce, { toValue: 0, friction: 5, tension: 120, useNativeDriver: true }),
+        Animated.delay(800),
       ])
     );
     bounce.start();
