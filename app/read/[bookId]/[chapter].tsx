@@ -197,7 +197,7 @@ export default function ReadScreen() {
         didAutoScroll.current = true;
         setTimeout(() => {
           flatListRef.current?.scrollToIndex({
-            index: idx, animated: true, viewOffset: 0,
+            index: idx, animated: true, viewOffset: HEADER_FULL_H + 12,
           });
           // 스크롤 후 잠시 빛나기
           setTimeout(() => {
