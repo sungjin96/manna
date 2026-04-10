@@ -1,4 +1,4 @@
-import { generateMeditationPrompts, aiErrorMessage } from '../../utils/ai-meditation';
+import { generateMeditationPrompts, generateExplanation, generatePrayer, aiErrorMessage } from '../../utils/ai-meditation';
 
 const MOCK_VERSES = [
   { verse: 1, text: '태초에 하나님이 천지를 창조하시니라' },
@@ -127,5 +127,93 @@ describe('aiErrorMessage', () => {
 
   test('parse_error 메시지 포함 "오류"', () => {
     expect(aiErrorMessage('parse_error')).toContain('오류');
+  });
+});
+
+// ── generateExplanation ───────────────────────────────────────────────────────
+
+describe('generateExplanation — DEV 모드', () => {
+  test('__DEV__ = true 이면 mock 데이터 반환', async () => {
+    const result = await generateExplanation(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
+    expect(result.error).toBeNull();
+    expect(result.data?.background).toBeTruthy();
+    expect(result.data?.originalWord).toBeTruthy();
+    expect(result.data?.theology).toBeTruthy();
+  });
+});
+
+describe('generateExplanation — Worker 응답 파싱', () => {
+  const originalDev = (global as any).__DEV__;
+  beforeEach(() => { (global as any).__DEV__ = false; });
+  afterEach(() => { (global as any).__DEV__ = originalDev; });
+
+  test('정상 응답: ExplanationResult 반환', async () => {
+    mockFetch(makeResponse({
+      background: '배경 설명',
+      originalWord: '원어 설명',
+      theology: '신학적 핵심',
+    }));
+    const result = await generateExplanation(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
+    expect(result.error).toBeNull();
+    expect(result.data).toMatchObject({ background: '배경 설명', originalWord: '원어 설명', theology: '신학적 핵심' });
+  });
+
+  test('필드 누락 응답 → parse_error', async () => {
+    mockFetch(makeResponse({ background: '배경만 있음' }));
+    const result = await generateExplanation(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
+    expect(result).toEqual({ data: null, error: 'parse_error' });
+  });
+
+  test('403 응답 → no_subscription', async () => {
+    mockFetch(makeResponse({}, false, 403));
+    const result = await generateExplanation(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
+    expect(result).toEqual({ data: null, error: 'no_subscription' });
+  });
+
+  test('빈 appUserId → no_subscription', async () => {
+    const result = await generateExplanation(MOCK_VERSES, MOCK_VERSE_REF, '');
+    expect(result).toEqual({ data: null, error: 'no_subscription' });
+  });
+});
+
+// ── generatePrayer ────────────────────────────────────────────────────────────
+
+describe('generatePrayer — DEV 모드', () => {
+  test('__DEV__ = true 이면 기도문 문자열 반환', async () => {
+    const result = await generatePrayer(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
+    expect(result.error).toBeNull();
+    expect(typeof result.data).toBe('string');
+    expect(result.data?.length).toBeGreaterThan(10);
+  });
+});
+
+describe('generatePrayer — Worker 응답 파싱', () => {
+  const originalDev = (global as any).__DEV__;
+  beforeEach(() => { (global as any).__DEV__ = false; });
+  afterEach(() => { (global as any).__DEV__ = originalDev; });
+
+  test('정상 응답: prayer 문자열 반환', async () => {
+    mockFetch(makeResponse({ prayer: '주님께 기도합니다. 아멘.' }));
+    const result = await generatePrayer(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
+    expect(result.error).toBeNull();
+    expect(result.data).toBe('주님께 기도합니다. 아멘.');
+  });
+
+  test('prayer 필드 없는 응답 → parse_error', async () => {
+    mockFetch(makeResponse({ text: '기도문' }));
+    const result = await generatePrayer(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
+    expect(result).toEqual({ data: null, error: 'parse_error' });
+  });
+
+  test('5xx 응답 → api_error', async () => {
+    mockFetch(makeResponse({}, false, 500));
+    const result = await generatePrayer(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
+    expect(result).toEqual({ data: null, error: 'api_error' });
+  });
+
+  test('네트워크 오류 → network_error', async () => {
+    mockFetchReject(new Error('Network request failed'));
+    const result = await generatePrayer(MOCK_VERSES, MOCK_VERSE_REF, MOCK_USER_ID);
+    expect(result).toEqual({ data: null, error: 'network_error' });
   });
 });

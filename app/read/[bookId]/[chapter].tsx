@@ -34,16 +34,19 @@ import {
 import { getStats } from '../../../db/stats';
 import { saveMeditation, getMeditationsForChapter, getMeditationCount, type Meditation } from '../../../db/meditations';
 import { getSetting, setSetting } from '../../../db/settings';
-import { getAICache, setAICache } from '../../../db/ai_cache';
-import { generateMeditationPrompts, aiErrorMessage } from '../../../utils/ai-meditation';
+import { getAICache, setAICache, getAITypeCache, setAITypeCache, clearAITypeCache, getDailyRefreshCount, incrementDailyRefresh, getDailyAILimit } from '../../../db/ai_cache';
+import {
+  generateMeditationPrompts, generateExplanation, generatePrayer,
+  aiErrorMessage, type ExplanationResult,
+} from '../../../utils/ai-meditation';
 import { getAppUserId, checkAIEntitlement, purchasePremium } from '../../../utils/subscriptions';
 import { BOOKS } from '../../../constants/books';
 import { styles, HEADER_H, PROGRESS_H } from './chapter.styles';
 import { BADGES, BOOK_BADGES } from '../../../app/(tabs)/achievements';
-import { useBadgeToast } from '../../../hooks/useBadgeToast';
+import { useShowBadgeToast } from '../../../contexts/BadgeToastContext';
 import { useTutorial } from '../../../hooks/useTutorial';
-import { BadgeToast } from '../../../components/BadgeToast';
 import { ReadingTutorial } from '../../../components/ReadingTutorial';
+import PaywallSheet from '../../../components/PaywallSheet';
 
 // ── Helper ─────────────────────────────────────────────────────────────────
 function nextAfter(bookId: number, chapter: number): { bookId: number; chapter: number } {
@@ -86,6 +89,15 @@ export default function ReadScreen() {
   const [aiLoading, setAiLoading] = useState(false);
   const [showAiSheet, setShowAiSheet] = useState(false);
   const [aiVerseRef, setAiVerseRef] = useState('');
+  const [aiTab, setAiTab] = useState<'meditate' | 'explain' | 'prayer'>('meditate');
+  const [aiSelectedVerses, setAiSelectedVerses] = useState<Array<{ verse: number; text: string }>>([]);
+  const [aiExplanation, setAiExplanation] = useState<ExplanationResult | null>(null);
+  const [aiExplainLoading, setAiExplainLoading] = useState(false);
+  const [aiExplainError, setAiExplainError] = useState<string | null>(null);
+  const [aiPrayer, setAiPrayer] = useState<string | null>(null);
+  const [aiPrayerLoading, setAiPrayerLoading] = useState(false);
+  const [aiPrayerError, setAiPrayerError] = useState<string | null>(null);
+  const [aiDailyRefreshCount, setAiDailyRefreshCount] = useState(0);
   const [streakMilestone, setStreakMilestone] = useState<number | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallLoading, setPaywallLoading] = useState(false);
@@ -133,8 +145,10 @@ export default function ReadScreen() {
 
   const { showConfetti, particles, fireConfetti } = useConfetti();
 
-  // Feature 4: Badge toast
-  const { toastItem, toastY, showBadgeToast, dismissToast } = useBadgeToast();
+  // Feature 4: Badge toast (global context — persists across navigation)
+  const showBadgeToast = useShowBadgeToast();
+  // AI 선택 구절 범위 (새로고침용)
+  const aiVerseRange = useRef<{ start: number; end: number } | null>(null);
   // Feature 1: Tutorial
   const { isActive: tutorialActive, step: tutorialStep, overlayOpacity: tutorialOpacity, advanceStep: tutorialAdvance, dismiss: tutorialDismiss } = useTutorial();
 
@@ -226,6 +240,11 @@ export default function ReadScreen() {
   // ── Verse interactions ────────────────────────────────────────────────────
   async function handleVerseTap(verseNum: number) {
     if (selectionMode) {
+      // 단일 선택 상태에서 같은 절을 다시 탭하면 선택 취소
+      if (selectionRange && selectionRange.start === verseNum && selectionRange.end === verseNum) {
+        cancelSelection();
+        return;
+      }
       setSelectionRange(prev => {
         if (!prev) return { start: verseNum, end: verseNum };
         return { start: Math.min(prev.start, verseNum), end: Math.max(prev.end, verseNum) };
@@ -275,39 +294,22 @@ export default function ReadScreen() {
   async function openAIMeditation() {
     if (!selectionRange || !verses) return;
 
-    const entitled = await checkAIEntitlement();
-    if (!entitled) {
-      cancelSelection();
-      setShowPaywall(true);
-      return;
-    }
-
     const selected = verses.filter(v => v.verse >= selectionRange.start && v.verse <= selectionRange.end);
     const ref = `${book?.name} ${chapter}:${selectionRange.start}${selectionRange.start !== selectionRange.end ? `–${selectionRange.end}` : ''}`;
     setAiVerseRef(ref);
+    setAiSelectedVerses(selected);
     cancelSelection();
-    setShowAiSheet(true);
+    // 선택 범위 저장 (새로고침용)
+    aiVerseRange.current = { start: selectionRange.start, end: selectionRange.end };
+    // Reset all tab state — 기능 선택 후 로드 (자동 호출 없음)
+    setAiTab('meditate');
     setAiPrompts(null);
-    setAiLoading(true);
-
-    // Check cache first
-    const cached = await getAICache(bookId, chapter, selectionRange.start, selectionRange.end);
-    if (cached) {
-      setAiPrompts(cached);
-      setAiLoading(false);
-      return;
-    }
-
-    const appUserId = await getAppUserId();
-    const result = await generateMeditationPrompts(selected, ref, appUserId);
-
-    if (result.data) {
-      setAiPrompts(result.data.prompts);
-      await setAICache(bookId, chapter, result.data.prompts, selectionRange.start, selectionRange.end);
-    } else {
-      setAiPrompts([aiErrorMessage(result.error!)]);
-    }
+    setAiExplanation(null);
+    setAiPrayer(null);
     setAiLoading(false);
+    setShowAiSheet(true);
+    // 오늘 남은 횟수 로드
+    getDailyRefreshCount().then(c => setAiDailyRefreshCount(c));
   }
 
   // 묵상 시트 안에서 AI 질문 생성 (Pro 전용)
@@ -332,6 +334,99 @@ export default function ReadScreen() {
     if (result.data) {
       await setAICache(bookId, chapter, result.data.prompts, start, end);
       setQaEntries(result.data.prompts.map(q => ({ q, a: '' })));
+    }
+  }
+
+  async function handleAiTabChange(tab: 'meditate' | 'explain' | 'prayer') {
+    setAiTab(tab);
+    const dailyLimit = getDailyAILimit(isProUser);
+    const appUserId = await getAppUserId();
+
+    const { start, end } = aiVerseRange.current ?? {};
+
+    if (tab === 'meditate' && !aiPrompts && !aiLoading) {
+      // 캐시 확인
+      const cached = await getAICache(bookId, chapter, start, end);
+      if (cached) { setAiPrompts(cached); return; }
+
+      // 캐시 미스 → 일일 한도 확인
+      const currentCount = await getDailyRefreshCount();
+      if (currentCount >= dailyLimit) {
+        setAiPrompts([`오늘 AI 조회 횟수(${dailyLimit}회)를 모두 사용했습니다. 내일 다시 시도해주세요.`]);
+        return;
+      }
+
+      // 무료 유저는 구독 체크 (Pro는 이미 확인됨)
+      if (!isProUser) {
+        const entitled = await checkAIEntitlement();
+        if (entitled) setIsProUser(true);
+      }
+
+      setAiLoading(true);
+      const result = await generateMeditationPrompts(aiSelectedVerses, aiVerseRef, appUserId);
+      if (result.data) {
+        setAiPrompts(result.data.prompts);
+        await setAICache(bookId, chapter, result.data.prompts, start, end);
+        const newCount = await incrementDailyRefresh();
+        setAiDailyRefreshCount(newCount);
+      } else {
+        setAiPrompts([aiErrorMessage(result.error!)]);
+      }
+      setAiLoading(false);
+    }
+
+    if (tab === 'explain' && !aiExplanation && !aiExplainLoading) {
+      // 캐시 확인
+      const cached = await getAITypeCache<ExplanationResult>(
+        'explain', bookId, chapter, start, end
+      );
+      if (cached) { setAiExplanation(cached); return; }
+
+      // 캐시 미스 → 일일 한도 확인
+      const currentCount = await getDailyRefreshCount();
+      if (currentCount >= dailyLimit) {
+        setAiExplainError(`오늘 AI 조회 횟수(${dailyLimit}회)를 모두 사용했습니다.`);
+        return;
+      }
+
+      setAiExplainError(null);
+      setAiExplainLoading(true);
+      const result = await generateExplanation(aiSelectedVerses, aiVerseRef, appUserId);
+      setAiExplainLoading(false);
+      if (result.data) {
+        setAiExplanation(result.data);
+        await setAITypeCache('explain', bookId, chapter, result.data, start, end);
+        const newCount = await incrementDailyRefresh();
+        setAiDailyRefreshCount(newCount);
+      } else {
+        setAiExplainError(result.error ?? 'unknown_error');
+      }
+    }
+
+    if (tab === 'prayer' && !aiPrayer && !aiPrayerLoading) {
+      // 캐시 확인
+      const cached = await getAITypeCache<string>('prayer', bookId, chapter, start, end);
+      if (cached) { setAiPrayer(cached); return; }
+
+      // 캐시 미스 → 일일 한도 확인
+      const currentCount = await getDailyRefreshCount();
+      if (currentCount >= dailyLimit) {
+        setAiPrayerError(`오늘 AI 조회 횟수(${dailyLimit}회)를 모두 사용했습니다.`);
+        return;
+      }
+
+      setAiPrayerError(null);
+      setAiPrayerLoading(true);
+      const result = await generatePrayer(aiSelectedVerses, aiVerseRef, appUserId);
+      setAiPrayerLoading(false);
+      if (result.data) {
+        setAiPrayer(result.data);
+        await setAITypeCache('prayer', bookId, chapter, result.data, start, end);
+        const newCount = await incrementDailyRefresh();
+        setAiDailyRefreshCount(newCount);
+      } else {
+        setAiPrayerError(result.error ?? 'unknown_error');
+      }
     }
   }
 
@@ -917,43 +1012,12 @@ export default function ReadScreen() {
         </Modal>
 
         {/* Paywall 바텀시트 */}
-        <Modal visible={showPaywall} transparent animationType="slide">
-          <View style={aiStyles.overlay}>
-            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowPaywall(false)} />
-            <View style={[paywallStyles.sheet, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-              <View style={aiStyles.handle}>
-                <View style={[aiStyles.handleBar, { backgroundColor: colors.muted }]} />
-              </View>
-              <MaterialCommunityIcons name="star-circle" size={40} color={colors.gold} style={{ alignSelf: 'center', marginBottom: 8 }} />
-              <Text style={[paywallStyles.title, { color: colors.text }]}>Manna Pro</Text>
-              <Text style={[paywallStyles.subtitle, { color: colors.muted }]}>AI가 당신의 말씀을{'\n'}알아가는 경험</Text>
-              <View style={[paywallStyles.benefits, { borderColor: colors.border }]}>
-                {[
-                  'AI 묵상 질문 무제한',
-                  '감정 기반 말씀 추천',
-                  '읽기 통계 강화',
-                ].map((b, i) => (
-                  <View key={i} style={paywallStyles.benefitRow}>
-                    <MaterialCommunityIcons name="check-circle" size={18} color={colors.gold} />
-                    <Text style={[paywallStyles.benefitText, { color: colors.text }]}>{b}</Text>
-                  </View>
-                ))}
-              </View>
-              <Pressable
-                style={[paywallStyles.buyBtn, { backgroundColor: colors.gold }, paywallLoading && { opacity: 0.6 }]}
-                onPress={handlePurchase}
-                disabled={paywallLoading}
-              >
-                <Text style={[paywallStyles.buyBtnText, { color: colors.bg }]}>
-                  {paywallLoading ? '처리 중...' : '₩3,300 / 월 구독하기'}
-                </Text>
-              </Pressable>
-              <Pressable onPress={() => setShowPaywall(false)} style={paywallStyles.skipBtn}>
-                <Text style={[paywallStyles.skipText, { color: colors.muted }]}>나중에</Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
+        <PaywallSheet
+          visible={showPaywall}
+          onClose={() => setShowPaywall(false)}
+          onPurchase={handlePurchase}
+          loading={paywallLoading}
+        />
 
         {/* Feature 2: Meditation markers popup */}
         <Modal visible={meditationPopupVerse !== null} transparent animationType="fade">
@@ -993,7 +1057,7 @@ export default function ReadScreen() {
           </View>
         </Modal>
 
-        {/* AI 묵상 시트 */}
+        {/* AI 시트 (묵상 질문 / 구절 해설 / 기도문) */}
         <Modal visible={showAiSheet} transparent animationType="slide">
           <View style={aiStyles.overlay}>
             <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowAiSheet(false)} />
@@ -1001,54 +1065,215 @@ export default function ReadScreen() {
               <View style={aiStyles.handle}>
                 <View style={[aiStyles.handleBar, { backgroundColor: colors.muted }]} />
               </View>
-              <View style={aiStyles.header}>
-                <MaterialCommunityIcons name="robot-outline" size={20} color={colors.gold} />
-                <Text style={[aiStyles.title, { color: colors.text }]}>AI 묵상 질문</Text>
-              </View>
-              <Text style={[aiStyles.ref, { color: colors.gold }]}>{aiVerseRef}</Text>
 
-              {aiLoading ? (
-                <View style={aiStyles.loading}>
-                  <Text style={[aiStyles.loadingText, { color: colors.muted }]}>묵상 질문을 생성하는 중...</Text>
-                </View>
-              ) : (
-                <View style={aiStyles.prompts}>
-                  {aiPrompts?.map((prompt, i) => (
-                    <View key={i} style={[aiStyles.promptRow, { borderColor: colors.border }]}>
-                      <Text style={[aiStyles.promptNum, { color: colors.gold }]}>{i + 1}</Text>
-                      <Text style={[aiStyles.promptText, { color: colors.text }]}>{prompt}</Text>
-                    </View>
-                  ))}
+              {/* 탭 헤더 */}
+              <View style={[aiStyles.tabs, { borderBottomColor: colors.border }]}>
+                {([
+                  { key: 'meditate', label: '묵상 질문', icon: 'brain' },
+                  { key: 'explain',  label: '구절 해설', icon: 'book-open-page-variant' },
+                  { key: 'prayer',   label: '기도문',    icon: 'hands-pray' },
+                ] as const).map(tab => (
+                  <Pressable
+                    key={tab.key}
+                    style={[aiStyles.tab, aiTab === tab.key && { borderBottomColor: colors.gold, borderBottomWidth: 2 }]}
+                    onPress={() => handleAiTabChange(tab.key)}
+                  >
+                    <MaterialCommunityIcons
+                      name={tab.icon}
+                      size={14}
+                      color={aiTab === tab.key ? colors.gold : colors.muted}
+                    />
+                    <Text style={[aiStyles.tabLabel, { color: aiTab === tab.key ? colors.gold : colors.muted }]}>
+                      {tab.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={[aiStyles.ref, { color: colors.gold, marginBottom: 0 }]}>{aiVerseRef}</Text>
+                <Text style={{ fontSize: 11, color: colors.muted }}>
+                  오늘 {Math.max(0, getDailyAILimit(isProUser) - aiDailyRefreshCount)}회 남음
+                </Text>
+              </View>
+
+              {/* 탭 콘텐츠 */}
+              {aiTab === 'meditate' && (
+                aiLoading ? (
+                  <View style={aiStyles.loading}>
+                    <ActivityIndicator color={colors.gold} size="small" />
+                    <Text style={[aiStyles.loadingText, { color: colors.muted }]}>묵상 질문 생성 중...</Text>
+                  </View>
+                ) : aiPrompts ? (
+                  <View style={aiStyles.prompts}>
+                    {aiPrompts.map((prompt, i) => (
+                      <View key={i} style={[aiStyles.promptRow, { borderColor: colors.border }]}>
+                        <Text style={[aiStyles.promptNum, { color: colors.gold }]}>{i + 1}</Text>
+                        <Text style={[aiStyles.promptText, { color: colors.text }]}>{prompt}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={aiStyles.loading}>
+                    <Pressable onPress={() => handleAiTabChange('meditate')} hitSlop={12}>
+                      <MaterialCommunityIcons name="brain" size={28} color={colors.gold} style={{ marginBottom: 8, alignSelf: 'center' }} />
+                      <Text style={[aiStyles.loadingText, { color: colors.gold, textAlign: 'center' }]}>탭하여 묵상 질문 생성</Text>
+                    </Pressable>
+                  </View>
+                )
+              )}
+
+              {aiTab === 'explain' && (
+                aiExplainLoading ? (
+                  <View style={aiStyles.loading}>
+                    <ActivityIndicator color={colors.gold} size="small" />
+                    <Text style={[aiStyles.loadingText, { color: colors.muted }]}>구절 해설 생성 중...</Text>
+                  </View>
+                ) : aiExplanation ? (
+                  <ScrollView style={aiStyles.explainScroll} showsVerticalScrollIndicator={false}>
+                    {([
+                      { label: '역사적 배경', value: aiExplanation.background },
+                      { label: '원어 의미',   value: aiExplanation.originalWord },
+                      { label: '신학적 핵심', value: aiExplanation.theology },
+                    ]).map(({ label, value }) => (
+                      <View key={label} style={[aiStyles.explainCard, { borderColor: colors.border }]}>
+                        <Text style={[aiStyles.explainLabel, { color: colors.gold }]}>{label}</Text>
+                        <Text style={[aiStyles.explainText, { color: colors.text }]}>{value}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <View style={aiStyles.loading}>
+                    {aiExplainError ? (
+                      <>
+                        <Text style={[aiStyles.loadingText, { color: '#FF6B6B' }]}>오류: {aiExplainError}</Text>
+                        <Pressable onPress={() => { setAiExplainError(null); handleAiTabChange('explain'); }} hitSlop={8}>
+                          <Text style={[aiStyles.loadingText, { color: colors.gold, marginTop: 8 }]}>다시 시도</Text>
+                        </Pressable>
+                      </>
+                    ) : (
+                      <Pressable onPress={() => handleAiTabChange('explain')} hitSlop={12}>
+                        <MaterialCommunityIcons name="book-open-page-variant" size={28} color={colors.gold} style={{ marginBottom: 8, alignSelf: 'center' }} />
+                        <Text style={[aiStyles.loadingText, { color: colors.gold, textAlign: 'center' }]}>탭하여 구절 해설 생성</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )
+              )}
+
+              {aiTab === 'prayer' && (
+                aiPrayerLoading ? (
+                  <View style={aiStyles.loading}>
+                    <ActivityIndicator color={colors.gold} size="small" />
+                    <Text style={[aiStyles.loadingText, { color: colors.muted }]}>기도문 생성 중...</Text>
+                  </View>
+                ) : aiPrayer ? (
+                  <View style={[aiStyles.prayerCard, { borderColor: colors.border }]}>
+                    <MaterialCommunityIcons name="hands-pray" size={18} color={colors.gold} style={{ marginBottom: 10 }} />
+                    <Text style={[aiStyles.prayerText, { color: colors.text }]}>{aiPrayer}</Text>
+                  </View>
+                ) : (
+                  <View style={aiStyles.loading}>
+                    {aiPrayerError ? (
+                      <>
+                        <Text style={[aiStyles.loadingText, { color: '#FF6B6B' }]}>오류: {aiPrayerError}</Text>
+                        <Pressable onPress={() => { setAiPrayerError(null); handleAiTabChange('prayer'); }} hitSlop={8}>
+                          <Text style={[aiStyles.loadingText, { color: colors.gold, marginTop: 8 }]}>다시 시도</Text>
+                        </Pressable>
+                      </>
+                    ) : (
+                      <Pressable onPress={() => handleAiTabChange('prayer')} hitSlop={12}>
+                        <MaterialCommunityIcons name="hands-pray" size={28} color={colors.gold} style={{ marginBottom: 8, alignSelf: 'center' }} />
+                        <Text style={[aiStyles.loadingText, { color: colors.gold, textAlign: 'center' }]}>탭하여 기도문 생성</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )
+              )}
+
+              {/* 새로고침 버튼 + 카운터 — 결과가 있고 로딩 중 아닐 때 */}
+              {((aiTab === 'meditate' && !aiLoading && aiPrompts) ||
+                (aiTab === 'explain' && !aiExplainLoading && aiExplanation) ||
+                (aiTab === 'prayer' && !aiPrayerLoading && aiPrayer)) && (
+                <View style={aiStyles.refreshRow}>
+                  <Pressable
+                    style={[aiStyles.refreshBtn, aiDailyRefreshCount >= getDailyAILimit(isProUser) && { opacity: 0.4 }]}
+                    disabled={aiDailyRefreshCount >= getDailyAILimit(isProUser)}
+                    onPress={async () => {
+                      const { start, end } = aiVerseRange.current ?? {};
+                      const appUserId = await getAppUserId();
+                      if (aiTab === 'meditate') {
+                        await clearAITypeCache('meditate', bookId, chapter, start, end);
+                        setAiPrompts(null);
+                        setAiLoading(true);
+                        const result = await generateMeditationPrompts(aiSelectedVerses, aiVerseRef, appUserId);
+                        if (result.data) {
+                          setAiPrompts(result.data.prompts);
+                          await setAICache(bookId, chapter, result.data.prompts, start, end);
+                          const c = await incrementDailyRefresh();
+                          setAiDailyRefreshCount(c);
+                        }
+                        setAiLoading(false);
+                      } else if (aiTab === 'explain') {
+                        await clearAITypeCache('explain', bookId, chapter, start, end);
+                        setAiExplanation(null);
+                        setAiExplainLoading(true);
+                        const result = await generateExplanation(aiSelectedVerses, aiVerseRef, appUserId);
+                        setAiExplainLoading(false);
+                        if (result.data) {
+                          setAiExplanation(result.data);
+                          await setAITypeCache('explain', bookId, chapter, result.data, start, end);
+                          const c = await incrementDailyRefresh();
+                          setAiDailyRefreshCount(c);
+                        }
+                      } else if (aiTab === 'prayer') {
+                        await clearAITypeCache('prayer', bookId, chapter, start, end);
+                        setAiPrayer(null);
+                        setAiPrayerLoading(true);
+                        const result = await generatePrayer(aiSelectedVerses, aiVerseRef, appUserId);
+                        setAiPrayerLoading(false);
+                        if (result.data) {
+                          setAiPrayer(result.data);
+                          await setAITypeCache('prayer', bookId, chapter, result.data, start, end);
+                          const c = await incrementDailyRefresh();
+                          setAiDailyRefreshCount(c);
+                        }
+                      }
+                    }}
+                  >
+                    <MaterialCommunityIcons name="refresh" size={13} color={colors.muted} />
+                    <Text style={[aiStyles.refreshText, { color: colors.muted }]}>재조회</Text>
+                  </Pressable>
+                  <Text style={[aiStyles.refreshCount, { color: colors.muted }]}>
+                    오늘 {getDailyAILimit(isProUser) - aiDailyRefreshCount}회 남음
+                  </Text>
                 </View>
               )}
 
-              <Pressable
-                style={[aiStyles.writeBtn, { backgroundColor: colors.gold }]}
-                onPress={() => {
-                  setShowAiSheet(false);
-                  setMeditationVerse(null);
-                  if (isProUser && aiPrompts && aiPrompts.length > 0) {
-                    // Pro: Q&A 모드로 AI 질문 자동 입력
-                    setMeditationMode('qa');
-                    setQaEntries(aiPrompts.map(q => ({ q, a: '' })));
-                    setNote('');
-                  } else {
-                    setMeditationMode('basic');
-                    setNote(aiPrompts ? `[AI 질문] ${aiPrompts[0]}\n\n` : '');
-                  }
-                  openMeditationSheet();
-                }}
-              >
-                <Text style={[aiStyles.writeBtnText, { color: colors.bg }]}>묵상 기록하기</Text>
-              </Pressable>
+              {/* 묵상 기록 버튼 — 묵상 질문 탭에서만 */}
+              {aiTab === 'meditate' && !aiLoading && aiPrompts && (
+                <Pressable
+                  style={[aiStyles.writeBtn, { backgroundColor: colors.gold }]}
+                  onPress={() => {
+                    setShowAiSheet(false);
+                    setMeditationVerse(null);
+                    if (isProUser && aiPrompts.length > 0) {
+                      setMeditationMode('qa');
+                      setQaEntries(aiPrompts.map(q => ({ q, a: '' })));
+                      setNote('');
+                    } else {
+                      setMeditationMode('basic');
+                      setNote(`[AI 질문] ${aiPrompts[0]}\n\n`);
+                    }
+                    openMeditationSheet();
+                  }}
+                >
+                  <Text style={[aiStyles.writeBtnText, { color: colors.bg }]}>묵상 기록하기</Text>
+                </Pressable>
+              )}
             </View>
           </View>
         </Modal>
-        {/* Feature 4: Badge toast */}
-        {toastItem && (
-          <BadgeToast item={toastItem} toastY={toastY} onDismiss={dismissToast} />
-        )}
-
         {/* Feature 1: Reading tutorial */}
         {tutorialActive && (
           <ReadingTutorial
@@ -1072,23 +1297,49 @@ const aiStyles = StyleSheet.create({
   },
   handle: { alignItems: 'center', paddingVertical: 12 },
   handleBar: { width: 40, height: 4, borderRadius: 2 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  title: { fontSize: 18, fontWeight: '800' },
-  ref: { fontSize: 13, marginBottom: 16 },
-  loading: { paddingVertical: 24, alignItems: 'center' },
-  loadingText: { fontSize: 14 },
-  prompts: { gap: 12, marginBottom: 24 },
+  // Tab bar
+  tabs: {
+    flexDirection: 'row',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: 12,
+  },
+  tab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingVertical: 10, marginBottom: -StyleSheet.hairlineWidth,
+  },
+  tabLabel: { fontSize: 12, fontWeight: '600' },
+  ref: { fontSize: 12, marginBottom: 12 },
+  loading: { paddingVertical: 24, alignItems: 'center', gap: 8 },
+  loadingText: { fontSize: 13 },
+  // Meditate tab
+  prompts: { gap: 10, marginBottom: 20 },
   promptRow: {
     flexDirection: 'row', gap: 12,
-    borderWidth: 1, borderRadius: 12,
-    padding: 14,
+    borderWidth: 1, borderRadius: 12, padding: 14,
   },
   promptNum: { fontSize: 16, fontWeight: '700', width: 20, lineHeight: 22 },
-  promptText: { flex: 1, fontSize: 15, lineHeight: 22 },
-  writeBtn: {
-    paddingVertical: 16, borderRadius: 14, alignItems: 'center',
+  promptText: { flex: 1, fontSize: 14, lineHeight: 21 },
+  // Explain tab
+  explainScroll: { maxHeight: 280, marginBottom: 12 },
+  explainCard: {
+    borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 10,
   },
-  writeBtnText: { fontSize: 16, fontWeight: '700' },
+  explainLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 6 },
+  explainText: { fontSize: 14, lineHeight: 21 },
+  // Prayer tab
+  prayerCard: {
+    borderWidth: 1, borderRadius: 14, padding: 18,
+    alignItems: 'center', marginBottom: 16,
+  },
+  prayerText: { fontSize: 14, lineHeight: 23, textAlign: 'center' },
+  // CTA
+  writeBtn: { paddingVertical: 15, borderRadius: 14, alignItems: 'center' },
+  writeBtnText: { fontSize: 15, fontWeight: '700' },
+  // 재조회
+  refreshRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2, marginBottom: 8 },
+  refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
+  refreshText: { fontSize: 12 },
+  refreshCount: { fontSize: 11 },
 });
 
 const meditStyles = StyleSheet.create({
@@ -1150,28 +1401,6 @@ const meditStyles = StyleSheet.create({
   bottomNavChapter: { fontSize: 13 },
 });
 
-const paywallStyles = StyleSheet.create({
-  sheet: {
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 24, paddingBottom: 40,
-    borderTopWidth: 1, alignItems: 'center',
-  },
-  title: { fontSize: 24, fontWeight: '900', marginBottom: 4 },
-  subtitle: { fontSize: 15, textAlign: 'center', marginBottom: 20, lineHeight: 22 },
-  benefits: {
-    width: '100%', borderWidth: 1, borderRadius: 16,
-    padding: 16, gap: 12, marginBottom: 24,
-  },
-  benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  benefitText: { fontSize: 15 },
-  buyBtn: {
-    width: '100%', paddingVertical: 16,
-    borderRadius: 14, alignItems: 'center', marginBottom: 12,
-  },
-  buyBtnText: { fontSize: 16, fontWeight: '700' },
-  skipBtn: { paddingVertical: 8 },
-  skipText: { fontSize: 14 },
-});
 
 const meditPopupStyles = StyleSheet.create({
   container: {

@@ -1,9 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BOOKS } from '../../constants/books';
 import { useReadingProgress } from '../../hooks/useReadingProgress';
+import { checkAIEntitlement, purchasePremium } from '../../utils/subscriptions';
+import StreakHeatmap from '../../components/StreakHeatmap';
+import PaywallSheet from '../../components/PaywallSheet';
 import { theme } from '../../constants/theme';
 
 type AccordionItem =
@@ -14,6 +17,23 @@ export default function ProgressScreen() {
   const router = useRouter();
   const { completed, loading } = useReadingProgress();
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [isPro, setIsPro] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallLoading, setPaywallLoading] = useState(false);
+
+  useEffect(() => {
+    checkAIEntitlement().then(setIsPro).catch(() => {});
+  }, []);
+
+  async function handlePurchase() {
+    setPaywallLoading(true);
+    const result = await purchasePremium();
+    setPaywallLoading(false);
+    if (result.success) {
+      setShowPaywall(false);
+      setIsPro(true);
+    }
+  }
 
   const toggleBook = useCallback((bookId: number) => {
     setExpanded(prev => {
@@ -113,6 +133,17 @@ export default function ProgressScreen() {
         removeClippedSubviews
         maxToRenderPerBatch={20}
         windowSize={10}
+        ListHeaderComponent={
+          <View style={styles.heatmapWrapper}>
+            <StreakHeatmap isPro={isPro} onUpgrade={() => setShowPaywall(true)} />
+          </View>
+        }
+      />
+      <PaywallSheet
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        onPurchase={handlePurchase}
+        loading={paywallLoading}
       />
     </View>
   );
@@ -120,6 +151,7 @@ export default function ProgressScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
+  heatmapWrapper: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
   center: {
     flex: 1,
     backgroundColor: theme.bg,

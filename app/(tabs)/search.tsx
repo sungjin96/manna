@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { searchVerses, SearchResult } from '../../db/bible';
+import { searchVerses, parseReference, SearchResult, BookReference } from '../../db/bible';
 import { BOOKS } from '../../constants/books';
 import { theme } from '../../constants/theme';
 
@@ -26,6 +26,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [reference, setReference] = useState<BookReference | null>(null);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
@@ -36,9 +37,12 @@ export default function SearchScreen() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!text.trim()) {
       setResults([]);
+      setReference(null);
       setSearched(false);
       return;
     }
+    // Reference parse is synchronous — update immediately
+    setReference(parseReference(text));
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
       setSearched(true);
@@ -54,6 +58,7 @@ export default function SearchScreen() {
   function handleClear() {
     setQuery('');
     setResults([]);
+    setReference(null);
     setSearched(false);
   }
 
@@ -110,7 +115,7 @@ export default function SearchScreen() {
         <View style={styles.center}>
           <ActivityIndicator color={theme.gold} />
         </View>
-      ) : searched && results.length === 0 ? (
+      ) : searched && results.length === 0 && !reference ? (
         <View style={styles.center}>
           <MaterialCommunityIcons name="text-search" size={40} color={theme.textMuted} />
           <Text style={styles.emptyText}>검색 결과가 없습니다</Text>
@@ -124,9 +129,29 @@ export default function SearchScreen() {
           contentContainerStyle={styles.list}
           keyboardDismissMode="on-drag"
           ListHeaderComponent={
-            results.length > 0 ? (
-              <Text style={styles.resultCount}>{results.length}개 결과</Text>
-            ) : null
+            <>
+              {reference && (
+                <Pressable
+                  style={({ pressed }) => [styles.refCard, pressed && styles.refCardPressed]}
+                  onPress={() => router.push(`/read/${reference.bookId}/${reference.chapter}`)}
+                >
+                  <View style={styles.refCardLeft}>
+                    <MaterialCommunityIcons name="book-open-variant" size={18} color={theme.gold} />
+                    <View>
+                      <Text style={styles.refCardTitle}>
+                        {reference.bookName} {reference.chapter}장
+                        {reference.verse ? ` ${reference.verse}절` : ''}
+                      </Text>
+                      <Text style={styles.refCardSub}>직접 이동</Text>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textMuted} />
+                </Pressable>
+              )}
+              {results.length > 0 && (
+                <Text style={styles.resultCount}>{results.length}개 결과</Text>
+              )}
+            </>
           }
         />
       )}
@@ -201,6 +226,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     backgroundColor: `${theme.gold}20`,
   },
+
+  refCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: `${theme.gold}12`,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: `${theme.gold}30`,
+  },
+  refCardPressed: { opacity: 0.7 },
+  refCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  refCardTitle: { fontSize: 15, fontWeight: '700', color: theme.text },
+  refCardSub: { fontSize: 12, color: theme.gold, marginTop: 1 },
 
   center: {
     flex: 1,

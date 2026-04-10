@@ -1,6 +1,6 @@
 # TODOS — Manna
 
-> CEO 리뷰 2026-04-09 결과 기반. 우선순위 순서로 작업.
+> CEO 리뷰 2026-04-10 Pro 플랜 기능 확장 결과 기반 업데이트.
 
 ---
 
@@ -25,9 +25,19 @@
 | 15 | EAS Build 설정 + RC API 키 등록 | P1 | 🗓️ 보류 |
 | 16 | RevenueCat 상품 ID 앱스토어 등록 | P1 | 🗓️ 보류 |
 | 17 | 게임화 강화 (streak 보상 애니메이션) | P2 | ✅ 완료 |
-| 18 | 감정 기반 말씀 추천 (AI 확장) | P2 | 🗓️ 보류 |
+| 18 | 감정 기반 말씀 추천 (AI 확장) = 테마별 구절 추천 | P2 | 🗓️ 보류 |
 | 19 | 학습 레이어 / Quiz 시스템 | P3 | 🗓️ 보류 |
 | 20 | Supabase 도입 (로그인/커뮤니티) | P3 | 🗓️ 보류 |
+| 21 | Worker /ai 리팩토링 (단일 엔드포인트 + KV RC 캐시) | P1 | 🗓️ 보류 |
+| 22 | AI 구절 해설 (action='explain') | P1 | 🗓️ 보류 |
+| 23 | AI 기도문 생성 (action='prayer') | P1 | 🗓️ 보류 |
+| 24 | Paywall UI 개선 (기능 아이콘+카피 카드) | P1 | 🗓️ 보류 |
+| 25 | Pro 다운그레이드 UI (잠금 CTA) | P2 | 🗓️ 보류 |
+| 26 | Streak 히트맵 (Pro 전용 연간 그리드) | P2 | 🗓️ 보류 |
+| 27 | AI 묵상 이력 검색 (SQLite LIKE) | P2 | 🗓️ 보류 |
+| 28 | AI 통독 리포트 주간 (홈 화면 인라인 카드) | P3 | 🗓️ 보류 |
+| 29 | 묵상 공유 카드 (react-native-view-shot) | P3 | 🗓️ 보류 |
+| 30 | AI 응답 TTL 캐시 (meditations.cached_at + 7일) | P2 | 🗓️ 보류 |
 
 ---
 
@@ -192,7 +202,124 @@
 - 매일 읽기 완료 시 체크마크 + 미니 피드백 애니메이션
 - 홈 화면 streak 카운터 강조 (불꽃 이모지 애니메이션)
 
-### P2: 감정 기반 말씀 추천 — #18 (Worker 완성 후)
+---
+
+## P1: Worker /ai 리팩토링 — #21
+
+**WHY:** 현재 `/meditate` 1개 엔드포인트. AI 구절 해설·기도문 추가 시 엔드포인트가 난잡해짐. 단일 `/ai` 엔드포인트 + `action` 파라미터로 정리.
+
+**구현:**
+- `POST /ai { action: 'meditate'|'explain'|'prayer'|'recommend', appUserId, verses, theme? }`
+- RevenueCat 검증 결과를 Cloudflare KV에 `rc:{appUserId}` 키로 10분 캐시 (매 요청 RC API 호출 제거)
+- `/meditate` 엔드포인트는 6개월 유지 후 제거 (하위 호환)
+- RC 검증 실패 시: fail-closed (AI 기능 차단, 앱에 503 반환)
+
+**verses 보안:** 최대 500자 제한 추가 (prompt injection 방어)
+
+---
+
+## P1: AI 구절 해설 — #22
+
+**WHY:** "이 구절이 무슨 뜻인지"가 사용자의 첫 번째 질문. Pro의 핵심 차별화.
+
+**구현:**
+- Worker `action='explain'` → Anthropic API
+- 프롬프트: 역사적 배경 + 원어(헤브라이어/그리스어) 핵심 단어 1-2개 + 현대적 적용 (200자 이내)
+- 응답 형식: `{ explanation: string }`
+- 앱: chapter.tsx AI 버튼에 "구절 해설" 옵션 추가
+
+---
+
+## P1: AI 기도문 생성 — #23
+
+**WHY:** 묵상 → 기도 흐름 완성. 읽고 → 생각하고 → 기도하는 자연스러운 앱 흐름.
+
+**구현:**
+- Worker `action='prayer'` → Anthropic API
+- 프롬프트: 오늘 읽은 구절 기반 개인 기도문 (100자 이내, 1인칭, 하나님께 드리는 형식)
+- 응답 형식: `{ prayer: string }`
+- 앱: 묵상 저장 후 "기도문 생성" 버튼 추가
+
+---
+
+## P1: Paywall UI 개선 — #24
+
+**WHY:** 현재 paywall은 기능 목록이 빈약. Pro 전환율 직결 레버.
+
+**구현:**
+- 기능 카드 3-4개 (아이콘 + 짧은 선전 문구): "AI 구절 해설", "AI 기도문", "Streak 히트맵", "AI 묵상 질문"
+- `components/PaywallScreen.tsx` 업데이트
+- 기능 카드가 동적으로 업데이트 가능한 구조 (나중에 새 기능 추가 시)
+
+---
+
+## P2: Pro 다운그레이드 UI — #25
+
+**WHY:** Pro 해지 시 AI 버튼/히트맵이 갑자기 사라지면 이탈. "잠금 + 구독 CTA"로 이탈 방지.
+
+**구현:**
+- Pro 전용 기능에 `ProGate` 래퍼 컴포넌트: Pro가 아니면 흐릿하게 + "Pro 구독하면 사용 가능" 오버레이
+- `components/ProGate.tsx` 신규
+- AI 버튼, Streak 히트맵에 적용
+
+---
+
+## P2: Streak 히트맵 — #26
+
+**WHY:** GitHub 잔디 같은 시각적 기록. Pro만 보임 → "내가 읽어온 흔적" 소유감.
+
+**구현:**
+- SQLite `reading_logs` 테이블에서 연간 날짜별 읽기 여부 집계
+- `components/ReadingHeatmap.tsx` — 연간 52×7 그리드
+- 색상: 읽기 없음(회색) / 읽음(골드 opacity)
+- 홈 화면 또는 성취 화면에 배치
+
+---
+
+## P2: AI 묵상 이력 검색 — #27
+
+**WHY:** 묵상이 쌓이면 "어디서 읽었더라" 검색 필요. Pro 전용.
+
+**구현:**
+- `db/meditations.ts`: `searchMeditations(query: string)` — SQLite LIKE 검색
+- (FTS5 지원 확인 후 업그레이드 고려)
+- 검색 UI: 묵상 탭 상단 검색 바
+
+---
+
+## P2: AI 응답 TTL 캐시 — #30
+
+**WHY:** 같은 구절을 7일 안에 두 번 보면 새 AI 질문이 생성됨. TTL로 제어.
+
+**구현:**
+- `meditations` 테이블에 `cached_at DATETIME` 컬럼 추가
+- AI 응답 저장 시 `cached_at = now()` 기록
+- 조회 시 `cached_at > now() - 7days`이면 캐시 반환, 아니면 새 AI 호출
+
+---
+
+## P3: AI 통독 리포트 — #28
+
+**WHY:** 주간 돌아보기. "이번 주 X장 읽었어요" + AI 한 줄 요약.
+
+**구현 범위 (M 유지 조건):** 홈 화면 하단 인라인 카드 (별도 화면 없음)
+- 매주 월요일 앱 진입 시 직전 7일 통계 생성
+- `action='weekly_summary'` Worker 엔드포인트
+- 미읽은 날은 0으로 표시
+
+---
+
+## P3: 묵상 공유 카드 — #29
+
+**WHY:** 구절 + 내 묵상을 이미지로. 바이럴 가능성.
+
+**구현:** 클라이언트 사이드 `react-native-view-shot`
+- 구절 + 묵상 텍스트 + Manna 로고 카드 레이아웃
+- Pro: 워터마크 없음, Free: "Manna로 묵상하기" 워터마크 포함
+
+---
+
+## P2: 감정 기반 말씀 추천 — #18 (Worker 완성 후)
 **WHY:** "말씀이 나를 아는 경험" — 만나의 핵심 차별화. YouVersion엔 없는 기능.
 **구현 옵션 A:** 오늘 기분 선택 (기뻐요/힘들어요/감사해요/불안해요 등 6종) → AI가 맞는 구절 3개 추천
 **구현 옵션 B:** 이전 묵상 내용을 참고해서 "다음에 읽으면 좋을 말씀" 추천

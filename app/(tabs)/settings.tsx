@@ -389,14 +389,23 @@ export default function SettingsScreen() {
 
             {/* Features */}
             <View style={styles.subsFeatures}>
-              <View style={styles.subsFeatureRow}>
-                <MaterialCommunityIcons name="check" size={14} color={theme.gold} />
-                <Text style={styles.subsFeatureText}>AI 묵상 질문 3개/선택</Text>
-              </View>
-              <View style={styles.subsFeatureRow}>
-                <MaterialCommunityIcons name="check" size={14} color={theme.gold} />
-                <Text style={styles.subsFeatureText}>광고 없음</Text>
-              </View>
+              {([
+                { icon: 'brain',                   label: 'AI 묵상 질문',    desc: '구절에서 나온 깊은 질문 3가지' },
+                { icon: 'book-open-page-variant',   label: 'AI 구절 해설',    desc: '역사적 배경과 원어 의미' },
+                { icon: 'hands-pray',              label: 'AI 기도문',        desc: '말씀에서 나온 나만의 기도' },
+                { icon: 'compass-rose',            label: '테마별 구절 추천',  desc: '감정·상황에 맞는 말씀' },
+                { icon: 'calendar-month',          label: 'Streak 히트맵',    desc: '연간 읽기 기록 시각화' },
+              ] as const).map((f) => (
+                <View key={f.label} style={styles.subsFeatureRow}>
+                  <View style={styles.subsFeatureIconBox}>
+                    <MaterialCommunityIcons name={f.icon} size={14} color={theme.gold} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.subsFeatureText}>{f.label}</Text>
+                    <Text style={styles.subsFeatureDesc}>{f.desc}</Text>
+                  </View>
+                </View>
+              ))}
             </View>
 
             {/* CTA */}
@@ -681,17 +690,34 @@ const styles = StyleSheet.create({
     color: theme.gold,
   },
   subsFeatures: {
-    gap: 8,
+    gap: 10,
     paddingLeft: 4,
   },
   subsFeatureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+  },
+  subsFeatureIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    backgroundColor: theme.goldBg,
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   subsFeatureText: {
     fontSize: 13,
-    color: theme.textSub,
+    fontWeight: '600',
+    color: theme.text,
+  },
+  subsFeatureDesc: {
+    fontSize: 11,
+    color: theme.textMuted,
+    marginTop: 1,
   },
   subsCTA: {
     backgroundColor: theme.gold,

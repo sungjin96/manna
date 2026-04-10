@@ -21,6 +21,7 @@ import { getChaptersForDay, PlanChapter, READING_PLANS, PlanId } from '../../con
 import { BOOKS } from '../../constants/books';
 import { theme } from '../../constants/theme';
 import { scheduleReadingReminder } from '../../utils/notifications';
+import WeeklyReportCard from '../../components/WeeklyReportCard';
 
 const XP_PER_LEVEL = 1200;
 
@@ -344,6 +345,11 @@ export default function HomeScreen() {
           )}
         </View>
 
+        {/* 주간 리포트 카드 */}
+        <View style={styles.weeklyReportWrapper}>
+          <WeeklyReportCard />
+        </View>
+
         {/* 66-book mini-map */}
         <Animated.View style={{ opacity: mapOpacity }}>
           <BookMap completed={completed} />
@@ -595,11 +601,15 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
 
+  weeklyReportWrapper: {
+    marginHorizontal: 4,
+    marginBottom: 20,
+  },
   statLine: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    marginBottom: 20,
+    marginBottom: 16,
     paddingHorizontal: 2,
   },
   statLineText: {

@@ -80,3 +80,16 @@ export async function getAllMeditations(): Promise<Meditation[]> {
   );
   return rows.map(mapRow);
 }
+
+export async function searchMeditations(query: string): Promise<Meditation[]> {
+  if (!query.trim()) return getAllMeditations();
+  const db = await getDb();
+  const rows = await db.getAllAsync<{
+    id: number; book_id: number; chapter: number; note: string;
+    created_at: string; verse_start?: number | null; verse_end?: number | null;
+  }>(
+    'SELECT id, book_id, chapter, note, created_at, verse_start, verse_end FROM meditations WHERE note LIKE ? ORDER BY created_at DESC',
+    [`%${query.trim()}%`]
+  );
+  return rows.map(mapRow);
+}

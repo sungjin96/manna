@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { BadgeToastProvider } from '../contexts/BadgeToastContext';
 import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
 import { getDb } from '../db/schema';
@@ -59,6 +60,7 @@ export default function RootLayout() {
   }, []);
 
   return (
+    <BadgeToastProvider>
     <Stack
       screenOptions={{
         headerShown: false,
@@ -77,5 +79,6 @@ export default function RootLayout() {
         }}
       />
     </Stack>
+    </BadgeToastProvider>
   );
 }

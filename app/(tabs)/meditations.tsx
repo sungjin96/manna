@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -14,9 +14,18 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { getAllMeditations, updateMeditation, deleteMeditation, Meditation } from '../../db/meditations';
+import { getAllMeditations, searchMeditations, updateMeditation, deleteMeditation, Meditation } from '../../db/meditations';
 import { BOOKS } from '../../constants/books';
 import { theme } from '../../constants/theme';
+import MeditationShareCard from '../../components/MeditationShareCard';
+
+function highlight(text: string, query: string): { part: string; match: boolean }[] {
+  if (!query.trim()) return [{ part: text, match: false }];
+  const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+  return parts.map(part => ({ part, match: regex.test(part) }));
+}
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -52,17 +61,30 @@ function bookChapterLabel(bookId: number, chapter: number, verseStart?: number, 
 export default function MeditationsScreen() {
   const [items, setItems] = useState<Meditation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
   const [editTarget, setEditTarget] = useState<Meditation | null>(null);
   const [editNote, setEditNote] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (q = '') => {
     setLoading(true);
-    const data = await getAllMeditations();
+    const data = q.trim() ? await searchMeditations(q) : await getAllMeditations();
     setItems(data);
     setLoading(false);
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => { load(query); }, [load]));
+
+  function handleQueryChange(text: string) {
+    setQuery(text);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => load(text), 300);
+  }
+
+  function handleClearQuery() {
+    setQuery('');
+    load('');
+  }
 
   function openEdit(item: Meditation) {
     setEditTarget(item);
@@ -73,7 +95,7 @@ export default function MeditationsScreen() {
     if (!editTarget) return;
     await updateMeditation(editTarget.id, editNote.trim());
     setEditTarget(null);
-    load();
+    load(query);
   }
 
   function handleDelete(item: Meditation) {
@@ -87,7 +109,7 @@ export default function MeditationsScreen() {
           style: 'destructive',
           onPress: async () => {
             await deleteMeditation(item.id);
-            load();
+            load(query);
           },
         },
       ]
@@ -109,42 +131,77 @@ export default function MeditationsScreen() {
         <Text style={styles.headerSub}>{items.length}개</Text>
       </View>
 
+      {/* 검색바 */}
+      <View style={styles.searchBar}>
+        <MaterialCommunityIcons name="magnify" size={18} color={theme.textMuted} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="묵상 내용 검색..."
+          placeholderTextColor={theme.textMuted}
+          value={query}
+          onChangeText={handleQueryChange}
+          returnKeyType="search"
+          autoCorrect={false}
+        />
+        {query.length > 0 && (
+          <Pressable onPress={handleClearQuery} hitSlop={8}>
+            <MaterialCommunityIcons name="close-circle" size={16} color={theme.textMuted} />
+          </Pressable>
+        )}
+      </View>
+
       {items.length === 0 ? (
         <View style={styles.empty}>
-          <MaterialCommunityIcons name="notebook-outline" size={48} color={theme.textMuted} />
-          <Text style={styles.emptyText}>아직 묵상 기록이 없어요</Text>
-          <Text style={styles.emptyHint}>성경을 읽고 나서 묵상을 남겨보세요</Text>
+          <MaterialCommunityIcons
+            name={query ? 'text-search' : 'notebook-outline'}
+            size={48}
+            color={theme.textMuted}
+          />
+          <Text style={styles.emptyText}>
+            {query ? '검색 결과가 없어요' : '아직 묵상 기록이 없어요'}
+          </Text>
+          <Text style={styles.emptyHint}>
+            {query ? '다른 단어로 검색해보세요' : '성경을 읽고 나서 묵상을 남겨보세요'}
+          </Text>
         </View>
       ) : (
         <FlatList
           data={items}
           keyExtractor={item => String(item.id)}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <View style={styles.cardTop}>
-                <Text style={styles.cardRef}>{bookChapterLabel(item.bookId, item.chapter, item.verseStart, item.verseEnd)}</Text>
-                <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
+          keyboardDismissMode="on-drag"
+          renderItem={({ item }) => {
+            const preview = renderNotePreview(item.note);
+            const segments = highlight(preview, query);
+            return (
+              <View style={styles.card}>
+                <View style={styles.cardTop}>
+                  <Text style={styles.cardRef}>{bookChapterLabel(item.bookId, item.chapter, item.verseStart, item.verseEnd)}</Text>
+                  <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
+                </View>
+                <Text style={styles.cardNote}>
+                  {segments.map((seg, i) =>
+                    seg.match
+                      ? <Text key={i} style={styles.cardNoteHighlight}>{seg.part}</Text>
+                      : seg.part
+                  )}
+                </Text>
+                <View style={styles.cardActions}>
+                  <MeditationShareCard
+                    verseRef={bookChapterLabel(item.bookId, item.chapter, item.verseStart, item.verseEnd)}
+                    noteText={renderNotePreview(item.note)}
+                    date={formatDate(item.createdAt)}
+                  />
+                  <Pressable style={styles.actionBtn} onPress={() => openEdit(item)} hitSlop={8}>
+                    <MaterialCommunityIcons name="pencil-outline" size={18} color={theme.textMuted} />
+                  </Pressable>
+                  <Pressable style={styles.actionBtn} onPress={() => handleDelete(item)} hitSlop={8}>
+                    <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.textMuted} />
+                  </Pressable>
+                </View>
               </View>
-              <Text style={styles.cardNote}>{renderNotePreview(item.note)}</Text>
-              <View style={styles.cardActions}>
-                <Pressable
-                  style={styles.actionBtn}
-                  onPress={() => openEdit(item)}
-                  hitSlop={8}
-                >
-                  <MaterialCommunityIcons name="pencil-outline" size={18} color={theme.textMuted} />
-                </Pressable>
-                <Pressable
-                  style={styles.actionBtn}
-                  onPress={() => handleDelete(item)}
-                  hitSlop={8}
-                >
-                  <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.textMuted} />
-                </Pressable>
-              </View>
-            </View>
-          )}
+            );
+          }}
         />
       )}
 
@@ -217,7 +274,27 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, color: theme.textSub, fontWeight: '600' },
   emptyHint: { fontSize: 13, color: theme.textMuted },
 
-  list: { padding: 16, gap: 12 },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    margin: 12,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: theme.text,
+    padding: 0,
+  },
+
+  list: { padding: 16, paddingTop: 4, gap: 12 },
   card: {
     backgroundColor: theme.surface,
     borderRadius: 14,
@@ -229,6 +306,11 @@ const styles = StyleSheet.create({
   cardRef: { fontSize: 13, fontWeight: '700', color: theme.gold },
   cardDate: { fontSize: 11, color: theme.textMuted },
   cardNote: { fontSize: 15, lineHeight: 22, color: theme.text },
+  cardNoteHighlight: {
+    color: theme.goldLight,
+    fontWeight: '700',
+    backgroundColor: `${theme.gold}22`,
+  },
   cardActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

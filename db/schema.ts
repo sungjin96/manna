@@ -167,4 +167,21 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       PRAGMA user_version = 5;
     `);
   }
+
+  // v5 → v6: 캐시 범용 확장(explain/prayer 지원) + 일일 AI 새로고침 카운터
+  if (user_version < 6) {
+    await db.execAsync(`
+      DROP TABLE IF EXISTS ai_meditation_cache;
+      CREATE TABLE IF NOT EXISTS ai_cache (
+        cache_key  TEXT PRIMARY KEY,  -- "{type}:{bookId}:{chapter}:{verseStart}-{verseEnd}"
+        data       TEXT NOT NULL,     -- JSON: any AI response
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS ai_daily_refresh (
+        date  TEXT PRIMARY KEY,       -- YYYY-MM-DD
+        count INTEGER NOT NULL DEFAULT 0
+      );
+      PRAGMA user_version = 6;
+    `);
+  }
 }
