@@ -132,7 +132,6 @@ const styles = StyleSheet.create({
     top: -9999,
     left: -9999,
     width: CARD_W,
-    opacity: 0,
   },
 });
 

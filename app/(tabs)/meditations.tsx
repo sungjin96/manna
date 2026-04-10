@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getAllMeditations, searchMeditations, updateMeditation, deleteMeditation, Meditation } from '../../db/meditations';
 import { BOOKS } from '../../constants/books';
@@ -59,6 +59,7 @@ function bookChapterLabel(bookId: number, chapter: number, verseStart?: number, 
 }
 
 export default function MeditationsScreen() {
+  const router = useRouter();
   const [items, setItems] = useState<Meditation[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -174,7 +175,10 @@ export default function MeditationsScreen() {
             const preview = renderNotePreview(item.note);
             const segments = highlight(preview, query);
             return (
-              <View style={styles.card}>
+              <Pressable
+                style={styles.card}
+                onPress={() => router.push(`/read/${item.bookId}/${item.chapter}${item.verseStart ? `?verse=${item.verseStart}` : ''}`)}
+              >
                 <View style={styles.cardTop}>
                   <Text style={styles.cardRef}>{bookChapterLabel(item.bookId, item.chapter, item.verseStart, item.verseEnd)}</Text>
                   <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
@@ -199,7 +203,7 @@ export default function MeditationsScreen() {
                     <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.textMuted} />
                   </Pressable>
                 </View>
-              </View>
+              </Pressable>
             );
           }}
         />

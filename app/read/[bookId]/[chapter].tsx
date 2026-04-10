@@ -66,8 +66,8 @@ function prevBefore(bookId: number, chapter: number): { bookId: number; chapter:
 
 // ── Main screen ────────────────────────────────────────────────────────────
 export default function ReadScreen() {
-  const { bookId: bookIdStr, chapter: chapterStr } = useLocalSearchParams<{
-    bookId: string; chapter: string;
+  const { bookId: bookIdStr, chapter: chapterStr, verse: verseStr } = useLocalSearchParams<{
+    bookId: string; chapter: string; verse?: string;
   }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -182,12 +182,29 @@ export default function ReadScreen() {
     }
   }, [alreadyDone, verses?.length]);
 
-  // Auto-scroll to first unread verse
+  // Scroll to specific verse (from search/meditation link)
+  const targetVerse = verseStr ? Number(verseStr) : null;
   const didAutoScroll = useRef(false);
   useEffect(() => {
     if (didAutoScroll.current) return;
-    if (!verses || verses.length === 0 || readVerses.size === 0) return;
-    if (readVerses.size >= verses.length) return;
+    if (!verses || verses.length === 0) return;
+
+    // verse 파라미터가 있으면 해당 절로 스크롤 (검색/묵상에서 이동)
+    if (targetVerse) {
+      const idx = verses.findIndex(v => v.verse === targetVerse);
+      if (idx >= 0) {
+        didAutoScroll.current = true;
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: idx, animated: true, viewOffset: 0,
+          });
+        }, 300);
+        return;
+      }
+    }
+
+    // 기본: 첫 번째 안 읽은 절로 스크롤
+    if (readVerses.size === 0 || readVerses.size >= verses.length) return;
     didAutoScroll.current = true;
     const firstUnreadIndex = verses.findIndex(v => !readVerses.has(v.verse));
     if (firstUnreadIndex > 2) {
@@ -197,7 +214,7 @@ export default function ReadScreen() {
         });
       }, 300);
     }
-  }, [verses, readVerses.size]);
+  }, [verses, readVerses.size, targetVerse]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   function getVerseMeditations(verseNum: number): Meditation[] {

@@ -70,7 +70,7 @@ export default function SearchScreen() {
     return (
       <Pressable
         style={({ pressed }) => [styles.resultRow, pressed && styles.resultRowPressed]}
-        onPress={() => router.push(`/read/${item.bookId}/${item.chapter}`)}
+        onPress={() => router.push(`/read/${item.bookId}/${item.chapter}?verse=${item.verse}`)}
       >
         <Text style={styles.resultRef}>{ref}</Text>
         <Text style={styles.resultText} numberOfLines={3}>
