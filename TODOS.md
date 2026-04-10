@@ -38,6 +38,7 @@
 | 28 | AI 통독 리포트 주간 (홈 화면 인라인 카드) | P3 | 🗓️ 보류 |
 | 29 | 묵상 공유 카드 (react-native-view-shot) | P3 | 🗓️ 보류 |
 | 30 | AI 응답 TTL 캐시 (meditations.cached_at + 7일) | P2 | 🗓️ 보류 |
+| 31 | 홈 FAB 바운스 애니메이션 반복 안 됨 | P2 | 🐛 버그 |
 
 ---
 

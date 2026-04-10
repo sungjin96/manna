@@ -207,22 +207,8 @@ export default function HomeScreen() {
     }
   }, [stats.currentStreak]);
 
-  // FAB soft bounce — setInterval + native driver
-  useFocusEffect(
-    useCallback(() => {
-      function kick() {
-        Animated.sequence([
-          Animated.timing(fabBounce, { toValue: -3, duration: 200, useNativeDriver: true }),
-          Animated.timing(fabBounce, { toValue: 0, duration: 200, useNativeDriver: true }),
-          Animated.timing(fabBounce, { toValue: -2, duration: 150, useNativeDriver: true }),
-          Animated.timing(fabBounce, { toValue: 0, duration: 150, useNativeDriver: true }),
-        ]).start();
-      }
-      kick();
-      const id = setInterval(kick, 1300);
-      return () => clearInterval(id);
-    }, [])
-  );
+  // TODO #31: FAB 바운스 애니메이션 반복 — Animated.sequence 콜백이
+  // native driver에서 안정적으로 동작하지 않음. EAS Build 환경에서 재검증 필요.
 
   // Animate XP bar and map whenever stats change
   useEffect(() => {
@@ -419,7 +405,7 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* Floating CTA — 항상 보이는 "오늘 읽기" 버튼, 부드러운 바운스 */}
-      <Animated.View style={[styles.fabWrap, { transform: [{ translateY: fabBounce }, { scale: fabScale }] }]}>
+      <Animated.View style={[styles.fabWrap, { transform: [{ scale: fabScale }] }]}>
         <Pressable
           style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
           onPress={() => {
