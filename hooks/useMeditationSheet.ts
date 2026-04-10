@@ -1,10 +1,15 @@
 import { useRef, useState } from 'react';
 import { Animated, Keyboard, PanResponder } from 'react-native';
 
+export type MeditationMode = 'basic' | 'qa';
+export interface QAEntry { q: string; a: string; }
+
 export function useMeditationSheet(onNavigateNext: () => void) {
   const [showMeditation, setShowMeditation] = useState(false);
   const [meditationVerse, setMeditationVerse] = useState<{ start: number; end: number } | null>(null);
   const [note, setNote] = useState('');
+  const [meditationMode, setMeditationMode] = useState<MeditationMode>('basic');
+  const [qaEntries, setQaEntries] = useState<QAEntry[]>([{ q: '', a: '' }]);
 
   const meditationSheetY = useRef(new Animated.Value(600)).current;
   const meditationBgOpacity = useRef(new Animated.Value(0)).current;
@@ -28,6 +33,8 @@ export function useMeditationSheet(onNavigateNext: () => void) {
       setShowMeditation(false);
       setNote('');
       setMeditationVerse(null);
+      setMeditationMode('basic');
+      setQaEntries([{ q: '', a: '' }]);
       afterClose?.();
     });
   }
@@ -42,9 +49,9 @@ export function useMeditationSheet(onNavigateNext: () => void) {
 
   const onSwipeDismiss = useRef<() => void>(() => {});
   onSwipeDismiss.current = () => {
-    closeMeditationSheet(() => {
-      if (!meditationVerseRef.current) onNavigateNextRef.current();
-    });
+    // Swipe = close only, no navigation (same as overlay tap)
+    // Use the skip button to navigate to next chapter intentionally
+    closeMeditationSheet();
   };
 
   const meditationPR = useRef(PanResponder.create({
@@ -67,6 +74,10 @@ export function useMeditationSheet(onNavigateNext: () => void) {
     setMeditationVerse,
     note,
     setNote,
+    meditationMode,
+    setMeditationMode,
+    qaEntries,
+    setQaEntries,
     meditationSheetY,
     meditationBgOpacity,
     meditationPR,

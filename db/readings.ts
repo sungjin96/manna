@@ -74,6 +74,20 @@ export async function getReadVerses(bookId: number, chapter: number): Promise<Se
 }
 
 // Returns a Set of "bookId:chapter" strings for O(1) lookup in progress screen
+export async function unmarkChapterComplete(bookId: number, chapter: number): Promise<void> {
+  const db = await getDb();
+  const result = await db.runAsync(
+    'DELETE FROM readings WHERE book_id = ? AND chapter = ?',
+    [bookId, chapter]
+  );
+  if (result.changes > 0) {
+    // Decrement total_chapters (streak is not recalculated to avoid complexity)
+    await db.runAsync(
+      'UPDATE user_stats SET total_chapters = MAX(0, total_chapters - 1) WHERE id = 1'
+    );
+  }
+}
+
 export async function getAllCompletedChapters(): Promise<Set<string>> {
   const db = await getDb();
   const rows = await db.getAllAsync<{ book_id: number; chapter: number }>(

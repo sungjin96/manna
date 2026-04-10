@@ -4,6 +4,7 @@ import { Animated, NativeScrollEvent, NativeSyntheticEvent } from 'react-native'
 export function useHeaderAnim(headerFullH: number) {
   const headerOpacity = useRef(new Animated.Value(1)).current;
   const headerHeightAnim = useRef(new Animated.Value(1)).current;
+  const bottomNavOpacity = useRef(new Animated.Value(1)).current;
   const headerVisibleRef = useRef(true);
   const lastScrollY = useRef(0);
 
@@ -17,6 +18,7 @@ export function useHeaderAnim(headerFullH: number) {
     headerVisibleRef.current = show;
     Animated.timing(headerOpacity, { toValue: show ? 1 : 0, duration: 180, useNativeDriver: false }).start();
     Animated.timing(headerHeightAnim, { toValue: show ? 1 : 0, duration: 200, useNativeDriver: false }).start();
+    Animated.timing(bottomNavOpacity, { toValue: show ? 1 : 0, duration: 180, useNativeDriver: true }).start();
   }
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -31,6 +33,7 @@ export function useHeaderAnim(headerFullH: number) {
     headerOpacity,
     headerHeightAnim,
     headerHeightValue,
+    bottomNavOpacity,
     animateHeader,
     handleScroll,
   };

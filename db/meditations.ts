@@ -17,7 +17,7 @@ export async function saveMeditation(
   verseStart?: number,
   verseEnd?: number,
 ): Promise<void> {
-  if (note.length === 0 || note.length > 200) return;
+  if (note.length === 0 || note.length > 2000) return;
   const db = await getDb();
   const now = new Date().toISOString();
   await db.runAsync(
@@ -27,7 +27,7 @@ export async function saveMeditation(
 }
 
 export async function updateMeditation(id: number, note: string): Promise<void> {
-  if (note.length === 0 || note.length > 200) return;
+  if (note.length === 0 || note.length > 2000) return;
   const db = await getDb();
   await db.runAsync('UPDATE meditations SET note = ? WHERE id = ?', [note, id]);
 }
@@ -62,6 +62,12 @@ export async function getMeditationsForChapter(bookId: number, chapter: number):
     [bookId, chapter]
   );
   return rows.map(mapRow);
+}
+
+export async function getMeditationCount(): Promise<number> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM meditations');
+  return row?.count ?? 0;
 }
 
 export async function getAllMeditations(): Promise<Meditation[]> {

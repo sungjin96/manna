@@ -92,7 +92,7 @@ export const styles = StyleSheet.create({
   progressLabel: { fontSize: 11, letterSpacing: 0.3, minWidth: 48, textAlign: 'right' },
 
   // ── Verse rows ────────────────────────────────────────────────────────────
-  list: { padding: 20, paddingBottom: 60 },
+  list: { padding: 20, paddingBottom: 100 },
   verseRow: {
     flexDirection: 'row',
     marginBottom: 14,

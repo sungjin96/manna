@@ -26,6 +26,19 @@ function formatDate(iso: string): string {
   return `${y}.${m}.${day}`;
 }
 
+function renderNotePreview(note: string): string {
+  try {
+    const parsed = JSON.parse(note);
+    if (parsed?.type === 'qa' && Array.isArray(parsed.entries)) {
+      return parsed.entries
+        .filter((e: { q: string; a: string }) => e.q || e.a)
+        .map((e: { q: string; a: string }, i: number) => `Q${i + 1}. ${e.q}\n${e.a}`)
+        .join('\n\n');
+    }
+  } catch {}
+  return note;
+}
+
 function bookChapterLabel(bookId: number, chapter: number, verseStart?: number, verseEnd?: number): string {
   const book = BOOKS.find(b => b.id === bookId);
   const base = book ? book.name : String(bookId);
@@ -113,7 +126,7 @@ export default function MeditationsScreen() {
                 <Text style={styles.cardRef}>{bookChapterLabel(item.bookId, item.chapter, item.verseStart, item.verseEnd)}</Text>
                 <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
               </View>
-              <Text style={styles.cardNote}>{item.note}</Text>
+              <Text style={styles.cardNote}>{renderNotePreview(item.note)}</Text>
               <View style={styles.cardActions}>
                 <Pressable
                   style={styles.actionBtn}
