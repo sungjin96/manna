@@ -154,6 +154,7 @@ export default function HomeScreen() {
   const flamePulse = useRef(new Animated.Value(1)).current;
   const mapOpacity = useRef(new Animated.Value(0)).current;
   const fabBounce = useRef(new Animated.Value(0)).current;
+  const fabScale = useRef(new Animated.Value(1)).current;
   useFocusEffect(
     useCallback(() => {
       refresh();
@@ -206,12 +207,13 @@ export default function HomeScreen() {
     }
   }, [stats.currentStreak]);
 
-  // FAB gentle bounce
+  // FAB bouncy spring loop
   useEffect(() => {
     const bounce = Animated.loop(
       Animated.sequence([
-        Animated.timing(fabBounce, { toValue: -4, duration: 1200, useNativeDriver: true }),
-        Animated.timing(fabBounce, { toValue: 0, duration: 1200, useNativeDriver: true }),
+        Animated.timing(fabBounce, { toValue: -6, duration: 400, useNativeDriver: true }),
+        Animated.spring(fabBounce, { toValue: 0, friction: 3, tension: 200, useNativeDriver: true }),
+        Animated.delay(2000),
       ])
     );
     bounce.start();
@@ -413,12 +415,18 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* Floating CTA — 항상 보이는 "오늘 읽기" 버튼, 부드러운 바운스 */}
-      <Animated.View style={[styles.fabWrap, { transform: [{ translateY: fabBounce }] }]}>
+      <Animated.View style={[styles.fabWrap, { transform: [{ translateY: fabBounce }, { scale: fabScale }] }]}>
         <Pressable
           style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push(`/read/${bookId}/${chapter}`);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Animated.sequence([
+              Animated.spring(fabScale, { toValue: 0.92, friction: 5, useNativeDriver: true }),
+              Animated.spring(fabScale, { toValue: 1.06, friction: 3, tension: 300, useNativeDriver: true }),
+              Animated.spring(fabScale, { toValue: 1, friction: 4, useNativeDriver: true }),
+            ]).start(() => {
+              router.push(`/read/${bookId}/${chapter}`);
+            });
           }}
         >
           <View style={styles.fabLeft}>
