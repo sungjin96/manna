@@ -139,11 +139,32 @@ export default function ProgressScreen() {
 
   const totalDone = completed.size;
 
+  // 최고 등급 뱃지 (헤더에 표시)
+  const tierOrder: Tier[] = ['diamond', 'gold', 'silver', 'bronze'];
+  const topBadge = stats ? (() => {
+    const earned = [...BADGES, ...BOOK_BADGES].filter(b => b.check(stats, completed, meditationCount));
+    for (const tier of tierOrder) {
+      const found = earned.find(b => b.tier === tier);
+      if (found) return found;
+    }
+    return null;
+  })() : null;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>진행률</Text>
-        <Text style={styles.headerSub}>{totalDone} / 1189 챕터</Text>
+        <View>
+          <Text style={styles.headerTitle}>진행률</Text>
+          <Text style={styles.headerSub}>{totalDone} / 1189 챕터</Text>
+        </View>
+        {topBadge && (
+          <Pressable onPress={() => router.push('/(tabs)/achievements')} style={styles.headerBadge}>
+            <View style={[styles.headerBadgeIcon, { backgroundColor: `${TIER_COLORS[topBadge.tier]}15` }]}>
+              <MaterialCommunityIcons name={topBadge.icon} size={18} color={TIER_COLORS[topBadge.tier]} />
+            </View>
+            <Text style={[styles.headerBadgeLabel, { color: TIER_COLORS[topBadge.tier] }]}>{topBadge.title}</Text>
+          </Pressable>
+        )}
       </View>
       <FlatList
         data={items}
@@ -166,32 +187,6 @@ export default function ProgressScreen() {
             <StreakHeatmap isPro={isPro} onUpgrade={() => setShowPaywall(true)} />
           </Pressable>
         }
-        ListFooterComponent={stats ? (
-          <View style={styles.badgeSection}>
-            <View style={styles.badgeSectionHeader}>
-              <Text style={styles.badgeSectionTitle}>뱃지</Text>
-              <Pressable onPress={() => router.push('/(tabs)/achievements')} hitSlop={8}>
-                <Text style={styles.badgeSeeAll}>전체 보기</Text>
-              </Pressable>
-            </View>
-            <View style={styles.badgeGrid}>
-              {[...BADGES, ...BOOK_BADGES]
-                .filter(b => b.check(stats, completed, meditationCount))
-                .slice(0, 8)
-                .map(b => (
-                  <View key={b.id} style={styles.badgeItem}>
-                    <View style={[styles.badgeIcon, { backgroundColor: `${TIER_COLORS[b.tier]}15` }]}>
-                      <MaterialCommunityIcons name={b.icon} size={20} color={TIER_COLORS[b.tier]} />
-                    </View>
-                    <Text style={styles.badgeName} numberOfLines={1}>{b.title}</Text>
-                  </View>
-                ))}
-            </View>
-            {[...BADGES, ...BOOK_BADGES].filter(b => b.check(stats, completed, meditationCount)).length === 0 && (
-              <Text style={styles.badgeEmpty}>아직 획득한 뱃지가 없습니다</Text>
-            )}
-          </View>
-        ) : null}
       />
       <PaywallSheet
         visible={showPaywall}
@@ -218,6 +213,9 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 24,
@@ -226,6 +224,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   headerSub: { fontSize: 13, color: theme.textMuted, marginTop: 4 },
+  headerBadge: {
+    alignItems: 'center',
+    gap: 3,
+  },
+  headerBadgeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerBadgeLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
   bookRow: {
     paddingHorizontal: 20,
     paddingVertical: 14,
@@ -263,58 +277,6 @@ const styles = StyleSheet.create({
   },
   chapterNum: { fontSize: 14, color: theme.textSub },
   chapterDone: { color: theme.gold, fontWeight: '600' },
-  // 뱃지 섹션
-  badgeSection: {
-    padding: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: theme.borderSubtle,
-    marginTop: 8,
-  },
-  badgeSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  badgeSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.text,
-  },
-  badgeSeeAll: {
-    fontSize: 12,
-    color: theme.gold,
-    fontWeight: '600',
-  },
-  badgeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  badgeItem: {
-    width: '22%' as any,
-    alignItems: 'center',
-    gap: 4,
-  },
-  badgeIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeName: {
-    fontSize: 10,
-    color: theme.textMuted,
-    textAlign: 'center',
-  },
-  badgeEmpty: {
-    fontSize: 13,
-    color: theme.textMuted,
-    textAlign: 'center',
-    paddingVertical: 16,
-  },
   sectionHeader: {
     paddingHorizontal: 20,
     paddingVertical: 10,

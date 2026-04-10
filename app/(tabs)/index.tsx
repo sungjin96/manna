@@ -153,6 +153,7 @@ export default function HomeScreen() {
   const streakOpacity = useRef(new Animated.Value(0)).current;
   const flamePulse = useRef(new Animated.Value(1)).current;
   const mapOpacity = useRef(new Animated.Value(0)).current;
+  const fabBounce = useRef(new Animated.Value(0)).current;
   useFocusEffect(
     useCallback(() => {
       refresh();
@@ -204,6 +205,18 @@ export default function HomeScreen() {
       return () => pulse.stop();
     }
   }, [stats.currentStreak]);
+
+  // FAB gentle bounce
+  useEffect(() => {
+    const bounce = Animated.loop(
+      Animated.sequence([
+        Animated.timing(fabBounce, { toValue: -4, duration: 1200, useNativeDriver: true }),
+        Animated.timing(fabBounce, { toValue: 0, duration: 1200, useNativeDriver: true }),
+      ])
+    );
+    bounce.start();
+    return () => bounce.stop();
+  }, []);
 
   // Animate XP bar and map whenever stats change
   useEffect(() => {
@@ -301,12 +314,9 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.wordmark}>MANNA</Text>
-          <View style={styles.headerRight}>
-            <Pressable onPress={() => router.push('/(tabs)/search')} hitSlop={10}>
-              <MaterialCommunityIcons name="magnify" size={20} color={theme.textMuted} />
-            </Pressable>
-            <Text style={styles.dateLabel}>{todayLabel()}</Text>
-          </View>
+          <Pressable onPress={() => router.push('/(tabs)/search')} hitSlop={12} style={styles.searchBtn}>
+            <MaterialCommunityIcons name="magnify" size={22} color={theme.textMuted} />
+          </Pressable>
         </View>
 
         {/* Streak hero */}
@@ -402,22 +412,24 @@ export default function HomeScreen() {
 
       </ScrollView>
 
-      {/* Floating CTA — 항상 보이는 "오늘 읽기" 버튼 */}
-      <Pressable
-        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          router.push(`/read/${bookId}/${chapter}`);
-        }}
-      >
-        <View style={styles.fabLeft}>
-          <Text style={styles.fabTitle}>{book?.name} {chapter}장</Text>
-          <Text style={styles.fabSub}>오늘 읽기</Text>
-        </View>
-        <View style={styles.fabArrow}>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={theme.bg} />
-        </View>
-      </Pressable>
+      {/* Floating CTA — 항상 보이는 "오늘 읽기" 버튼, 부드러운 바운스 */}
+      <Animated.View style={[styles.fabWrap, { transform: [{ translateY: fabBounce }] }]}>
+        <Pressable
+          style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            router.push(`/read/${bookId}/${chapter}`);
+          }}
+        >
+          <View style={styles.fabLeft}>
+            <Text style={styles.fabTitle}>{book?.name} {chapter}장</Text>
+            <Text style={styles.fabSub}>오늘 읽기</Text>
+          </View>
+          <View style={styles.fabArrow}>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={theme.bg} />
+          </View>
+        </Pressable>
+      </Animated.View>
 
       {/* Onboarding modal */}
       <Modal visible={showOnboarding} transparent animationType="fade">
@@ -517,20 +529,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
   wordmark: {
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 5,
     color: theme.gold,
   },
-  dateLabel: {
-    fontSize: 11,
-    color: theme.textMuted,
+  searchBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: theme.surface,
   },
 
   streakSection: {
@@ -675,11 +683,13 @@ const styles = StyleSheet.create({
   },
 
   // Floating action button
-  fab: {
+  fabWrap: {
     position: 'absolute',
     bottom: 16,
     left: 24,
     right: 24,
+  },
+  fab: {
     backgroundColor: theme.gold,
     borderRadius: 16,
     paddingVertical: 14,
