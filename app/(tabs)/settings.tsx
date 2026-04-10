@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -10,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getSetting, setSetting } from '../../db/settings';
@@ -32,6 +34,8 @@ export default function SettingsScreen() {
   const [purchasing, setPurchasing] = useState(false);
   const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
   const [activePlanId, setActivePlanId] = useState<PlanId | null>(null);
+  const [autoUpdate, setAutoUpdate] = useState(true);
+  const [updateStatus, setUpdateStatus] = useState<'checking' | 'latest' | 'available' | 'downloading' | 'restarting' | 'error'>('checking');
   const { settings, update: updateReader } = useReaderSettings();
 
   useEffect(() => {
@@ -41,16 +45,48 @@ export default function SettingsScreen() {
       const minute = parseInt(await getSetting('notification_minute', '0'), 10);
       const meditPrompt = await getSetting('meditation_prompt_enabled', '1');
       const plan = await getActivePlan();
+      const autoUpd = await getSetting('auto_update', '1');
       setNotifEnabled(enabled === '1');
       setNotifHour(hour);
       setNotifMinute(minute);
       setMeditationPromptEnabled(meditPrompt === '1');
       setActivePlanId((plan?.planId as PlanId) ?? null);
+      setAutoUpdate(autoUpd === '1');
       const premium = await checkAIEntitlement();
       setIsPremium(premium);
       setIsPremiumLoading(false);
+
+      // Check for OTA update
+      checkForOTAUpdate();
     })();
   }, []);
+
+  async function checkForOTAUpdate() {
+    try {
+      if (__DEV__) { setUpdateStatus('latest'); return; }
+      const { isAvailable } = await Updates.checkForUpdateAsync();
+      setUpdateStatus(isAvailable ? 'available' : 'latest');
+    } catch {
+      setUpdateStatus('latest');
+    }
+  }
+
+  async function handleOTAUpdate() {
+    try {
+      setUpdateStatus('downloading');
+      await Updates.fetchUpdateAsync();
+      setUpdateStatus('restarting');
+      await Updates.reloadAsync();
+    } catch {
+      setUpdateStatus('error');
+      setTimeout(() => setUpdateStatus('available'), 2500);
+    }
+  }
+
+  async function toggleAutoUpdate(val: boolean) {
+    setAutoUpdate(val);
+    await setSetting('auto_update', val ? '1' : '0');
+  }
 
   async function selectPlan(planId: PlanId | null) {
     if (planId === null) {
@@ -458,9 +494,57 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>앱 정보</Text>
 
+        {/* 버전 + 업데이트 상태 */}
         <View style={styles.row}>
           <Text style={styles.rowLabel}>버전</Text>
-          <Text style={styles.rowValue}>{version}</Text>
+          <View style={styles.versionRight}>
+            <Text style={styles.rowValue}>{version}</Text>
+            {updateStatus === 'checking' && (
+              <ActivityIndicator size={11} color={theme.textMuted} style={{ marginLeft: 6 }} />
+            )}
+            {updateStatus === 'latest' && (
+              <View style={styles.badgeLatest}>
+                <Text style={styles.badgeLatestText}>최신</Text>
+              </View>
+            )}
+            {(updateStatus === 'available' || updateStatus === 'error') && (
+              <Pressable
+                style={({ pressed }) => [styles.updateBtn, pressed && { opacity: 0.75 }]}
+                onPress={handleOTAUpdate}
+              >
+                <MaterialCommunityIcons name="arrow-down-circle-outline" size={13} color={theme.bg} />
+                <Text style={styles.updateBtnText}>
+                  {updateStatus === 'error' ? '다시 시도' : '업데이트'}
+                </Text>
+              </Pressable>
+            )}
+            {updateStatus === 'downloading' && (
+              <View style={styles.downloadingBadge}>
+                <ActivityIndicator size={11} color={theme.gold} />
+                <Text style={styles.downloadingText}>다운로드 중</Text>
+              </View>
+            )}
+            {updateStatus === 'restarting' && (
+              <View style={styles.downloadingBadge}>
+                <ActivityIndicator size={11} color={theme.gold} />
+                <Text style={styles.downloadingText}>적용 중...</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* 자동 업데이트 */}
+        <View style={styles.row}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.rowLabel}>자동 업데이트</Text>
+            <Text style={styles.rowHint}>앱 실행 시 업데이트 자동 설치</Text>
+          </View>
+          <Switch
+            value={autoUpdate}
+            onValueChange={toggleAutoUpdate}
+            trackColor={{ false: theme.borderSubtle, true: `${theme.gold}80` }}
+            thumbColor={autoUpdate ? theme.gold : theme.textMuted}
+          />
         </View>
 
         <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
@@ -630,6 +714,50 @@ const styles = StyleSheet.create({
   subsFooterText: {
     fontSize: 11,
     color: theme.textMuted,
+  },
+
+  // Version & update styles
+  versionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  badgeLatest: {
+    backgroundColor: 'rgba(100,200,100,0.15)',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(100,200,100,0.30)',
+  },
+  badgeLatestText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#6EC97A',
+    letterSpacing: 0.4,
+  },
+  updateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.gold,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  updateBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.bg,
+  },
+  downloadingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  downloadingText: {
+    fontSize: 11,
+    color: theme.gold,
   },
 
 });

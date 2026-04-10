@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
+import * as Updates from 'expo-updates';
 import { getDb } from '../db/schema';
 import { getSetting } from '../db/settings';
 import { scheduleReadingReminder } from '../utils/notifications';
@@ -37,6 +38,22 @@ export default function RootLayout() {
         }
       } catch {
         // Best-effort — don't crash app if notification re-registration fails
+      }
+    })();
+
+    // Auto OTA update on startup
+    (async () => {
+      try {
+        if (__DEV__) return;
+        const autoUpdate = await getSetting('auto_update', '1');
+        if (autoUpdate !== '1') return;
+        const { isAvailable } = await Updates.checkForUpdateAsync();
+        if (isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch {
+        // Best-effort — silent failure
       }
     })();
   }, []);
