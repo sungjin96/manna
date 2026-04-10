@@ -86,7 +86,7 @@ function ShareCardDesign({ verseRef, noteText, date, isPro }: Props) {
       {/* Logo + 구절 참조 */}
       <View style={card.header}>
         <View style={card.logoRow}>
-          <MaterialCommunityIcons name="cross" size={14} color="#D4A847" />
+          <MaterialCommunityIcons name="cross" size={14} color="rgba(212,168,71,0.45)" />
           <Text style={card.logoText}>MANNA</Text>
         </View>
         <Text style={card.ref}>{verseRef}</Text>
@@ -157,7 +157,7 @@ const card = StyleSheet.create({
   logoText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#D4A847',
+    color: 'rgba(212,168,71,0.45)',
     letterSpacing: 2.5,
   },
   ref: {
