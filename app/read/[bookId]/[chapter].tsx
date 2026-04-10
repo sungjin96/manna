@@ -80,6 +80,7 @@ export default function ReadScreen() {
   const { settings, update: updateSettings, colors } = useReaderSettings();
 
   // ── State ─────────────────────────────────────────────────────────────────
+  const [highlightVerse, setHighlightVerse] = useState<number | null>(null);
   const [alreadyDone, setAlreadyDone] = useState(false);
   const [readVerses, setReadVerses] = useState<Set<number>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
@@ -189,7 +190,7 @@ export default function ReadScreen() {
     if (didAutoScroll.current) return;
     if (!verses || verses.length === 0) return;
 
-    // verse 파라미터가 있으면 해당 절로 스크롤 (검색/묵상에서 이동)
+    // verse 파라미터가 있으면 해당 절로 스크롤 + 하이라이트 (검색/묵상에서 이동)
     if (targetVerse) {
       const idx = verses.findIndex(v => v.verse === targetVerse);
       if (idx >= 0) {
@@ -198,6 +199,11 @@ export default function ReadScreen() {
           flatListRef.current?.scrollToIndex({
             index: idx, animated: true, viewOffset: 0,
           });
+          // 스크롤 후 잠시 빛나기
+          setTimeout(() => {
+            setHighlightVerse(targetVerse);
+            setTimeout(() => setHighlightVerse(null), 1500);
+          }, 400);
         }, 300);
         return;
       }
@@ -587,6 +593,7 @@ export default function ReadScreen() {
       && item.verse >= selectionRange.start && item.verse <= selectionRange.end;
     const isTTSActive = isTTS && ttsVerse === item.verse;
     const hasMeditation = showMeditationMarkers && getVerseMeditations(item.verse).length > 0;
+    const isHighlighted = highlightVerse === item.verse;
 
     return (
       <Pressable
@@ -597,6 +604,7 @@ export default function ReadScreen() {
           styles.verseRow,
           inSelection && { backgroundColor: `${colors.gold}20`, borderRadius: 6 },
           isTTSActive && { backgroundColor: `${colors.gold}12` },
+          isHighlighted && { backgroundColor: `${colors.gold}25`, borderRadius: 6 },
         ]}
       >
         <View style={{ alignItems: 'center' }}>
@@ -625,7 +633,7 @@ export default function ReadScreen() {
         </Text>
       </Pressable>
     );
-  }, [readVerses, selectionMode, selectionRange, isTTS, ttsVerse, settings, colors, fontFamily, chapterMeditations, showMeditationMarkers]);
+  }, [readVerses, selectionMode, selectionRange, isTTS, ttsVerse, settings, colors, fontFamily, chapterMeditations, showMeditationMarkers, highlightVerse]);
 
   return (
     <>
