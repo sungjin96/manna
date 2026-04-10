@@ -207,24 +207,21 @@ export default function HomeScreen() {
     }
   }, [stats.currentStreak]);
 
-  // FAB soft bounce — 탭 포커스 때마다 시작, 벗어나면 정리
+  // FAB soft bounce — useNativeDriver:false로 콜백 보장
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      fabBounce.setValue(0);
-      function doBounce() {
-        if (cancelled) return;
+      let id: ReturnType<typeof setInterval> | null = null;
+      function kick() {
         Animated.sequence([
-          Animated.timing(fabBounce, { toValue: -3, duration: 200, useNativeDriver: true }),
-          Animated.timing(fabBounce, { toValue: 0, duration: 200, useNativeDriver: true }),
-          Animated.timing(fabBounce, { toValue: -2, duration: 150, useNativeDriver: true }),
-          Animated.timing(fabBounce, { toValue: 0, duration: 150, useNativeDriver: true }),
-        ]).start(() => {
-          if (!cancelled) setTimeout(doBounce, 600);
-        });
+          Animated.timing(fabBounce, { toValue: -3, duration: 200, useNativeDriver: false }),
+          Animated.timing(fabBounce, { toValue: 0, duration: 200, useNativeDriver: false }),
+          Animated.timing(fabBounce, { toValue: -2, duration: 150, useNativeDriver: false }),
+          Animated.timing(fabBounce, { toValue: 0, duration: 150, useNativeDriver: false }),
+        ]).start();
       }
-      doBounce();
-      return () => { cancelled = true; };
+      kick();
+      id = setInterval(kick, 1300);
+      return () => { if (id) clearInterval(id); fabBounce.setValue(0); };
     }, [])
   );
 
