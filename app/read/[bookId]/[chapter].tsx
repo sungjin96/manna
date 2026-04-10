@@ -602,11 +602,10 @@ export default function ReadScreen() {
         delayLongPress={400}
         style={[
           styles.verseRow,
-          inSelection && { backgroundColor: `${colors.gold}20`, borderRadius: 6 },
+          { borderWidth: 1.5, borderColor: 'transparent', borderRadius: 8 },
+          inSelection && { backgroundColor: `${colors.gold}20` },
           isTTSActive && { backgroundColor: `${colors.gold}12` },
           isHighlighted && {
-            borderRadius: 8,
-            borderWidth: 1.5,
             borderColor: colors.gold,
             shadowColor: colors.gold,
             shadowOffset: { width: 0, height: 0 },
