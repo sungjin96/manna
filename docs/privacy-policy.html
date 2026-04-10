@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>만나 — 개인정보 처리방침</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0B0A12;
+      color: #E8E0CC;
+      line-height: 1.7;
+      padding: 40px 20px;
+    }
+    .container { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 28px; font-weight: 900; color: #D4A847; margin-bottom: 8px; }
+    .subtitle { color: #8A8070; font-size: 14px; margin-bottom: 40px; }
+    h2 { font-size: 18px; font-weight: 700; color: #D4A847; margin: 32px 0 12px; }
+    p { margin-bottom: 12px; color: #C8C0B0; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { margin-bottom: 6px; color: #C8C0B0; }
+    .section { border-left: 3px solid #D4A84730; padding-left: 16px; margin-bottom: 8px; }
+    a { color: #D4A847; }
+    .footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid #2A2830; color: #8A8070; font-size: 13px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>개인정보 처리방침</h1>
+  <p class="subtitle">만나 (Manna) · 최종 수정: 2026년 4월 10일</p>
+
+  <div class="section">
+    <p>만나(이하 "앱")는 사용자의 개인정보를 소중히 여깁니다. 본 방침은 앱이 수집하는 정보와 그 사용 방법을 설명합니다.</p>
+  </div>
+
+  <h2>1. 수집하는 정보</h2>
+  <p>앱은 아래 정보를 기기 내부(SQLite)에만 저장합니다. 별도 서버로 전송되지 않습니다.</p>
+  <ul>
+    <li>읽기 기록 (읽은 챕터, 절)</li>
+    <li>묵상 노트</li>
+    <li>연속 읽기 일수(Streak) 및 업적</li>
+    <li>알림 설정 (시간, 활성화 여부)</li>
+    <li>앱 환경 설정 (폰트 크기, 테마 등)</li>
+  </ul>
+
+  <h2>2. 외부로 전송되는 정보</h2>
+
+  <p><strong>구독 처리 (RevenueCat)</strong></p>
+  <ul>
+    <li>Manna Pro 구독 시 RevenueCat이 구독 상태를 관리합니다.</li>
+    <li>RevenueCat은 익명 사용자 ID와 구독 트랜잭션 정보를 처리합니다.</li>
+    <li>RevenueCat의 개인정보 처리방침: <a href="https://www.revenuecat.com/privacy" target="_blank">revenuecat.com/privacy</a></li>
+  </ul>
+
+  <p><strong>AI 묵상 기능 (Manna Pro 구독자 전용)</strong></p>
+  <ul>
+    <li>사용자가 선택한 성경 구절이 Cloudflare Workers 서버를 거쳐 Anthropic AI API로 전송됩니다.</li>
+    <li>전송되는 정보: 선택한 성경 구절 텍스트, 익명 구독자 ID</li>
+    <li>이름, 이메일 등 개인 식별 정보는 전송되지 않습니다.</li>
+    <li>AI 응답은 기기에 캐시되며 외부 서버에 저장되지 않습니다.</li>
+    <li>Anthropic 개인정보 처리방침: <a href="https://www.anthropic.com/privacy" target="_blank">anthropic.com/privacy</a></li>
+  </ul>
+
+  <p><strong>푸시 알림 (선택)</strong></p>
+  <ul>
+    <li>알림 권한 허용 시 Apple Push Notification Service(APNs)를 통해 기기 토큰이 처리될 수 있습니다.</li>
+    <li>알림은 기기 내에서 예약되며, 개인 식별 정보를 포함하지 않습니다.</li>
+  </ul>
+
+  <h2>3. 수집하지 않는 정보</h2>
+  <ul>
+    <li>이름, 이메일 주소, 전화번호 등 개인 식별 정보</li>
+    <li>위치 정보</li>
+    <li>연락처, 카메라, 마이크</li>
+    <li>광고 추적 데이터</li>
+  </ul>
+
+  <h2>4. 데이터 보관 및 삭제</h2>
+  <p>모든 읽기 기록, 묵상 노트, 설정은 사용자의 기기에만 저장됩니다. 앱을 삭제하면 모든 데이터가 함께 삭제됩니다.</p>
+
+  <h2>5. 아동 개인정보 보호</h2>
+  <p>앱은 만 13세 미만 아동을 대상으로 하지 않으며, 고의로 아동의 개인정보를 수집하지 않습니다.</p>
+
+  <h2>6. 방침 변경</h2>
+  <p>본 방침이 변경될 경우 이 페이지에 업데이트됩니다. 중요한 변경 사항은 앱 내 공지를 통해 알립니다.</p>
+
+  <h2>7. 문의</h2>
+  <p>개인정보 관련 문의: <a href="mailto:sungjin5891@gmail.com">sungjin5891@gmail.com</a></p>
+
+  <div class="footer">
+    <p>© 2026 만나 (Manna). All rights reserved.</p>
+  </div>
+</div>
+</body>
+</html>
