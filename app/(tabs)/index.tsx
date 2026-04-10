@@ -211,9 +211,11 @@ export default function HomeScreen() {
   useEffect(() => {
     const bounce = Animated.loop(
       Animated.sequence([
-        Animated.timing(fabBounce, { toValue: -3, duration: 500, useNativeDriver: true }),
-        Animated.spring(fabBounce, { toValue: 0, friction: 5, tension: 120, useNativeDriver: true }),
-        Animated.delay(800),
+        Animated.timing(fabBounce, { toValue: -3, duration: 200, useNativeDriver: true }),
+        Animated.timing(fabBounce, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(fabBounce, { toValue: -2, duration: 150, useNativeDriver: true }),
+        Animated.timing(fabBounce, { toValue: 0, duration: 150, useNativeDriver: true }),
+        Animated.delay(600),
       ])
     );
     bounce.start();
@@ -421,9 +423,9 @@ export default function HomeScreen() {
           onPress={() => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             Animated.sequence([
-              Animated.spring(fabScale, { toValue: 0.92, friction: 5, useNativeDriver: true }),
-              Animated.spring(fabScale, { toValue: 1.06, friction: 3, tension: 300, useNativeDriver: true }),
-              Animated.spring(fabScale, { toValue: 1, friction: 4, useNativeDriver: true }),
+              Animated.timing(fabScale, { toValue: 0.94, duration: 80, useNativeDriver: true }),
+              Animated.timing(fabScale, { toValue: 1.04, duration: 100, useNativeDriver: true }),
+              Animated.timing(fabScale, { toValue: 1, duration: 60, useNativeDriver: true }),
             ]).start(() => {
               router.push(`/read/${bookId}/${chapter}`);
             });
