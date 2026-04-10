@@ -207,19 +207,22 @@ export default function HomeScreen() {
     }
   }, [stats.currentStreak]);
 
-  // FAB soft bounce loop
+  // FAB soft bounce — 재귀 호출로 안정적 반복
   useEffect(() => {
-    const bounce = Animated.loop(
+    let cancelled = false;
+    function doBounce() {
+      if (cancelled) return;
       Animated.sequence([
         Animated.timing(fabBounce, { toValue: -3, duration: 200, useNativeDriver: true }),
         Animated.timing(fabBounce, { toValue: 0, duration: 200, useNativeDriver: true }),
         Animated.timing(fabBounce, { toValue: -2, duration: 150, useNativeDriver: true }),
         Animated.timing(fabBounce, { toValue: 0, duration: 150, useNativeDriver: true }),
-        Animated.delay(600),
-      ])
-    );
-    bounce.start();
-    return () => bounce.stop();
+      ]).start(() => {
+        if (!cancelled) setTimeout(doBounce, 600);
+      });
+    }
+    doBounce();
+    return () => { cancelled = true; };
   }, []);
 
   // Animate XP bar and map whenever stats change
