@@ -14,7 +14,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -29,7 +29,7 @@
         ],
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "2"
+      "buildNumber": "3"
     },
     "android": {
       "package": "com.jsj.manna",
