@@ -8,8 +8,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/99aa66ee-0480-4657-b6d1-3fb03ea33008",
-      "fallbackToCacheTimeout": 0
+      "url": "https://u.expo.dev/99aa66ee-0480-4657-b6d1-3fb03ea33008"
     },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,11 +24,12 @@
       "bundleIdentifier": "com.jsj.manna",
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification"
+          "remote-notification",
+          "audio"
         ],
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "17"
+      "buildNumber": "19"
     },
     "android": {
       "package": "com.jsj.manna",

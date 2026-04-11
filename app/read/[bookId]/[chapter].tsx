@@ -22,7 +22,8 @@ import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useBibleText } from '../../../hooks/useBibleText';
 import { useReaderSettings, READER_THEMES, ReaderTheme } from '../../../hooks/useReaderSettings';
-import { useTTS, TTS_RATE_LABELS } from '../../../hooks/useTTS';
+import { useTTS } from '../../../hooks/useTTS';
+import { TTSMiniPlayer } from '../../../components/TTSMiniPlayer';
 import { useHeaderAnim } from '../../../hooks/useHeaderAnim';
 import { useMeditationSheet, type MeditationMode, type QAEntry } from '../../../hooks/useMeditationSheet';
 import { useSettingsSheet } from '../../../hooks/useSettingsSheet';
@@ -164,10 +165,18 @@ export default function ReadScreen() {
   }
 
   const {
-    isTTS, ttsVerse, ttsRateIdx, showTTSMenu, noKoreanVoice,
-    availableVoices, selectedVoiceId, setShowTTSMenu,
-    toggleTTS, selectTTSRate, selectVoice,
-  } = useTTS(verses);
+    isTTS, isPaused, ttsVerse, ttsRateIdx, noKoreanVoice,
+    availableVoices, selectedVoiceId,
+    timerMinutes, timerRemaining,
+    autoCompleteEnabled, autoAdvanceEnabled, pauseEnabled,
+    toggleTTS, stopTTS, togglePause, skipVerse,
+    selectTTSRate, selectVoice,
+    startTimer, cancelTimer,
+    toggleAutoComplete, toggleAutoAdvance, togglePauseEnabled,
+  } = useTTS(verses, {
+    onChapterEnd: () => { if (!alreadyDone) handleComplete(); },
+    onAutoAdvance: navigateNext,
+  });
 
   const { headerOpacity, headerHeightValue, bottomNavOpacity, handleScroll } = useHeaderAnim(HEADER_FULL_H);
 
@@ -717,15 +726,9 @@ export default function ReadScreen() {
             </Pressable>
             <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>{title}</Text>
             <View style={styles.headerRight}>
-              {isTTS && (
-                <Pressable onPress={() => setShowTTSMenu(v => !v)} style={styles.ttsRateBtn} hitSlop={8}>
-                  <Text style={[styles.ttsRateLabel, { color: colors.gold }]}>{TTS_RATE_LABELS[ttsRateIdx]}</Text>
-                  <MaterialCommunityIcons name="chevron-down" size={12} color={colors.gold} style={{ marginLeft: 1 }} />
-                </Pressable>
-              )}
               <Pressable
                 onPress={() => {
-                  if (noKoreanVoice && !isTTS) {
+                  if (noKoreanVoice && !isTTS && !isPaused) {
                     Alert.alert(
                       '한국어 음성 미설치',
                       'TTS가 작동하려면 한국어(대한민국) 음성이 필요합니다.\n\n설정 → 손쉬운 사용 → 콘텐츠 말하기 → 음성에서 다운로드하세요.',
@@ -738,7 +741,11 @@ export default function ReadScreen() {
                 style={styles.headerIconBtn}
                 hitSlop={8}
               >
-                <MaterialCommunityIcons name={isTTS ? 'volume-high' : 'volume-off'} size={20} color={isTTS ? colors.gold : colors.muted} />
+                <MaterialCommunityIcons
+                  name={(isTTS || isPaused) ? 'volume-high' : 'volume-off'}
+                  size={20}
+                  color={(isTTS || isPaused) ? colors.gold : colors.muted}
+                />
               </Pressable>
               <Pressable onPress={openSettingsSheet} style={styles.headerIconBtn} hitSlop={8}>
                 <MaterialCommunityIcons name="format-size" size={20} color={colors.muted} />
@@ -755,50 +762,6 @@ export default function ReadScreen() {
           )}
         </Animated.View>
 
-        {/* TTS settings panel (speed + voice) */}
-        {showTTSMenu && (
-          <>
-            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowTTSMenu(false)} />
-            <View style={[styles.ttsMenu, { backgroundColor: colors.surface, borderColor: colors.border, top: insets.top + HEADER_H - 4 }]}>
-              {/* 읽기 속도 */}
-              <Text style={[styles.ttsMenuSection, { color: colors.muted }]}>읽기 속도</Text>
-              {TTS_RATE_LABELS.map((label, idx) => (
-                <Pressable key={idx} style={[styles.ttsMenuItem, idx === ttsRateIdx && { backgroundColor: `${colors.gold}18` }]} onPress={() => selectTTSRate(idx)}>
-                  <Text style={[styles.ttsMenuLabel, { color: idx === ttsRateIdx ? colors.gold : colors.text }]}>{label}</Text>
-                  {idx === ttsRateIdx && <MaterialCommunityIcons name="check" size={14} color={colors.gold} />}
-                </Pressable>
-              ))}
-
-              {/* 목소리 선택 */}
-              {availableVoices.length > 1 && (
-                <>
-                  <View style={[styles.ttsMenuDivider, { backgroundColor: colors.border }]} />
-                  <Text style={[styles.ttsMenuSection, { color: colors.muted }]}>목소리</Text>
-                  {availableVoices.map(voice => {
-                    const active = voice.identifier === selectedVoiceId;
-                    return (
-                      <Pressable
-                        key={voice.identifier}
-                        style={[styles.ttsMenuItem, active && { backgroundColor: `${colors.gold}18` }]}
-                        onPress={() => selectVoice(voice.identifier)}
-                      >
-                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={[styles.ttsMenuLabel, { color: active ? colors.gold : colors.text }]}>{voice.name}</Text>
-                          {voice.quality === 'Enhanced' && (
-                            <View style={{ backgroundColor: `${colors.gold}20`, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3 }}>
-                              <Text style={{ fontSize: 9, color: colors.gold, fontWeight: '600' }}>HD</Text>
-                            </View>
-                          )}
-                        </View>
-                        {active && <MaterialCommunityIcons name="check" size={14} color={colors.gold} />}
-                      </Pressable>
-                    );
-                  })}
-                </>
-              )}
-            </View>
-          </>
-        )}
 
         {/* Bible content */}
         {loading ? (
@@ -875,26 +838,54 @@ export default function ReadScreen() {
           </Animated.View>
         )}
 
-        {/* 항목 3: 스크롤 연동 하단 prev/next 바 */}
+        {/* 하단 네비게이션 / TTS 미니 플레이어 */}
         {!selectionMode && (
-          <Animated.View style={[
-            meditStyles.bottomNav,
-            { backgroundColor: colors.headerBg, borderTopColor: colors.border, paddingBottom: insets.bottom + 4 },
-            { opacity: bottomNavOpacity },
-          ]}>
-            <Pressable style={meditStyles.bottomNavBtn} onPress={() => {
-              const prev = prevBefore(bookId, chapter);
-              if (prev) router.replace(`/read/${prev.bookId}/${prev.chapter}`);
-            }} hitSlop={8}>
-              <MaterialCommunityIcons name="chevron-left" size={22} color={colors.muted} />
-              <Text style={[meditStyles.bottomNavText, { color: colors.muted }]}>이전</Text>
-            </Pressable>
-            <Text style={[meditStyles.bottomNavChapter, { color: colors.muted }]}>{title}</Text>
-            <Pressable style={meditStyles.bottomNavBtn} onPress={navigateNext} hitSlop={8}>
-              <Text style={[meditStyles.bottomNavText, { color: colors.muted }]}>다음</Text>
-              <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
-            </Pressable>
-          </Animated.View>
+          (isTTS || isPaused) ? (
+            <TTSMiniPlayer
+              isTTS={isTTS}
+              isPaused={isPaused}
+              currentVerseText={verses?.find(v => v.verse === ttsVerse)?.text ?? null}
+              ttsRateIdx={ttsRateIdx}
+              availableVoices={availableVoices}
+              selectedVoiceId={selectedVoiceId}
+              timerMinutes={timerMinutes}
+              timerRemaining={timerRemaining}
+              autoCompleteEnabled={autoCompleteEnabled}
+              autoAdvanceEnabled={autoAdvanceEnabled}
+              pauseEnabled={pauseEnabled}
+              colors={colors}
+              paddingBottom={insets.bottom + 4}
+              onStop={stopTTS}
+              onTogglePause={togglePause}
+              onSkip={skipVerse}
+              onSelectRate={selectTTSRate}
+              onSelectVoice={selectVoice}
+              onStartTimer={startTimer}
+              onCancelTimer={cancelTimer}
+              onToggleAutoComplete={toggleAutoComplete}
+              onToggleAutoAdvance={toggleAutoAdvance}
+              onTogglePauseEnabled={togglePauseEnabled}
+            />
+          ) : (
+            <Animated.View style={[
+              meditStyles.bottomNav,
+              { backgroundColor: colors.headerBg, borderTopColor: colors.border, paddingBottom: insets.bottom + 4 },
+              { opacity: bottomNavOpacity },
+            ]}>
+              <Pressable style={meditStyles.bottomNavBtn} onPress={() => {
+                const prev = prevBefore(bookId, chapter);
+                if (prev) router.replace(`/read/${prev.bookId}/${prev.chapter}`);
+              }} hitSlop={8}>
+                <MaterialCommunityIcons name="chevron-left" size={22} color={colors.muted} />
+                <Text style={[meditStyles.bottomNavText, { color: colors.muted }]}>이전</Text>
+              </Pressable>
+              <Text style={[meditStyles.bottomNavChapter, { color: colors.muted }]}>{title}</Text>
+              <Pressable style={meditStyles.bottomNavBtn} onPress={navigateNext} hitSlop={8}>
+                <Text style={[meditStyles.bottomNavText, { color: colors.muted }]}>다음</Text>
+                <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
+              </Pressable>
+            </Animated.View>
+          )
         )}
 
         {/* Selection bar */}
