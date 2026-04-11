@@ -5,6 +5,7 @@ export interface MeditationPrompts {
 
 export type AIMeditationError =
   | 'no_subscription'
+  | 'free_limit_reached'
   | 'network_error'
   | 'api_error'
   | 'parse_error';
@@ -77,7 +78,9 @@ export async function generateMeditationPrompts(
     clearTimeout(timeoutId);
 
     if (response.status === 403) {
-      return { data: null, error: 'no_subscription' };
+      const body403 = await response.json().catch(() => ({})) as { error?: string };
+      const err403 = body403.error === 'free_limit_reached' ? 'free_limit_reached' : 'no_subscription';
+      return { data: null, error: err403 };
     }
     if (!response.ok) {
       return { data: null, error: 'api_error' };
@@ -100,6 +103,8 @@ export function aiErrorMessage(error: AIMeditationError): string {
   switch (error) {
     case 'no_subscription':
       return 'AI 묵상은 프리미엄 구독자 전용입니다.';
+    case 'free_limit_reached':
+      return '오늘 무료 AI 사용 횟수(3회)를 모두 사용했습니다. 내일 다시 시도해주세요.';
     case 'network_error':
       return '오프라인 상태입니다. 직접 기록해보세요.';
     case 'api_error':
@@ -155,7 +160,11 @@ export async function generateExplanation(
     });
     clearTimeout(timeoutId);
 
-    if (response.status === 403) return { data: null, error: 'no_subscription' };
+    if (response.status === 403) {
+      const body403 = await response.json().catch(() => ({})) as { error?: string };
+      const err403 = body403.error === 'free_limit_reached' ? 'free_limit_reached' : 'no_subscription';
+      return { data: null, error: err403 };
+    }
     if (!response.ok) {
       const body = await response.text().catch(() => '');
       console.error(`[explain] Worker ${response.status}:`, body);
@@ -209,7 +218,11 @@ export async function generatePrayer(
     });
     clearTimeout(timeoutId);
 
-    if (response.status === 403) return { data: null, error: 'no_subscription' };
+    if (response.status === 403) {
+      const body403 = await response.json().catch(() => ({})) as { error?: string };
+      const err403 = body403.error === 'free_limit_reached' ? 'free_limit_reached' : 'no_subscription';
+      return { data: null, error: err403 };
+    }
     if (!response.ok) return { data: null, error: 'api_error' };
 
     const json = await response.json() as { prayer?: string };
@@ -265,7 +278,11 @@ export async function generateRecommendation(
     });
     clearTimeout(timeoutId);
 
-    if (response.status === 403) return { data: null, error: 'no_subscription' };
+    if (response.status === 403) {
+      const body403 = await response.json().catch(() => ({})) as { error?: string };
+      const err403 = body403.error === 'free_limit_reached' ? 'free_limit_reached' : 'no_subscription';
+      return { data: null, error: err403 };
+    }
     if (!response.ok) return { data: null, error: 'api_error' };
 
     const json = await response.json() as { verses?: unknown[] };
