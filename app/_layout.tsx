@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { BadgeToastProvider } from '../contexts/BadgeToastContext';
 import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
@@ -20,65 +21,108 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export default function RootLayout() {
-  useEffect(() => {
-    // Initialize DB on first mount
-    getDb().catch(console.error);
+type AppState = 'loading' | 'updating' | 'ready';
 
-    // Configure RevenueCat (no-op if API key not set)
+export default function RootLayout() {
+  const [appState, setAppState] = useState<AppState>('loading');
+
+  useEffect(() => {
+    initialize();
+  }, []);
+
+  async function initialize() {
+    // Initialize DB & RevenueCat
+    getDb().catch(console.error);
     configureRevenueCat();
 
-    // Re-register notification on app start (in case system cleared it)
-    (async () => {
-      try {
-        const enabled = await getSetting('notification_enabled', '0');
-        if (enabled === '1') {
-          const hour = parseInt(await getSetting('notification_hour', '8'), 10);
-          const minute = parseInt(await getSetting('notification_minute', '0'), 10);
-          await scheduleReadingReminder(hour, minute);
-        }
-      } catch {
-        // Best-effort — don't crash app if notification re-registration fails
+    // Re-register notification on app start
+    try {
+      const enabled = await getSetting('notification_enabled', '0');
+      if (enabled === '1') {
+        const hour = parseInt(await getSetting('notification_hour', '8'), 10);
+        const minute = parseInt(await getSetting('notification_minute', '0'), 10);
+        await scheduleReadingReminder(hour, minute);
       }
-    })();
+    } catch {
+      // Best-effort — don't crash app if notification re-registration fails
+    }
 
-    // Auto OTA update on startup
-    (async () => {
+    // Auto OTA update — blocking check prevents home screen flash
+    if (!__DEV__) {
       try {
-        if (__DEV__) return;
         const autoUpdate = await getSetting('auto_update', '1');
-        if (autoUpdate !== '1') return;
-        const { isAvailable } = await Updates.checkForUpdateAsync();
-        if (isAvailable) {
-          await Updates.fetchUpdateAsync();
-          await Updates.reloadAsync();
+        if (autoUpdate === '1') {
+          const { isAvailable } = await Updates.checkForUpdateAsync();
+          if (isAvailable) {
+            setAppState('updating');
+            await Updates.fetchUpdateAsync();
+            await Updates.reloadAsync();
+            return; // reloadAsync restarts the app — nothing after this runs
+          }
         }
       } catch {
-        // Best-effort — silent failure
+        // Best-effort — silent failure, proceed to app normally
       }
-    })();
-  }, []);
+    }
+
+    setAppState('ready');
+  }
+
+  // Loading: blank screen matching splash bg (hides flash during OTA check)
+  // Updating: show progress indicator before home screen loads
+  if (appState !== 'ready') {
+    return (
+      <View style={styles.splash}>
+        {appState === 'updating' && (
+          <>
+            <ActivityIndicator color={theme.gold} size="large" />
+            <Text style={styles.updateText}>업데이트 중입니다...</Text>
+            <Text style={styles.updateSub}>잠시만 기다려 주세요</Text>
+          </>
+        )}
+      </View>
+    );
+  }
 
   return (
     <BadgeToastProvider>
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: theme.bg },
-      }}
-    >
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen
-        name="read/[bookId]/[chapter]"
-        options={{
-          headerShown: true,
-          headerStyle: { backgroundColor: theme.surface },
-          headerTintColor: theme.gold,
-          headerTitleStyle: { color: theme.text },
-          headerShadowVisible: false,
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.bg },
         }}
-      />
-    </Stack>
+      >
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="read/[bookId]/[chapter]"
+          options={{
+            headerShown: true,
+            headerStyle: { backgroundColor: theme.surface },
+            headerTintColor: theme.gold,
+            headerTitleStyle: { color: theme.text },
+            headerShadowVisible: false,
+          }}
+        />
+      </Stack>
     </BadgeToastProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: {
+    flex: 1,
+    backgroundColor: theme.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  updateText: {
+    color: theme.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  updateSub: {
+    color: theme.textMuted,
+    fontSize: 13,
+  },
+});

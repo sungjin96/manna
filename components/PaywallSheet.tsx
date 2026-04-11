@@ -25,7 +25,7 @@ interface Props {
   price?: string;
 }
 
-export default function PaywallSheet({ visible, onClose, onPurchase, loading = false, price = '₩4,900/월' }: Props) {
+export default function PaywallSheet({ visible, onClose, onPurchase, loading = false, price = '₩3,300/월' }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.overlay}>
