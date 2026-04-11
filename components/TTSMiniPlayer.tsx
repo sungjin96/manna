@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, Pressable, Modal, ScrollView, StyleSheet, Switch,
+  Animated, PanResponder,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { TTS_RATE_LABELS, TTS_TIMER_OPTIONS, TTSVoice } from '../hooks/useTTS';
@@ -57,6 +58,27 @@ export function TTSMiniPlayer({
   onToggleAutoComplete, onToggleAutoAdvance, onTogglePauseEnabled,
 }: TTSMiniPlayerProps) {
   const [showSheet, setShowSheet] = useState(false);
+  const sheetY = useRef(new Animated.Value(0)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+      onPanResponderMove: (_, { dy }) => {
+        if (dy > 0) sheetY.setValue(dy);
+      },
+      onPanResponderRelease: (_, { dy }) => {
+        if (dy > 80) {
+          Animated.timing(sheetY, { toValue: 600, duration: 200, useNativeDriver: true }).start(() => {
+            sheetY.setValue(0);
+            setShowSheet(false);
+          });
+        } else {
+          Animated.spring(sheetY, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+    })
+  ).current;
 
   if (!isTTS && !isPaused) return null;
 
@@ -113,17 +135,32 @@ export function TTSMiniPlayer({
             </Text>
           )}
 
-          <MaterialCommunityIcons name="chevron-up" size={16} color={colors.muted} style={{ marginLeft: 4 }} />
+          <View style={[miniStyles.settingsTag, { backgroundColor: `${colors.muted}20` }]}>
+            <MaterialCommunityIcons name="cog-outline" size={12} color={colors.muted} />
+            <Text style={[miniStyles.settingsTagText, { color: colors.muted }]}>설정</Text>
+          </View>
         </View>
       </Pressable>
 
       {/* ── Full settings sheet ─────────────────────────────────── */}
       <Modal visible={showSheet} transparent animationType="slide" onRequestClose={() => setShowSheet(false)}>
         <Pressable style={sheetStyles.backdrop} onPress={() => setShowSheet(false)} />
-        <View style={[sheetStyles.sheet, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-          {/* Handle */}
-          <View style={sheetStyles.handleArea}>
+        <Animated.View
+          style={[
+            sheetStyles.sheet,
+            { backgroundColor: colors.surface, borderTopColor: colors.border },
+            { transform: [{ translateY: sheetY }] },
+          ]}
+        >
+          {/* Handle + 닫기 */}
+          <View style={sheetStyles.handleArea} {...panResponder.panHandlers}>
             <View style={[sheetStyles.handle, { backgroundColor: colors.muted }]} />
+          </View>
+          <View style={[sheetStyles.sheetHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[sheetStyles.sheetTitle, { color: colors.text }]}>TTS 설정</Text>
+            <Pressable onPress={() => setShowSheet(false)} hitSlop={12}>
+              <MaterialCommunityIcons name="close" size={20} color={colors.muted} />
+            </Pressable>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: paddingBottom + 16 }}>
@@ -298,7 +335,7 @@ export function TTSMiniPlayer({
               <Text style={[sheetStyles.stopBtnText, { color: colors.muted }]}>읽기 중지</Text>
             </Pressable>
           </ScrollView>
-        </View>
+        </Animated.View>
       </Modal>
     </>
   );
@@ -339,6 +376,18 @@ const miniStyles = StyleSheet.create({
     letterSpacing: 0.3,
     minWidth: 36,
     textAlign: 'right',
+  },
+  settingsTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  settingsTagText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
 
@@ -387,6 +436,18 @@ const sheetStyles = StyleSheet.create({
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   divider: {
     height: StyleSheet.hairlineWidth,

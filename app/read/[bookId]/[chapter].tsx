@@ -94,8 +94,8 @@ function prevBefore(bookId: number, chapter: number): { bookId: number; chapter:
 
 // ── Main screen ────────────────────────────────────────────────────────────
 export default function ReadScreen() {
-  const { bookId: bookIdStr, chapter: chapterStr, verse: verseStr } = useLocalSearchParams<{
-    bookId: string; chapter: string; verse?: string;
+  const { bookId: bookIdStr, chapter: chapterStr, verse: verseStr, ttsAutoStart } = useLocalSearchParams<{
+    bookId: string; chapter: string; verse?: string; ttsAutoStart?: string;
   }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -110,6 +110,8 @@ export default function ReadScreen() {
   // ── State ─────────────────────────────────────────────────────────────────
   const [highlightVerse, setHighlightVerse] = useState<number | null>(null);
   const [alreadyDone, setAlreadyDone] = useState(false);
+  const alreadyDoneRef = useRef(false); // stale closure 방지용 ref
+  const ttsAutoStartedRef = useRef(false); // auto-start 중복 방지
   const [readVerses, setReadVerses] = useState<Set<number>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
@@ -169,13 +171,19 @@ export default function ReadScreen() {
     availableVoices, selectedVoiceId,
     timerMinutes, timerRemaining,
     autoCompleteEnabled, autoAdvanceEnabled, pauseEnabled,
-    toggleTTS, stopTTS, togglePause, skipVerse,
+    startTTS, toggleTTS, stopTTS, togglePause, skipVerse,
     selectTTSRate, selectVoice,
     startTimer, cancelTimer,
     toggleAutoComplete, toggleAutoAdvance, togglePauseEnabled,
   } = useTTS(verses, {
-    onChapterEnd: () => { if (!alreadyDone) handleComplete(); },
-    onAutoAdvance: navigateNext,
+    onChapterEnd: () => {
+      if (alreadyDoneRef.current) return;
+      handleCompleteSilent();
+    },
+    onAutoAdvance: () => {
+      const next = nextAfter(bookId, chapter);
+      router.replace(`/read/${next.bookId}/${next.chapter}?ttsAutoStart=1` as any);
+    },
   });
 
   const { headerOpacity, headerHeightValue, bottomNavOpacity, handleScroll } = useHeaderAnim(HEADER_FULL_H);
@@ -534,8 +542,34 @@ export default function ReadScreen() {
     cancelSelection();
   }
 
+  // alreadyDoneRef 동기화 (TTS 콜백 stale closure 방지)
+  useEffect(() => { alreadyDoneRef.current = alreadyDone; }, [alreadyDone]);
+
+  // TTS auto-start: 다음 장으로 이동 후 자동 시작 (?ttsAutoStart=1)
+  useEffect(() => {
+    if (ttsAutoStart === '1' && verses && verses.length > 0 && !ttsAutoStartedRef.current) {
+      ttsAutoStartedRef.current = true;
+      startTTS();
+    }
+  }, [ttsAutoStart, verses]);
+
   // ── Chapter complete ───────────────────────────────────────────────────────
   const STREAK_MILESTONES = [5, 30, 100];
+
+  // TTS 완료 시 호출 — 묵상 시트 없이 조용히 완료 처리
+  async function handleCompleteSilent() {
+    if (alreadyDoneRef.current) return;
+    alreadyDoneRef.current = true;
+    await markChapterComplete(bookId, chapter);
+    setAlreadyDone(true);
+    if (verses && verses.length > 0) {
+      const allNums = verses.map(v => v.verse);
+      await Promise.all(allNums.map(v => markVerseRead(bookId, chapter, v)));
+      setReadVerses(new Set(allNums));
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    checkAndShowNewBadges();
+  }
 
   async function handleComplete() {
     if (alreadyDone || selectionMode) return;
