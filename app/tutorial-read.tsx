@@ -43,7 +43,9 @@ export default function TutorialReadScreen() {
     router.replace(`/read/${bookId}/${chapter}`);
   });
 
-  // Step 0: 레이아웃 완료 후 첫 번째 구절 위치 측정
+  // 마운트 후 첫 구절(step 0)과 완료 버튼(step 1) 위치를 한 번에 측정.
+  // 5절뿐이라 버튼이 처음부터 렌더링되어 있으므로 onScrollToEnd 전에 측정 가능.
+  // → step 2 진입 시 measuredSpots[1]이 이미 준비되어 위치 점프 없음.
   useEffect(() => {
     const timer = setTimeout(() => {
       firstVerseRef.current?.measure((_x, _y, _w, height, _px, pageY) => {
@@ -51,20 +53,14 @@ export default function TutorialReadScreen() {
           setMeasuredSpots(prev => ({ ...prev, 0: { y: pageY, h: height } }));
         }
       });
-    }, 200);
-    return () => clearTimeout(timer);
-  }, []);
-
-  function measureCompleteBtn() {
-    // 스크롤 애니메이션 완료 후 측정 (300ms 여유)
-    setTimeout(() => {
       completeBtnRef.current?.measure((_x, _y, _w, height, _px, pageY) => {
         if (pageY > 0) {
           setMeasuredSpots(prev => ({ ...prev, 1: { y: pageY, h: height } }));
         }
       });
-    }, 300);
-  }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, []);
 
   function toggleVerse(verse: number) {
     setReadVerses(prev => {
@@ -163,10 +159,7 @@ export default function TutorialReadScreen() {
           onDismiss={dismiss}
           measuredSpots={measuredSpots}
           onScrollToEnd={() => {
-            setTimeout(() => {
-              flatListRef.current?.scrollToEnd({ animated: true });
-              measureCompleteBtn();
-            }, 100);
+            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
           }}
         />
       )}
