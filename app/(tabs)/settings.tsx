@@ -415,25 +415,33 @@ export default function SettingsScreen() {
           </View>
         ) : (
           <View style={styles.subsCard}>
+            {/* 출시 기념 할인 배너 */}
+            <View style={styles.subsDiscountBanner}>
+              <MaterialCommunityIcons name="lightning-bolt" size={13} color={theme.bg} />
+              <Text style={styles.subsDiscountBannerText}>출시 기념 50% 할인</Text>
+            </View>
+
             {/* Header: title + price pill */}
             <View style={styles.subsCardHeader}>
               <View style={styles.rowLeft}>
                 <MaterialCommunityIcons name="crown-outline" size={20} color={theme.gold} />
-                <Text style={styles.rowLabel}>프리미엄 구독</Text>
+                <Text style={styles.rowLabel}>Manna Pro</Text>
               </View>
               <View style={styles.pricePill}>
-                <Text style={styles.pricePillText}>₩4,900/월</Text>
+                <Text style={styles.pricePillStrike}>₩6,600</Text>
+                <Text style={styles.pricePillText}>₩3,300/월</Text>
               </View>
             </View>
 
             {/* Features */}
             <View style={styles.subsFeatures}>
               {([
-                { icon: 'brain',                   label: 'AI 묵상 질문',    desc: '구절에서 나온 깊은 질문 3가지' },
-                { icon: 'book-open-page-variant',   label: 'AI 구절 해설',    desc: '역사적 배경과 원어 의미' },
-                { icon: 'hands-pray',              label: 'AI 기도문',        desc: '말씀에서 나온 나만의 기도' },
-                { icon: 'compass-rose',            label: '테마별 구절 추천',  desc: '감정·상황에 맞는 말씀' },
-                { icon: 'calendar-month',          label: 'Streak 히트맵',    desc: '연간 읽기 기록 시각화' },
+                { icon: 'headphones',             label: 'TTS 성경 낭독',     desc: '전체 장 자동 낭독 + 타이머·자동 다음 장' },
+                { icon: 'brain',                  label: 'AI 묵상 질문',      desc: '무제한 — 무료는 하루 1회' },
+                { icon: 'book-open-page-variant', label: 'AI 구절 해설',      desc: '무제한 — 무료는 하루 1회' },
+                { icon: 'hands-pray',             label: 'AI 기도문',          desc: '무제한 — 무료는 하루 1회' },
+                { icon: 'compass-rose',           label: '테마별 구절 추천',   desc: '감정·상황에 맞는 말씀' },
+                { icon: 'calendar-month',         label: 'Streak 히트맵',      desc: '연간 읽기 기록 시각화' },
               ] as const).map((f) => (
                 <View key={f.label} style={styles.subsFeatureRow}>
                   <View style={styles.subsFeatureIconBox}>
@@ -453,7 +461,7 @@ export default function SettingsScreen() {
               onPress={handlePurchase}
               disabled={purchasing}
             >
-              <Text style={styles.subsCTAText}>{purchasing ? '처리 중...' : '구독 시작하기'}</Text>
+              <Text style={styles.subsCTAText}>{purchasing ? '처리 중...' : '지금 시작하기 — ₩3,300/월'}</Text>
             </Pressable>
 
             {/* Footer */}
@@ -774,11 +782,26 @@ const styles = StyleSheet.create({
   // Subscription card
   subsCard: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 4,
     gap: 14,
     borderTopWidth: 1,
     borderTopColor: theme.borderSubtle,
+  },
+  subsDiscountBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: theme.gold,
+    borderRadius: 8,
+    paddingVertical: 7,
+  },
+  subsDiscountBannerText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: theme.bg,
+    letterSpacing: 0.3,
   },
   subsCardHeader: {
     flexDirection: 'row',
@@ -792,6 +815,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderWidth: 1,
     borderColor: theme.goldBorder,
+    alignItems: 'flex-end',
+    gap: 1,
+  },
+  pricePillStrike: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: theme.textMuted,
+    textDecorationLine: 'line-through',
   },
   pricePillText: {
     fontSize: 12,
