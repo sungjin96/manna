@@ -76,6 +76,7 @@ export function useTTS(
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false);
   const [pauseEnabled, setPauseEnabled] = useState(true);
   const [verseReadEnabled, setVerseReadEnabled] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   // Refs for use inside async loops
   const ttsRateIdxRef = useRef(1);
@@ -129,6 +130,7 @@ export function useTTS(
       autoCompleteRef.current = autoComplete === '1';
       autoAdvanceRef.current = autoAdvance === '1';
       verseReadRef.current = verseRead === '1';
+      setSettingsLoaded(true);
     })();
   }, []);
 
@@ -363,6 +365,7 @@ export function useTTS(
     autoAdvanceEnabled,
     pauseEnabled,
     verseReadEnabled,
+    settingsLoaded,
     startTTS,
     startFromVerse,
     stopTTS,

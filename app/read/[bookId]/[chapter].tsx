@@ -170,7 +170,7 @@ export default function ReadScreen() {
     isTTS, isPaused, ttsVerse, ttsRateIdx, noKoreanVoice,
     availableVoices, selectedVoiceId,
     timerMinutes, timerRemaining,
-    autoCompleteEnabled, autoAdvanceEnabled, pauseEnabled, verseReadEnabled,
+    autoCompleteEnabled, autoAdvanceEnabled, pauseEnabled, verseReadEnabled, settingsLoaded,
     startTTS, startFromVerse, toggleTTS, stopTTS, togglePause, skipVerse,
     selectTTSRate, selectVoice,
     startTimer, cancelTimer,
@@ -550,12 +550,13 @@ export default function ReadScreen() {
   useEffect(() => { alreadyDoneRef.current = alreadyDone; }, [alreadyDone]);
 
   // TTS auto-start: 다음 장으로 이동 후 자동 시작 (?ttsAutoStart=1)
+  // settingsLoaded를 체크해야 ttsRateIdxRef가 DB에서 복원된 후 startTTS() 호출 가능
   useEffect(() => {
-    if (ttsAutoStart === '1' && verses && verses.length > 0 && !ttsAutoStartedRef.current) {
+    if (ttsAutoStart === '1' && verses && verses.length > 0 && !ttsAutoStartedRef.current && settingsLoaded) {
       ttsAutoStartedRef.current = true;
       startTTS();
     }
-  }, [ttsAutoStart, verses]);
+  }, [ttsAutoStart, verses, settingsLoaded]);
 
   // ── Chapter complete ───────────────────────────────────────────────────────
   const STREAK_MILESTONES = [5, 30, 100];
