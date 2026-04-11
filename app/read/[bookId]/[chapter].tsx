@@ -14,6 +14,7 @@ import {
   Switch,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -108,6 +109,7 @@ export default function ReadScreen() {
 
   const { verses, loading, error } = useBibleText(bookId, chapter);
   const { settings, update: updateSettings, colors } = useReaderSettings();
+  const { height: windowHeight } = useWindowDimensions();
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [highlightVerse, setHighlightVerse] = useState<number | null>(null);
@@ -119,13 +121,18 @@ export default function ReadScreen() {
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
   const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
   const [centerVerseIndex, setCenterVerseIndex] = useState<number | null>(null);
+  const lastViewableItemsRef = useRef<Array<{ index: number | null }>>([]);
   const viewabilityConfigCallbackPairs = useRef([{
     viewabilityConfig: { itemVisiblePercentThreshold: 50 },
     onViewableItemsChanged: ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
-      if (viewableItems.length > 0) {
-        const mid = viewableItems[Math.floor(viewableItems.length / 2)];
-        if (mid?.index != null) setCenterVerseIndex(mid.index);
-      }
+      lastViewableItemsRef.current = viewableItems;
+      // 헤더 높이 애니메이션 중에는 레이아웃 변화로 인한 오탐 방지
+      if (headerTransitioningRef.current) return;
+      if (viewableItems.length === 0) return;
+      // 헤더 숨김 시 맨 위 절은 노치에 가려질 수 있으므로 세 번째 절을 포커스
+      const offset = headerVisibleRef.current ? 0 : 2;
+      const target = viewableItems[offset] ?? viewableItems[0];
+      if (target?.index != null) setCenterVerseIndex(target.index);
     },
   }]);
   const [aiPrompts, setAiPrompts] = useState<string[] | null>(null);
@@ -202,7 +209,16 @@ export default function ReadScreen() {
     },
   });
 
-  const { headerOpacity, headerHeightValue, bottomNavOpacity, handleScroll } = useHeaderAnim(HEADER_FULL_H);
+  const { headerOpacity, headerHeightValue, bottomNavOpacity, headerTransitioningRef, headerVisibleRef, afterAnimRef, handleScroll } = useHeaderAnim(HEADER_FULL_H);
+  // 헤더 애니메이션 완료 후 집중 모드 포커스 재계산 (stale 방지)
+  afterAnimRef.current = (headerVisible: boolean) => {
+    if (!settings.focusMode || !isProUser) return;
+    const items = lastViewableItemsRef.current;
+    if (items.length === 0) return;
+    const offset = headerVisible ? 0 : 2;
+    const target = items[offset] ?? items[0];
+    if (target?.index != null) setCenterVerseIndex(target.index);
+  };
 
   const {
     showMeditation, meditationVerse, setMeditationVerse,
@@ -863,7 +879,11 @@ export default function ReadScreen() {
             ref={flatListRef}
             data={verses}
             keyExtractor={v => String(v.verse)}
-            contentContainerStyle={[styles.list, { paddingHorizontal: MARGIN_MAP[settings.horizontalMargin] }]}
+            contentContainerStyle={[
+              styles.list,
+              { paddingHorizontal: MARGIN_MAP[settings.horizontalMargin] },
+              settings.focusMode && isProUser && { paddingBottom: windowHeight * 0.8 },
+            ]}
             onScroll={handleScroll}
             scrollEventThrottle={16}
             onScrollToIndexFailed={() => {}}

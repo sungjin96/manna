@@ -1,21 +1,27 @@
 import Purchases, { LOG_LEVEL, PurchasesPackage } from 'react-native-purchases';
+import { Platform } from 'react-native';
 
-// RevenueCat API key — Expo Go에서는 Test Store 키, 프로덕션에서는 App Store 키 사용
-const IOS_RC_API_KEY = __DEV__
-  ? (process.env.EXPO_PUBLIC_TEST_RC_IOS_KEY ?? '')
-  : (process.env.EXPO_PUBLIC_RC_IOS_KEY ?? '');
+// RevenueCat API key — 플랫폼별 분리, Expo Go에서는 Test 키 사용
+const RC_API_KEY = Platform.select({
+  ios: __DEV__
+    ? (process.env.EXPO_PUBLIC_TEST_RC_IOS_KEY ?? '')
+    : (process.env.EXPO_PUBLIC_RC_IOS_KEY ?? ''),
+  android: __DEV__
+    ? (process.env.EXPO_PUBLIC_TEST_RC_ANDROID_KEY ?? '')
+    : (process.env.EXPO_PUBLIC_RC_ANDROID_KEY ?? ''),
+}) ?? '';
 
 const AI_ENTITLEMENT_ID = 'Manna Pro';
 
 let _configured = false;
 
 export function configureRevenueCat() {
-  if (_configured || !IOS_RC_API_KEY) return;
+  if (_configured || !RC_API_KEY) return;
   try {
     if (__DEV__) {
       Purchases.setLogLevel(LOG_LEVEL.DEBUG);
     }
-    Purchases.configure({ apiKey: IOS_RC_API_KEY });
+    Purchases.configure({ apiKey: RC_API_KEY });
     _configured = true;
   } catch {
     // Expo Go에서는 네이티브 스토어가 없어 configure 실패 — 무시
@@ -46,7 +52,7 @@ export async function getAppUserId(): Promise<string> {
  */
 export async function checkAIEntitlement(): Promise<boolean> {
   if (__DEV__) return true;
-  if (!IOS_RC_API_KEY) return false;
+  if (!RC_API_KEY) return false;
   try {
     const info = await Purchases.getCustomerInfo();
     return info.entitlements.active[AI_ENTITLEMENT_ID] !== undefined;
@@ -69,15 +75,33 @@ export interface PurchaseResult {
 
 export async function purchasePremium(): Promise<PurchaseResult> {
   try {
+    if (!RC_API_KEY) {
+      console.error('[RC] purchasePremium: RC API key not set — cannot purchase');
+      return { success: false, error: 'purchase_failed' };
+    }
+
     const offerings = await Purchases.getOfferings();
+    console.log('[RC] offerings.current:', offerings.current?.identifier ?? 'null');
+    console.log('[RC] availablePackages:', offerings.current?.availablePackages?.map(p => p.identifier));
+
     const pkg: PurchasesPackage | undefined =
       offerings.current?.availablePackages?.[0];
-    if (!pkg) return { success: false, error: 'no_offerings' };
+    if (!pkg) {
+      console.error('[RC] No package found in current offering — check RC dashboard');
+      return { success: false, error: 'no_offerings' };
+    }
 
+    console.log('[RC] Attempting purchase for package:', pkg.identifier, (pkg.product as { identifier?: string })?.identifier);
     await Purchases.purchasePackage(pkg);
     return { success: true, error: null };
   } catch (e: unknown) {
-    const err = e as { userCancelled?: boolean };
+    const err = e as { userCancelled?: boolean; code?: number; message?: string; underlyingErrorMessage?: string };
+    console.error('[RC] purchasePremium error:', JSON.stringify({
+      code: err?.code,
+      message: err?.message,
+      userCancelled: err?.userCancelled,
+      underlyingError: err?.underlyingErrorMessage,
+    }));
     if (err?.userCancelled) return { success: false, error: 'cancelled' };
     return { success: false, error: 'purchase_failed' };
   }

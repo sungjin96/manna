@@ -38,7 +38,8 @@
         "backgroundColor": "#0B0A12"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 3
     },
     "web": {
       "favicon": "./assets/favicon.png"

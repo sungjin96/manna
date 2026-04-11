@@ -1,0 +1,161 @@
+- generic [ref=e1]:
+  - generic:
+    - generic:
+      - img
+      - progressbar
+      - generic: Google Play Console 로드 중
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e41]:
+          - img "오류" [ref=e44]: error
+          - generic [ref=e45]:
+            - generic [ref=e46]: 비활성 상태로 인해 개발자 계정이 해지될 위험이 있음
+            - link "세부정보 보기" [ref=e51] [cursor=pointer]:
+              - /url: /console/u/0/developers/6742527097914769594/policy-center/issues/4987000237595100703/details
+              - generic [ref=e54]: 세부정보 보기
+        - generic [ref=e6]:
+          - link "Google Play Console 로고" [ref=e7] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/app-list
+            - button "Google Play Console 로고" [ref=e8]
+          - generic [ref=e9]:
+            - button "읽지 않은 알림 알림 센터 열기" [ref=e60]:
+              - img [ref=e64]: notifications_unread
+              - generic [ref=e66]: 읽지 않은 알림
+            - button "개발자 계정 전환" [ref=e14] [cursor=pointer]:
+              - img "개발자 계정 전환" [ref=e16]
+    - navigation [ref=e68]:
+      - list [ref=e69]:
+        - listitem "홈" [ref=e72]:
+          - button "홈" [ref=e73] [cursor=pointer]:
+            - img [ref=e76]: features
+            - generic [ref=e77]: 홈
+        - listitem "정책 상태" [ref=e80]:
+          - button "정책 상태" [ref=e81] [cursor=pointer]:
+            - img [ref=e84]: android_security_privacy_safe
+            - generic [ref=e85]: 정책 상태
+        - listitem "사용자 및 권한" [ref=e88]:
+          - button "사용자 및 권한" [ref=e89] [cursor=pointer]:
+            - img [ref=e92]: user_attributes
+            - generic [ref=e93]: 사용자 및 권한
+        - listitem "주문 관리" [ref=e96]:
+          - button "주문 관리" [ref=e97] [cursor=pointer]:
+            - img [ref=e100]: credit_card
+            - generic [ref=e101]: 주문 관리
+        - listitem "보고서 다운로드" [ref=e104]:
+          - button "보고서 다운로드" [ref=e105] [cursor=pointer]:
+            - img [ref=e107]: arrow_right
+            - img [ref=e110]: download
+            - generic [ref=e111]: 보고서 다운로드
+        - listitem "개발자 계정" [ref=e114]:
+          - button "개발자 계정" [active] [ref=e115] [cursor=pointer]:
+            - img [ref=e118]: badge
+            - generic [ref=e119]: 개발자 계정
+        - listitem "활동 로그" [ref=e122]:
+          - button "활동 로그" [ref=e123] [cursor=pointer]:
+            - img [ref=e126]: description
+            - generic [ref=e127]: 활동 로그
+        - listitem "설정" [ref=e130]:
+          - button "설정" [ref=e131] [cursor=pointer]:
+            - img [ref=e134]: settings
+            - generic [ref=e135]: 설정
+        - listitem "도움말" [ref=e138]:
+          - button "도움말" [ref=e139] [cursor=pointer]:
+            - img [ref=e142]: contact_support
+            - generic [ref=e143]: 도움말
+        - listitem "Android 개발자 인증" [ref=e146]:
+          - button "Android 개발자 인증" [ref=e147] [cursor=pointer]:
+            - img [ref=e150]: app_promotion
+            - generic [ref=e151]: Android 개발자 인증
+    - generic [ref=e22]:
+      - generic [ref=e716]:
+        - generic [ref=e723]:
+          - heading "개발자 계정" [level=1] [ref=e729]
+          - generic [ref=e736]: 나와 이 개발자 계정에 관한 정보 관리
+        - generic [ref=e741]:
+          - generic [ref=e742]:
+            - heading "내 정보" [level=2] [ref=e751]
+            - button "내 정보로 이동" [ref=e752] [cursor=pointer]:
+              - img [ref=e755]: arrow_right_alt
+          - generic [ref=e756]:
+            - generic [ref=e758]:
+              - generic [ref=e760]: 계정 유형
+              - generic [ref=e763]:
+                - img [ref=e766]: account_circle
+                - generic [ref=e767]: 개인
+            - generic [ref=e769]:
+              - generic [ref=e771]: 개발자 계정 ID
+              - generic [ref=e773]: "6742527097914769594"
+            - generic [ref=e775]:
+              - generic [ref=e777]: 개발자 이름
+              - generic [ref=e779]: sungjin5891
+            - generic [ref=e781]:
+              - generic [ref=e783]: 법적 이름 및 주소
+              - generic [ref=e785]:
+                - generic [ref=e786]: 장성진
+                - generic [ref=e787]: 영남 중심상가로 224
+                - generic [ref=e788]: 영남6차아파트, 606동 205호
+                - generic [ref=e789]: 시흥시 - 15065
+                - generic [ref=e790]: 대한민국(KR)
+            - generic [ref=e792]:
+              - generic [ref=e794]: 웹사이트
+              - generic [ref=e796]: "-"
+        - generic [ref=e801]:
+          - generic [ref=e802]:
+            - heading "연락처 세부정보" [level=2] [ref=e811]
+            - button "연락처 세부정보로 이동" [ref=e812] [cursor=pointer]:
+              - img [ref=e815]: arrow_right_alt
+          - generic [ref=e816]:
+            - generic [ref=e821]:
+              - heading "Google에서 연락하는 방법" [level=3] [ref=e827]
+              - generic [ref=e832]: 이 정보는 Google에서 개발자에게 연락하는 데만 사용되며 Google Play에 표시되지 않습니다.
+            - generic [ref=e834]:
+              - generic [ref=e836]: 담당자 이름
+              - generic [ref=e838]: 장성진
+            - generic [ref=e840]:
+              - generic [ref=e842]: 연락처 이메일 주소
+              - generic [ref=e843]:
+                - generic [ref=e844]: sungjin5891@gmail.com
+                - img "연락처 이메일 주소 인증됨" [ref=e848]: check_circle
+            - generic [ref=e850]:
+              - generic [ref=e852]: 연락처 전화번호
+              - generic [ref=e853]:
+                - generic [ref=e854]: "+821020085891"
+                - img "연락처 전화번호 인증됨" [ref=e858]: check_circle
+            - heading "개발자 프로필에 포함된 세부정보" [level=3] [ref=e871]
+            - generic [ref=e873]:
+              - generic [ref=e875]: 개발자 이메일 주소
+              - generic [ref=e876]:
+                - generic [ref=e877]: sungjin5891@gmail.com
+                - img "개발자 이메일 주소 인증됨" [ref=e881]: check_circle
+            - generic [ref=e885]: 개발자 전화번호
+        - generic [ref=e892]:
+          - generic [ref=e895]:
+            - heading "개발자 프로필" [level=2] [ref=e901]
+            - generic [ref=e903]: Google Play의 공개 프로필을 구성하는 정보를 확인하고 공개 개발자 페이지를 구성하세요.
+          - button "공개 개발자 프로필로 이동" [ref=e904] [cursor=pointer]:
+            - img [ref=e907]: arrow_right_alt
+        - generic [ref=e912]:
+          - generic [ref=e913]:
+            - generic [ref=e916]:
+              - heading "연결된 개발자 계정" [level=2] [ref=e922]
+              - generic [ref=e924]: 나와 연결된 다른 개발자 계정이 있다면 알려주세요
+            - button "연결된 개발자 계정으로 이동" [ref=e925] [cursor=pointer]:
+              - img [ref=e928]: arrow_right_alt
+          - generic [ref=e930]: 이 계정을 다른 계정과 연결하지 않았습니다.
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - link "제품 업데이트" [ref=e32] [cursor=pointer]:
+            - /url: https://play.google.com/console/about/whats-new/
+          - link "상태 대시보드" [ref=e33] [cursor=pointer]:
+            - /url: https://status.play.google.com/
+          - link "도움말" [ref=e34] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/help-and-support
+        - generic [ref=e35]:
+          - generic [ref=e36]: © 2026 Google
+          - link "개인 정보 보호" [ref=e37] [cursor=pointer]:
+            - /url: https://www.google.com/policies/privacy/
+          - link "개발자 배포 계약" [ref=e38] [cursor=pointer]:
+            - /url: https://play.google.com/about/developer-distribution-agreement.html
+          - link "서비스 약관" [ref=e39] [cursor=pointer]:
+            - /url: https://play.google.com/about/console/terms-of-service/

@@ -23,6 +23,9 @@
       "channel": "production",
       "ios": {
         "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "app-bundle"
       }
     }
   },
@@ -32,6 +35,11 @@
         "appleId": "sungjin5891@gmail.com",
         "ascAppId": "6761963940",
         "appleTeamId": "L7CVXJLT48"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     }
   }

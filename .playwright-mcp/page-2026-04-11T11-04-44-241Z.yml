@@ -1,0 +1,206 @@
+- generic [ref=e1]:
+  - generic:
+    - generic:
+      - img
+      - progressbar
+      - generic: Google Play Console 로드 중
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e41]:
+          - img "오류" [ref=e44]: error
+          - generic [ref=e45]:
+            - generic [ref=e46]: 비활성 상태로 인해 개발자 계정이 해지될 위험이 있음
+            - link "세부정보 보기" [ref=e51] [cursor=pointer]:
+              - /url: /console/u/0/developers/6742527097914769594/policy-center/issues/4987000237595100703/details
+              - generic [ref=e54]: 세부정보 보기
+        - generic [ref=e6]:
+          - link "Google Play Console 로고" [ref=e7] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/app-list
+            - button "Google Play Console 로고" [ref=e8]
+          - generic [ref=e9]:
+            - button "읽지 않은 알림 알림 센터 열기" [ref=e60]:
+              - img [ref=e64]: notifications_unread
+              - generic [ref=e66]: 읽지 않은 알림
+            - button "개발자 계정 전환" [ref=e14] [cursor=pointer]:
+              - img "개발자 계정 전환" [ref=e16]
+    - navigation [ref=e68]:
+      - list [ref=e69]:
+        - listitem "홈" [ref=e72]:
+          - button "홈" [ref=e73] [cursor=pointer]:
+            - img [ref=e76]: features
+            - generic [ref=e77]: 홈
+        - listitem "정책 상태" [ref=e80]:
+          - button "정책 상태" [ref=e81] [cursor=pointer]:
+            - img [ref=e84]: android_security_privacy_safe
+            - generic [ref=e85]: 정책 상태
+        - listitem "사용자 및 권한" [ref=e88]:
+          - button "사용자 및 권한" [ref=e89] [cursor=pointer]:
+            - img [ref=e92]: user_attributes
+            - generic [ref=e93]: 사용자 및 권한
+        - listitem "주문 관리" [ref=e96]:
+          - button "주문 관리" [ref=e97] [cursor=pointer]:
+            - img [ref=e100]: credit_card
+            - generic [ref=e101]: 주문 관리
+        - listitem "보고서 다운로드" [ref=e104]:
+          - button "보고서 다운로드" [ref=e105] [cursor=pointer]:
+            - img [ref=e107]: arrow_right
+            - img [ref=e110]: download
+            - generic [ref=e111]: 보고서 다운로드
+        - listitem "개발자 계정" [ref=e114]:
+          - button "개발자 계정" [ref=e115] [cursor=pointer]:
+            - img [ref=e118]: badge
+            - generic [ref=e119]: 개발자 계정
+        - listitem "활동 로그" [ref=e122]:
+          - button "활동 로그" [ref=e123] [cursor=pointer]:
+            - img [ref=e126]: description
+            - generic [ref=e127]: 활동 로그
+        - listitem "설정" [ref=e130]:
+          - button "설정" [ref=e131] [cursor=pointer]:
+            - img [ref=e134]: settings
+            - generic [ref=e135]: 설정
+        - listitem "도움말" [ref=e138]:
+          - button "도움말" [ref=e139] [cursor=pointer]:
+            - img [ref=e142]: contact_support
+            - generic [ref=e143]: 도움말
+        - listitem "Android 개발자 인증" [ref=e146]:
+          - button "Android 개발자 인증" [ref=e147] [cursor=pointer]:
+            - img [ref=e150]: app_promotion
+            - generic [ref=e151]: Android 개발자 인증
+    - generic [ref=e22]:
+      - generic [ref=e155]:
+        - generic [ref=e161]:
+          - img [ref=e163]
+          - generic [ref=e164]:
+            - heading "sungjin5891" [level=1] [ref=e170]
+            - generic [ref=e177]:
+              - generic [ref=e178]: 개인 계정
+              - img [ref=e180]: brightness_1
+              - generic [ref=e181]: "계정 ID: 6742527097914769594"
+        - generic [ref=e189]:
+          - generic [ref=e191]:
+            - heading "고정된 앱" [level=2] [ref=e195]
+            - button "'고정된 앱' 팁:" [ref=e198] [cursor=pointer]:
+              - img [ref=e199]: help
+          - generic [ref=e202]: 앱을 여기에 고정하면 앱에 빠르게 액세스하고 주요 측정항목을 확인할 수 있습니다.
+        - generic [ref=e204]:
+          - generic [ref=e208]:
+            - heading "앱 2개" [level=2] [ref=e213]
+            - link "앱 만들기" [ref=e219] [cursor=pointer]:
+              - /url: /console/u/0/developers/6742527097914769594/create-new-app
+              - generic [ref=e222]: 앱 만들기
+          - generic [ref=e223]:
+            - generic [ref=e224]:
+              - generic [ref=e227]:
+                - generic [ref=e228]: 필터링 기준
+                - button "필터링 기준 전체" [ref=e231] [cursor=pointer]:
+                  - generic [ref=e234]: 전체
+                  - img [ref=e236]: arrow_drop_down
+              - search "앱 또는 패키지 이름으로 검색" [ref=e241]:
+                - generic [ref=e243]:
+                  - generic:
+                    - img: search
+                  - generic: 앱 또는 패키지 이름으로 검색
+                  - textbox "앱 또는 패키지 이름으로 검색" [ref=e244]
+            - generic [ref=e249]:
+              - grid "모든 앱" [ref=e254]:
+                - row "앱 설치한 사용자 수 앱 상태 업데이트 상태 최근 업데이트 날짜" [ref=e255]:
+                  - columnheader "앱" [ref=e256] [cursor=pointer]: 앱
+                  - columnheader "설치한 사용자 수" [ref=e257] [cursor=pointer]:
+                    - text: 설치한 사용자 수
+                    - img [ref=e259]: help_outline
+                  - columnheader "앱 상태" [ref=e260] [cursor=pointer]: 앱 상태
+                  - columnheader "업데이트 상태" [ref=e261] [cursor=pointer]: 업데이트 상태
+                  - columnheader "최근 업데이트 날짜" [ref=e262] [cursor=pointer]: 최근 업데이트 날짜
+                  - cell [ref=e263]
+                  - cell [ref=e264]
+                  - cell [ref=e265]
+                - row "만나 - 매일의 양식 com.jsj.manna 0 임시 2026년 4월 11일 만나 - 매일의 양식 삭제 만나 - 매일의 양식 고정 만나 - 매일의 양식 보기" [ref=e266]:
+                  - gridcell "만나 - 매일의 양식 com.jsj.manna" [active] [ref=e267] [cursor=pointer]:
+                    - generic [ref=e271]:
+                      - img [ref=e273]
+                      - generic [ref=e274]:
+                        - generic [ref=e277]: 만나 - 매일의 양식
+                        - generic [ref=e281]: com.jsj.manna
+                  - gridcell "0" [ref=e282] [cursor=pointer]:
+                    - generic [ref=e286]: "0"
+                  - gridcell "임시" [ref=e287] [cursor=pointer]:
+                    - generic [ref=e291]: 임시
+                  - gridcell [ref=e292] [cursor=pointer]
+                  - gridcell "2026년 4월 11일" [ref=e293] [cursor=pointer]:
+                    - generic [ref=e294]: 2026년 4월 11일
+                  - gridcell "만나 - 매일의 양식 삭제" [ref=e295] [cursor=pointer]:
+                    - button "만나 - 매일의 양식 삭제" [ref=e298]:
+                      - img [ref=e302]: delete
+                  - gridcell "만나 - 매일의 양식 고정" [ref=e303] [cursor=pointer]:
+                    - button "만나 - 매일의 양식 고정" [ref=e306]:
+                      - img [ref=e310]: keep
+                  - gridcell "만나 - 매일의 양식 보기" [ref=e311] [cursor=pointer]:
+                    - link "만나 - 매일의 양식 보기" [ref=e313]:
+                      - /url: /console/u/0/developers/6742527097914769594/app/4972541981107957862/app-dashboard
+                      - img [ref=e316]: arrow_right_alt
+                - row "맵 메이트 - MapMate com.mapmate 0 임시 내부 테스트 2025년 1월 6일 맵 메이트 - MapMate 고정 맵 메이트 - MapMate 보기" [ref=e317]:
+                  - gridcell "맵 메이트 - MapMate com.mapmate" [ref=e318]:
+                    - generic [ref=e322]:
+                      - img [ref=e324]
+                      - generic [ref=e325]:
+                        - generic [ref=e328]: 맵 메이트 - MapMate
+                        - generic [ref=e332]: com.mapmate
+                  - gridcell "0" [ref=e333]:
+                    - generic [ref=e337]: "0"
+                  - gridcell "임시 내부 테스트" [ref=e338]:
+                    - generic [ref=e340]:
+                      - generic [ref=e342]: 임시
+                      - generic [ref=e343]: 내부 테스트
+                  - gridcell [ref=e344]
+                  - gridcell "2025년 1월 6일" [ref=e345]:
+                    - generic [ref=e346]: 2025년 1월 6일
+                  - gridcell [ref=e347]
+                  - gridcell "맵 메이트 - MapMate 고정" [ref=e348]:
+                    - button "맵 메이트 - MapMate 고정" [ref=e351] [cursor=pointer]:
+                      - img [ref=e355]: keep
+                  - gridcell "맵 메이트 - MapMate 보기" [ref=e356]:
+                    - link "맵 메이트 - MapMate 보기" [ref=e358] [cursor=pointer]:
+                      - /url: /console/u/0/developers/6742527097914769594/app/4972104923761815994/app-dashboard
+                      - img [ref=e361]: arrow_right_alt
+              - generic [ref=e366]:
+                - generic [ref=e367]:
+                  - generic [ref=e368]: "표시할 행 수:"
+                  - 'button "표시할 행 수: 10 선택됨" [ref=e371] [cursor=pointer]':
+                    - generic [ref=e372]: "10"
+                    - img [ref=e374]: arrow_drop_down
+                - generic [ref=e375]:
+                  - generic [ref=e377]: 총 2개 중 1~2개
+                  - generic [ref=e378]:
+                    - button "첫 페이지로 이동" [disabled] [ref=e379]:
+                      - generic:
+                        - generic:
+                          - img: first_page
+                    - button "이전 페이지로 이동" [disabled] [ref=e380]:
+                      - generic:
+                        - generic:
+                          - img: chevron_left
+                    - button "다음 페이지로 이동" [disabled] [ref=e381]:
+                      - generic:
+                        - generic:
+                          - img: chevron_right
+                    - button "마지막 페이지로 이동" [disabled] [ref=e382]:
+                      - generic:
+                        - generic:
+                          - img: last_page
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - link "제품 업데이트" [ref=e32] [cursor=pointer]:
+            - /url: https://play.google.com/console/about/whats-new/
+          - link "상태 대시보드" [ref=e33] [cursor=pointer]:
+            - /url: https://status.play.google.com/
+          - link "도움말" [ref=e34] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/help-and-support
+        - generic [ref=e35]:
+          - generic [ref=e36]: © 2026 Google
+          - link "개인 정보 보호" [ref=e37] [cursor=pointer]:
+            - /url: https://www.google.com/policies/privacy/
+          - link "개발자 배포 계약" [ref=e38] [cursor=pointer]:
+            - /url: https://play.google.com/about/developer-distribution-agreement.html
+          - link "서비스 약관" [ref=e39] [cursor=pointer]:
+            - /url: https://play.google.com/about/console/terms-of-service/

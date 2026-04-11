@@ -1,18 +1,17 @@
 import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSettingsSheet } from '../hooks/useSettingsSheet';
-import { READER_THEMES, READER_THEME_LABELS, MARGIN_MAP, type ReaderSettings, type ReaderColors, type ReaderTheme, type HorizontalMargin } from '../hooks/useReaderSettings';
+import { READER_THEMES, READER_THEME_LABELS, type ReaderSettings, type ReaderColors, type ReaderTheme, type HorizontalMargin } from '../hooks/useReaderSettings';
 import ProGate from './ProGate';
 
 const ALL_THEMES = Object.keys(READER_THEMES) as ReaderTheme[];
 const ALL_MARGINS: HorizontalMargin[] = ['narrow', 'normal', 'wide'];
 const MARGIN_LABELS: Record<HorizontalMargin, string> = { narrow: '좁음', normal: '보통', wide: '넓음' };
 
-// 폰트 선택지 (이번 스프린트: 나눔명조까지)
 const FONT_OPTIONS = [
-  { key: 'default' as const,        label: '기본체',   fontStyle: undefined },
-  { key: 'serif' as const,          label: '세리프체', fontStyle: Platform.OS === 'ios' ? 'Georgia' : 'serif' },
-  { key: 'nanumMyeongjo' as const,  label: '나눔명조', fontStyle: 'NanumMyeongjo_400Regular' },
+  { key: 'default' as const,       label: '기본체',   fontStyle: undefined },
+  { key: 'serif' as const,         label: '세리프체', fontStyle: Platform.OS === 'ios' ? 'Georgia' : 'serif' },
+  { key: 'nanumMyeongjo' as const, label: '나눔명조', fontStyle: 'NanumMyeongjo_400Regular' },
 ];
 
 interface Props {
@@ -35,7 +34,6 @@ export default function ReaderSettingsSheet({
 }: Props) {
   const { settingsSheetY, settingsBgOpacity, settingsPR, openSettingsSheet, closeSettingsSheet } = useSettingsSheet();
 
-  // visible 변경 시 애니메이션 트리거
   const prevVisible = require('react').useRef(false);
   require('react').useEffect(() => {
     if (visible && !prevVisible.current) openSettingsSheet();
@@ -55,6 +53,9 @@ export default function ReaderSettingsSheet({
 
   if (!visible) return null;
 
+  // 서체 섹션 card tint: surface보다 약간 밝은/어두운 배경
+  const typoCardBg = `${colors.text}08`;
+
   return (
     <Modal visible={visible} transparent animationType="none">
       <Animated.View style={[s.backdrop, { opacity: settingsBgOpacity }]} />
@@ -68,8 +69,8 @@ export default function ReaderSettingsSheet({
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
             <Text style={[s.title, { color: colors.text }]}>읽기 설정</Text>
 
-            {/* ── 테마 ── */}
-            <Text style={[s.label, { color: colors.muted }]}>화면 테마</Text>
+            {/* ── 섹션 1: 테마 ── */}
+            <Text style={[s.sectionLabel, { color: colors.muted }]}>화면 테마</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.themeScroll} contentContainerStyle={s.themeRow}>
               {ALL_THEMES.map(t => {
                 const tc = READER_THEMES[t];
@@ -87,146 +88,178 @@ export default function ReaderSettingsSheet({
               })}
             </ScrollView>
 
-            {/* ── 폰트 ── */}
-            <Text style={[s.label, { color: colors.muted }]}>폰트</Text>
-            <View style={s.fontRow}>
-              {FONT_OPTIONS.map(({ key, label, fontStyle }) => {
-                const isSelected = settings.font === key;
-                const style = fontStyle === 'NanumMyeongjo_400Regular'
-                  ? (fontsLoaded ? { fontFamily: 'NanumMyeongjo_400Regular' } : {})
-                  : fontStyle ? { fontFamily: fontStyle } : {};
-                return (
-                  <Pressable
-                    key={key}
-                    style={[s.fontBtn, { borderColor: isSelected ? colors.gold : colors.border }, isSelected && { backgroundColor: `${colors.gold}20` }]}
-                    onPress={() => onUpdate({ font: key })}
-                  >
-                    <Text style={[s.fontBtnText, { color: isSelected ? colors.gold : colors.muted }, style]}>
-                      {label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* ── 글자 크기 ── */}
-            <Text style={[s.label, { color: colors.muted }]}>글자 크기</Text>
-            <View style={s.stepRow}>
-              <Pressable style={[s.stepBtn, { borderColor: colors.border }]} onPress={() => onUpdate({ fontSize: Math.max(14, settings.fontSize - 1) })} hitSlop={8}>
-                <MaterialCommunityIcons name="minus" size={18} color={colors.text} />
-              </Pressable>
-              <Text style={[s.stepVal, { color: colors.text }]}>{settings.fontSize}</Text>
-              <Pressable style={[s.stepBtn, { borderColor: colors.border }]} onPress={() => onUpdate({ fontSize: Math.min(22, settings.fontSize + 1) })} hitSlop={8}>
-                <MaterialCommunityIcons name="plus" size={18} color={colors.text} />
-              </Pressable>
-              <Text style={[s.stepPreview, { color: colors.text, fontSize: settings.fontSize, fontFamily: fontFamily(settings.font) }]}>
-                미리보기 가나다
-              </Text>
-            </View>
-
-            {/* ── 줄 간격 ── */}
-            <Text style={[s.label, { color: colors.muted }]}>줄 간격</Text>
-            <View style={s.stepRow}>
-              <Pressable style={[s.stepBtn, { borderColor: colors.border }]} onPress={() => onUpdate({ lineHeight: Math.max(1.4, Math.round((settings.lineHeight - 0.1) * 10) / 10) })} hitSlop={8}>
-                <MaterialCommunityIcons name="minus" size={18} color={colors.text} />
-              </Pressable>
-              <Text style={[s.stepVal, { color: colors.text }]}>{settings.lineHeight.toFixed(1)}</Text>
-              <Pressable style={[s.stepBtn, { borderColor: colors.border }]} onPress={() => onUpdate({ lineHeight: Math.min(2.0, Math.round((settings.lineHeight + 0.1) * 10) / 10) })} hitSlop={8}>
-                <MaterialCommunityIcons name="plus" size={18} color={colors.text} />
-              </Pressable>
-            </View>
-
-            {/* ── 글자 간격 ── */}
-            <Text style={[s.label, { color: colors.muted }]}>글자 간격</Text>
-            <View style={s.stepRow}>
-              <Pressable style={[s.stepBtn, { borderColor: colors.border }]} onPress={() => onUpdate({ letterSpacing: Math.max(0, Math.round((settings.letterSpacing - 0.5) * 10) / 10) })} hitSlop={8}>
-                <MaterialCommunityIcons name="minus" size={18} color={colors.text} />
-              </Pressable>
-              <Text style={[s.stepVal, { color: colors.text }]}>{settings.letterSpacing.toFixed(1)}</Text>
-              <Pressable style={[s.stepBtn, { borderColor: colors.border }]} onPress={() => onUpdate({ letterSpacing: Math.min(3.0, Math.round((settings.letterSpacing + 0.5) * 10) / 10) })} hitSlop={8}>
-                <MaterialCommunityIcons name="plus" size={18} color={colors.text} />
-              </Pressable>
-            </View>
-
-            {/* ── 여백 ── */}
-            <Text style={[s.label, { color: colors.muted }]}>여백</Text>
-            <View style={s.marginRow}>
-              {ALL_MARGINS.map(m => {
-                const isSelected = settings.horizontalMargin === m;
-                return (
-                  <Pressable
-                    key={m}
-                    style={[s.marginBtn, { borderColor: isSelected ? colors.gold : colors.border }, isSelected && { backgroundColor: `${colors.gold}20` }]}
-                    onPress={() => onUpdate({ horizontalMargin: m })}
-                  >
-                    <Text style={[s.marginBtnText, { color: isSelected ? colors.gold : colors.muted }]}>
-                      {MARGIN_LABELS[m]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* ── 토글 섹션 ── */}
-            <View style={[s.divider, { borderTopColor: colors.border }]} />
-
-            <View style={s.toggleRow}>
-              <View style={s.toggleInfo}>
-                <Text style={[s.toggleLabel, { color: colors.text }]}>화면 꺼짐 방지</Text>
-                <Text style={[s.toggleDesc, { color: colors.muted }]}>읽는 동안 화면이 꺼지지 않아요</Text>
+            {/* ── 섹션 2: 서체 & 타이포그래피 ── */}
+            <Text style={[s.sectionLabel, { color: colors.muted }]}>서체 & 타이포그래피</Text>
+            <View style={[s.typoCard, { backgroundColor: typoCardBg, borderColor: colors.border }]}>
+              {/* 폰트 */}
+              <Text style={[s.inlineLabel, { color: colors.muted }]}>폰트</Text>
+              <View style={s.fontRow}>
+                {FONT_OPTIONS.map(({ key, label, fontStyle }) => {
+                  const isSelected = settings.font === key;
+                  const isLoading = key === 'nanumMyeongjo' && !fontsLoaded;
+                  const style = fontStyle === 'NanumMyeongjo_400Regular'
+                    ? (fontsLoaded ? { fontFamily: 'NanumMyeongjo_400Regular' } : {})
+                    : fontStyle ? { fontFamily: fontStyle } : {};
+                  return (
+                    <Pressable
+                      key={key}
+                      style={[s.fontBtn, { borderColor: isSelected ? colors.gold : colors.border }, isSelected && { backgroundColor: `${colors.gold}20` }]}
+                      onPress={() => onUpdate({ font: key })}
+                    >
+                      <Text style={[s.fontBtnText, { color: isSelected ? colors.gold : isLoading ? colors.muted : colors.text }, style]}>
+                        {label}
+                      </Text>
+                      {isLoading && (
+                        <Text style={[s.loadingDot, { color: colors.muted }]}>…</Text>
+                      )}
+                    </Pressable>
+                  );
+                })}
               </View>
-              <Switch
+
+              {/* 글자 크기 */}
+              <View style={s.typoRow}>
+                <Text style={[s.typoRowLabel, { color: colors.muted }]}>글자 크기</Text>
+                <View style={s.stepperGroup}>
+                  <Pressable style={[s.stepBtn, { borderColor: colors.border }]} onPress={() => onUpdate({ fontSize: Math.max(14, settings.fontSize - 1) })} hitSlop={8}>
+                    <MaterialCommunityIcons name="minus" size={16} color={colors.text} />
+                  </Pressable>
+                  <Text style={[s.stepVal, { color: colors.text }]}>{settings.fontSize}</Text>
+                  <Pressable style={[s.stepBtn, { borderColor: colors.border }]} onPress={() => onUpdate({ fontSize: Math.min(22, settings.fontSize + 1) })} hitSlop={8}>
+                    <MaterialCommunityIcons name="plus" size={16} color={colors.text} />
+                  </Pressable>
+                </View>
+                <Text style={[s.stepPreview, { color: colors.text, fontSize: settings.fontSize, fontFamily: fontFamily(settings.font) }]} numberOfLines={1}>
+                  가나다
+                </Text>
+              </View>
+
+              {/* 줄 간격 */}
+              <View style={s.typoRow}>
+                <Text style={[s.typoRowLabel, { color: colors.muted }]}>줄 간격</Text>
+                <View style={s.stepperGroup}>
+                  <Pressable style={[s.stepBtn, { borderColor: colors.border }]} onPress={() => onUpdate({ lineHeight: Math.max(1.4, Math.round((settings.lineHeight - 0.1) * 10) / 10) })} hitSlop={8}>
+                    <MaterialCommunityIcons name="minus" size={16} color={colors.text} />
+                  </Pressable>
+                  <Text style={[s.stepVal, { color: colors.text }]}>{settings.lineHeight.toFixed(1)}</Text>
+                  <Pressable style={[s.stepBtn, { borderColor: colors.border }]} onPress={() => onUpdate({ lineHeight: Math.min(2.0, Math.round((settings.lineHeight + 0.1) * 10) / 10) })} hitSlop={8}>
+                    <MaterialCommunityIcons name="plus" size={16} color={colors.text} />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* 글자 간격 */}
+              <View style={s.typoRow}>
+                <Text style={[s.typoRowLabel, { color: colors.muted }]}>글자 간격</Text>
+                <View style={s.stepperGroup}>
+                  <Pressable style={[s.stepBtn, { borderColor: colors.border }]} onPress={() => onUpdate({ letterSpacing: Math.max(0, Math.round((settings.letterSpacing - 0.5) * 10) / 10) })} hitSlop={8}>
+                    <MaterialCommunityIcons name="minus" size={16} color={colors.text} />
+                  </Pressable>
+                  <Text style={[s.stepVal, { color: colors.text }]}>{settings.letterSpacing.toFixed(1)}</Text>
+                  <Pressable style={[s.stepBtn, { borderColor: colors.border }]} onPress={() => onUpdate({ letterSpacing: Math.min(3.0, Math.round((settings.letterSpacing + 0.5) * 10) / 10) })} hitSlop={8}>
+                    <MaterialCommunityIcons name="plus" size={16} color={colors.text} />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* 여백 */}
+              <View style={[s.typoRow, s.typoRowLast]}>
+                <Text style={[s.typoRowLabel, { color: colors.muted }]}>여백</Text>
+                <View style={s.marginRow}>
+                  {ALL_MARGINS.map(m => {
+                    const isSelected = settings.horizontalMargin === m;
+                    return (
+                      <Pressable
+                        key={m}
+                        style={[s.marginBtn, { borderColor: isSelected ? colors.gold : colors.border }, isSelected && { backgroundColor: `${colors.gold}20` }]}
+                        onPress={() => onUpdate({ horizontalMargin: m })}
+                      >
+                        <Text style={[s.marginBtnText, { color: isSelected ? colors.gold : colors.muted }]}>
+                          {MARGIN_LABELS[m]}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+
+            {/* ── 섹션 3: 편의 설정 ── */}
+            <Text style={[s.sectionLabel, { color: colors.muted }]}>편의 설정</Text>
+            <View style={[s.toggleGroup, { borderColor: colors.border }]}>
+              <ToggleRow
+                label="화면 꺼짐 방지"
+                desc="읽는 동안 화면이 꺼지지 않아요"
                 value={settings.keepAwake}
-                onValueChange={val => onUpdate({ keepAwake: val })}
-                trackColor={{ false: colors.border, true: `${colors.gold}80` }}
-                thumbColor={settings.keepAwake ? colors.gold : colors.muted}
+                onChange={val => onUpdate({ keepAwake: val })}
+                colors={colors}
               />
-            </View>
-
-            <View style={s.toggleRow}>
-              <View style={s.toggleInfo}>
-                <Text style={[s.toggleLabel, { color: colors.text }]}>절 번호 숨기기</Text>
-                <Text style={[s.toggleDesc, { color: colors.muted }]}>몰입 독서 — 절 번호 없이 읽기</Text>
-              </View>
-              <Switch
+              <View style={[s.toggleDivider, { backgroundColor: colors.border }]} />
+              <ToggleRow
+                label="절 번호 숨기기"
+                desc="몰입 독서 — 절 번호 없이 읽기"
                 value={settings.hideVerseNumbers}
-                onValueChange={val => onUpdate({ hideVerseNumbers: val })}
-                trackColor={{ false: colors.border, true: `${colors.gold}80` }}
-                thumbColor={settings.hideVerseNumbers ? colors.gold : colors.muted}
+                onChange={val => onUpdate({ hideVerseNumbers: val })}
+                colors={colors}
               />
+              <View style={[s.toggleDivider, { backgroundColor: colors.border }]} />
+              <View style={s.toggleRow}>
+                <View style={s.toggleInfo}>
+                  <Text style={[s.toggleLabel, { color: colors.text }]}>집중 모드</Text>
+                  <Text style={[s.toggleDesc, { color: colors.muted }]}>현재 구절만 강조, 나머지 흐리게</Text>
+                </View>
+                <ProGate isPro={isPro} featureName="집중 모드" onUpgrade={onUpgrade}>
+                  <Switch
+                    value={settings.focusMode}
+                    onValueChange={val => onUpdate({ focusMode: val })}
+                    trackColor={{ false: colors.border, true: `${colors.gold}80` }}
+                    thumbColor={settings.focusMode ? colors.gold : colors.muted}
+                  />
+                </ProGate>
+              </View>
             </View>
 
-            <View style={s.toggleRow}>
-              <View style={s.toggleInfo}>
-                <Text style={[s.toggleLabel, { color: colors.text }]}>집중 모드</Text>
-                <Text style={[s.toggleDesc, { color: colors.muted }]}>현재 구절만 강조, 나머지 흐리게</Text>
-              </View>
-              <ProGate isPro={isPro} featureName="집중 모드" onUpgrade={onUpgrade}>
-                <Switch
-                  value={settings.focusMode}
-                  onValueChange={val => onUpdate({ focusMode: val })}
-                  trackColor={{ false: colors.border, true: `${colors.gold}80` }}
-                  thumbColor={settings.focusMode ? colors.gold : colors.muted}
-                />
-              </ProGate>
-            </View>
-
-            <View style={s.toggleRow}>
-              <View style={s.toggleInfo}>
-                <Text style={[s.toggleLabel, { color: colors.text }]}>읽기 완료 후 묵상 입력</Text>
-                <Text style={[s.toggleDesc, { color: colors.muted }]}>끄면 완료 즉시 다음 챕터로 이동</Text>
-              </View>
-              <Switch
+            {/* ── 섹션 4: 읽기 완료 ── */}
+            <Text style={[s.sectionLabel, { color: colors.muted }]}>읽기 완료</Text>
+            <View style={[s.toggleGroup, { borderColor: colors.border }]}>
+              <ToggleRow
+                label="묵상 입력 프롬프트"
+                desc="끄면 완료 즉시 다음 챕터로 이동"
                 value={meditationPromptEnabled}
-                onValueChange={onToggleMeditationPrompt}
-                trackColor={{ false: colors.border, true: `${colors.gold}80` }}
-                thumbColor={meditationPromptEnabled ? colors.gold : colors.muted}
+                onChange={onToggleMeditationPrompt}
+                colors={colors}
               />
             </View>
+
           </ScrollView>
         </Animated.View>
       </View>
     </Modal>
+  );
+}
+
+// ── 재사용 토글 행 ──────────────────────────────────────────────
+interface ToggleRowProps {
+  label: string;
+  desc: string;
+  value: boolean;
+  onChange: (val: boolean) => void;
+  colors: ReaderColors;
+}
+function ToggleRow({ label, desc, value, onChange, colors }: ToggleRowProps) {
+  return (
+    <View style={s.toggleRow}>
+      <View style={s.toggleInfo}>
+        <Text style={[s.toggleLabel, { color: colors.text }]}>{label}</Text>
+        <Text style={[s.toggleDesc, { color: colors.muted }]}>{desc}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: colors.border, true: `${colors.gold}80` }}
+        thumbColor={value ? colors.gold : colors.muted}
+      />
+    </View>
   );
 }
 
@@ -256,22 +289,25 @@ const s = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    marginTop: 12,
+
+  // ── 섹션 헤더 ──
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
+    marginTop: 24,
+    marginBottom: 10,
   },
-  // Theme cards
+
+  // ── 테마 카드 ──
   themeScroll: {
     marginHorizontal: -20,
   },
@@ -282,7 +318,7 @@ const s = StyleSheet.create({
   },
   themeCard: {
     width: 80,
-    height: 64,
+    height: 68,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
@@ -293,75 +329,121 @@ const s = StyleSheet.create({
     fontWeight: '700',
   },
   themeCardSample: {
-    fontSize: 10,
+    fontSize: 11,
   },
-  // Font buttons
+
+  // ── 서체 card ──
+  typoCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 6,
+  },
+  inlineLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
   fontRow: {
     flexDirection: 'row',
     gap: 8,
+    marginBottom: 14,
   },
   fontBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 9,
+    minHeight: 44,
     borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   fontBtnText: {
     fontSize: 13,
     fontWeight: '600',
   },
-  // Stepper
-  stepRow: {
+  loadingDot: {
+    fontSize: 10,
+    position: 'absolute',
+    bottom: 3,
+  },
+
+  // ── 타이포 행 (label + stepper) ──
+  typoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'transparent',
+  },
+  typoRowLast: {
+    paddingBottom: 8,
+  },
+  typoRowLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    width: 60,
+  },
+  stepperGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   stepBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 7,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   stepVal: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    minWidth: 32,
+    minWidth: 30,
     textAlign: 'center',
   },
   stepPreview: {
-    marginLeft: 8,
+    marginLeft: 12,
     flex: 1,
   },
-  // Margin selector
   marginRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
+    flex: 1,
   },
   marginBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 7,
+    minHeight: 44,
     borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   marginBtnText: {
     fontSize: 13,
     fontWeight: '600',
   },
-  // Toggles
-  divider: {
-    borderTopWidth: 1,
-    marginTop: 16,
-    marginBottom: 4,
+
+  // ── 토글 그룹 ──
+  toggleGroup: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  toggleDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 14,
   },
   toggleInfo: {
     flex: 1,

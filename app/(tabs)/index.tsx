@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   Modal,
   Pressable,
   ScrollView,
@@ -207,8 +208,25 @@ export default function HomeScreen() {
     }
   }, [stats.currentStreak]);
 
-  // TODO #31: FAB 바운스 애니메이션 반복 — Animated.sequence 콜백이
-  // native driver에서 안정적으로 동작하지 않음. EAS Build 환경에서 재검증 필요.
+  // FAB 아이들 바운스 — 3초 딜레이 후 반복 (Animated.loop + delay 3000ms 안정 동작 확인)
+  useFocusEffect(
+    useCallback(() => {
+      const bounce = Animated.loop(
+        Animated.sequence([
+          Animated.delay(3000),
+          Animated.timing(fabBounce, { toValue: -7, duration: 150, useNativeDriver: true }),
+          Animated.timing(fabBounce, { toValue: 2, duration: 100, useNativeDriver: true }),
+          Animated.timing(fabBounce, { toValue: -3, duration: 80, useNativeDriver: true }),
+          Animated.timing(fabBounce, { toValue: 0, duration: 80, useNativeDriver: true }),
+        ])
+      );
+      bounce.start();
+      return () => {
+        bounce.stop();
+        fabBounce.setValue(0);
+      };
+    }, [fabBounce])
+  );
 
   // Animate XP bar and map whenever stats change
   useEffect(() => {
@@ -420,7 +438,7 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* Floating CTA — 항상 보이는 "오늘 읽기" 버튼, 부드러운 바운스 */}
-      <Animated.View style={[styles.fabWrap, { transform: [{ scale: fabScale }] }]}>
+      <Animated.View style={[styles.fabWrap, { transform: [{ scale: fabScale }, { translateY: fabBounce }] }]}>
         <Pressable
           style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
           onPress={() => {

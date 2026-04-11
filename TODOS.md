@@ -17,8 +17,8 @@
 | 7 | RevenueCat 구독 모델 (AI paywall) | P2 | ✅ 완료 |
 | 8 | Jest 핵심 경로 테스트 추가 | P2 | ✅ 완료 |
 | 9 | 온보딩 개선 (Day-7 리텐션) | P2 | ✅ 완료 |
-| 10 | Privacy Policy + 앱스토어 제출 준비 | P1 | 🗓️ 보류 |
-| 11 | Sentry 크래시 리포팅 | P2 | 🗓️ 보류 |
+| 10 | Privacy Policy + 앱스토어 제출 준비 | P1 | ✅ 완료 |
+| 11 | Sentry 크래시 리포팅 | P2 | ✅ 완료 |
 | 12 | nextAfter() 중복 제거 | P3 | 🗓️ 보류 |
 | 13 | 크로스플랫폼 백업 Phase 2 (iCloud/Google Drive) | P3 | 🗓️ 보류 |
 | 14 | AI 프록시 (Cloudflare Workers) — RevenueCat 전제 | P2 | ✅ 완료 |
@@ -38,7 +38,7 @@
 | 28 | AI 통독 리포트 주간 (홈 화면 인라인 카드) | P3 | 🗓️ 보류 |
 | 29 | 묵상 공유 카드 (react-native-view-shot) | P3 | 🗓️ 보류 |
 | 30 | AI 응답 TTL 캐시 (meditations.cached_at + 7일) | P2 | 🗓️ 보류 |
-| 31 | 홈 FAB 바운스 애니메이션 반복 안 됨 | P2 | 🐛 버그 |
+| 31 | 홈 FAB 바운스 애니메이션 반복 안 됨 | P2 | ✅ 완료 |
 | 32 | 공유 딥링크 앱스토어 URL 교체 | P1 | 🗓️ 보류 |
 | 33 | 카카오톡 큰 카드 미리보기 (Kakao SDK 연동) | P2 | 🗓️ 보류 |
 | 34 | **성경 읽기 UX 고도화** (테마 6종 + 폰트 5종 + 슬라이더 + 집중모드) | P1 | 🚧 이번 플랜 |
@@ -392,3 +392,23 @@
 **WHY:** 크로스디바이스 동기화, 커뮤니티, 랭킹.
 **조건:** MAU 100명 이상 확인 후 결정. 지금은 SQLite 유지.
 **구현 시:** 기존 SQLite 스키마 → Supabase 마이그레이션 필요 (대규모 작업).
+
+---
+
+## P2: 읽기 설정 시트 — 실시간 타이포 미리보기 — #38
+
+**WHY:** 지금 설정 시트가 Modal이라 뒤 성경 텍스트가 안 보임. 글자 크기/간격/여백 바꿔도 결과를 시트 닫기 전까지 확인 불가. 유저가 맹목적으로 조작하는 상황.
+**Pros:** 설정 변경 → 즉각 피드백 → 이탈률 감소, 정확한 설정 선택.
+**Cons:** Modal 구조 변경 필요. BottomSheet(시트가 화면 일부만 차지)로 전환하거나 미니 미리보기 패널 추가.
+**Context:** 2026-04-11 디자인 리뷰에서 발견. ReaderSettingsSheet.tsx는 현재 Modal 85% 높이.
+**Depends on:** 없음. 독립 작업.
+
+---
+
+## P3: 읽기 설정 시트 — 접근성 labels — #39
+
+**WHY:** Switch, Pressable에 accessibilityLabel 없음. 스크린 리더(VoiceOver/TalkBack) 사용 시 "button"으로만 읽힘.
+**Pros:** 장애 사용자 지원, 앱스토어 접근성 심사 통과.
+**Cons:** 보일러플레이트 작업.
+**Context:** ReaderSettingsSheet.tsx 내 모든 interactive 요소.
+**Depends on:** 없음.

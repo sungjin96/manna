@@ -34,6 +34,8 @@ export default function TutorialReadScreen() {
   const flatListRef = useRef<FlatList>(null);
   const firstVerseRef = useRef<View>(null);
   const completeBtnRef = useRef<View>(null);
+  const bottomNavRef = useRef<View>(null);
+  const secondVerseRef = useRef<View>(null);
   const [readVerses, setReadVerses] = useState<Set<number>>(new Set());
   const [measuredSpots, setMeasuredSpots] = useState<MeasuredSpots>({});
 
@@ -43,20 +45,22 @@ export default function TutorialReadScreen() {
     router.replace(`/read/${bookId}/${chapter}`);
   });
 
-  // 마운트 후 첫 구절(step 0)과 완료 버튼(step 1) 위치를 한 번에 측정.
-  // 5절뿐이라 버튼이 처음부터 렌더링되어 있으므로 onScrollToEnd 전에 측정 가능.
-  // → step 2 진입 시 measuredSpots[1]이 이미 준비되어 위치 점프 없음.
+  // 마운트 후 모든 spotlight 대상 요소를 한 번에 측정.
+  // step 0: 첫 번째 구절, step 1: 읽기 완료 버튼,
+  // step 2: 하단 네비게이션, step 3: 두 번째 구절
   useEffect(() => {
     const timer = setTimeout(() => {
       firstVerseRef.current?.measure((_x, _y, _w, height, _px, pageY) => {
-        if (pageY > 0) {
-          setMeasuredSpots(prev => ({ ...prev, 0: { y: pageY, h: height } }));
-        }
+        if (pageY > 0) setMeasuredSpots(prev => ({ ...prev, 0: { y: pageY, h: height } }));
       });
       completeBtnRef.current?.measure((_x, _y, _w, height, _px, pageY) => {
-        if (pageY > 0) {
-          setMeasuredSpots(prev => ({ ...prev, 1: { y: pageY, h: height } }));
-        }
+        if (pageY > 0) setMeasuredSpots(prev => ({ ...prev, 1: { y: pageY, h: height } }));
+      });
+      bottomNavRef.current?.measure((_x, _y, _w, height, _px, pageY) => {
+        if (pageY > 0) setMeasuredSpots(prev => ({ ...prev, 2: { y: pageY, h: height } }));
+      });
+      secondVerseRef.current?.measure((_x, _y, _w, height, _px, pageY) => {
+        if (pageY > 0) setMeasuredSpots(prev => ({ ...prev, 3: { y: pageY, h: height } }));
       });
     }, 200);
     return () => clearTimeout(timer);
@@ -105,7 +109,7 @@ export default function TutorialReadScreen() {
           const isRead = readVerses.has(item.verse);
           return (
             <Pressable
-              ref={index === 0 ? firstVerseRef : undefined}
+              ref={index === 0 ? firstVerseRef : index === 1 ? secondVerseRef : undefined}
               style={s.verseRow}
               onPress={() => toggleVerse(item.verse)}
             >
@@ -135,6 +139,7 @@ export default function TutorialReadScreen() {
 
       {/* 하단 네비게이션 */}
       <View
+        ref={bottomNavRef}
         style={[
           s.bottomNav,
           { backgroundColor: colors.bg, borderTopColor: colors.border, paddingBottom: insets.bottom + 4 },

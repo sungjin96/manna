@@ -1,0 +1,86 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - generic:
+      - img
+      - progressbar
+      - generic: Google Play Console 로드 중
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "Google Play Console 로고" [ref=e7] [cursor=pointer]:
+          - /url: /console/u/0/developers/6742527097914769594/app-list
+          - button "Google Play Console 로고" [ref=e8]
+        - generic [ref=e9]:
+          - button "알림 알림 센터 열기" [ref=e15]:
+            - img [ref=e19]: notifications
+            - generic [ref=e21]: 알림
+          - button "개발자 계정 전환" [ref=e26] [cursor=pointer]:
+            - img "개발자 계정 전환" [ref=e28]
+    - navigation [ref=e34]:
+      - list [ref=e35]:
+        - listitem "홈" [ref=e38]:
+          - button "홈" [ref=e39] [cursor=pointer]:
+            - img [ref=e42]: features
+            - generic [ref=e43]: 홈
+        - listitem "정책 상태" [ref=e46]:
+          - button "정책 상태" [ref=e47] [cursor=pointer]:
+            - img [ref=e50]: android_security_privacy_safe
+            - generic [ref=e51]: 정책 상태
+        - listitem "사용자 및 권한" [ref=e54]:
+          - button "사용자 및 권한" [ref=e55] [cursor=pointer]:
+            - img [ref=e58]: user_attributes
+            - generic [ref=e59]: 사용자 및 권한
+        - listitem "주문 관리" [ref=e62]:
+          - button "주문 관리" [ref=e63] [cursor=pointer]:
+            - img [ref=e66]: credit_card
+            - generic [ref=e67]: 주문 관리
+        - listitem "보고서 다운로드" [ref=e70]:
+          - button "보고서 다운로드" [ref=e71] [cursor=pointer]:
+            - img [ref=e73]: arrow_right
+            - img [ref=e76]: download
+            - generic [ref=e77]: 보고서 다운로드
+        - listitem "개발자 계정" [ref=e80]:
+          - button "개발자 계정" [ref=e81] [cursor=pointer]:
+            - img [ref=e84]: badge
+            - generic [ref=e85]: 개발자 계정
+        - listitem "활동 로그" [ref=e88]:
+          - button "활동 로그" [ref=e89] [cursor=pointer]:
+            - img [ref=e92]: description
+            - generic [ref=e93]: 활동 로그
+        - listitem "설정" [ref=e96]:
+          - button "설정" [ref=e97] [cursor=pointer]:
+            - img [ref=e100]: settings
+            - generic [ref=e101]: 설정
+        - listitem "도움말" [ref=e104]:
+          - button "도움말" [ref=e105] [cursor=pointer]:
+            - img [ref=e108]: contact_support
+            - generic [ref=e109]: 도움말
+        - listitem "Android 개발자 인증" [ref=e112]:
+          - button "Android 개발자 인증" [ref=e113] [cursor=pointer]:
+            - img [ref=e116]: app_promotion
+            - generic [ref=e117]: Android 개발자 인증
+    - generic [ref=e119]:
+      - generic [ref=e126]:
+        - generic [ref=e133]:
+          - heading "사용자 및 권한" [level=1] [ref=e139]
+          - generic [ref=e144]:
+            - text: 개발자 계정에 액세스할 수 있는 사용자를 관리하고, 신규 사용자를 초대하며, 권한을 부여합니다.
+            - button "사용자 및 권한에 관한 세부정보 더보기" [ref=e145] [cursor=pointer]: 더보기
+        - heading "권한 그룹" [level=2] [ref=e175]
+        - heading "이메일 수신자" [level=2] [ref=e194]
+      - generic [ref=e205]:
+        - generic [ref=e206]:
+          - link "제품 업데이트" [ref=e207] [cursor=pointer]:
+            - /url: https://play.google.com/console/about/whats-new/
+          - link "상태 대시보드" [ref=e208] [cursor=pointer]:
+            - /url: https://status.play.google.com/
+          - link "도움말" [ref=e209] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/help-and-support
+        - generic [ref=e210]:
+          - generic [ref=e211]: © 2026 Google
+          - link "개인 정보 보호" [ref=e212] [cursor=pointer]:
+            - /url: https://www.google.com/policies/privacy/
+          - link "개발자 배포 계약" [ref=e213] [cursor=pointer]:
+            - /url: https://play.google.com/about/developer-distribution-agreement.html
+          - link "서비스 약관" [ref=e214] [cursor=pointer]:
+            - /url: https://play.google.com/about/console/terms-of-service/

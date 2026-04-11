@@ -1,0 +1,316 @@
+- generic [ref=e1]:
+  - generic:
+    - generic:
+      - img
+      - progressbar
+      - generic: Google Play Console 로드 중
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e216]:
+          - img "오류" [ref=e219]: error
+          - generic [ref=e220]:
+            - generic [ref=e221]: 비활성 상태로 인해 개발자 계정이 해지될 위험이 있음
+            - link "세부정보 보기" [ref=e226] [cursor=pointer]:
+              - /url: /console/u/0/developers/6742527097914769594/policy-center/issues/4987000237595100703/details
+              - generic [ref=e229]: 세부정보 보기
+        - generic [ref=e6]:
+          - link "Google Play Console 로고" [ref=e7] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/app-list
+            - button "Google Play Console 로고" [ref=e8]
+          - generic [ref=e9]:
+            - button "읽지 않은 알림 알림 센터 열기" [ref=e230]:
+              - img [ref=e19]: notifications_unread
+              - generic [ref=e21]: 읽지 않은 알림
+            - button "개발자 계정 전환" [ref=e26] [cursor=pointer]:
+              - img "개발자 계정 전환" [ref=e28]
+    - navigation [ref=e34]:
+      - list [ref=e35]:
+        - listitem "홈" [ref=e38]:
+          - button "홈" [ref=e39] [cursor=pointer]:
+            - img [ref=e42]: features
+            - generic [ref=e43]: 홈
+        - listitem "정책 상태" [ref=e46]:
+          - button "정책 상태" [ref=e47] [cursor=pointer]:
+            - img [ref=e50]: android_security_privacy_safe
+            - generic [ref=e51]: 정책 상태
+        - listitem "사용자 및 권한" [ref=e54]:
+          - button "사용자 및 권한" [ref=e55] [cursor=pointer]:
+            - img [ref=e58]: user_attributes
+            - generic [ref=e59]: 사용자 및 권한
+        - listitem "주문 관리" [ref=e62]:
+          - button "주문 관리" [ref=e63] [cursor=pointer]:
+            - img [ref=e66]: credit_card
+            - generic [ref=e67]: 주문 관리
+        - listitem "보고서 다운로드" [ref=e70]:
+          - button "보고서 다운로드" [ref=e71] [cursor=pointer]:
+            - img [ref=e73]: arrow_right
+            - img [ref=e76]: download
+            - generic [ref=e77]: 보고서 다운로드
+        - listitem "개발자 계정" [ref=e80]:
+          - button "개발자 계정" [ref=e81] [cursor=pointer]:
+            - img [ref=e84]: badge
+            - generic [ref=e85]: 개발자 계정
+        - listitem "활동 로그" [ref=e88]:
+          - button "활동 로그" [ref=e89] [cursor=pointer]:
+            - img [ref=e92]: description
+            - generic [ref=e93]: 활동 로그
+        - listitem "설정" [ref=e96]:
+          - button "설정" [ref=e97] [cursor=pointer]:
+            - img [ref=e100]: settings
+            - generic [ref=e101]: 설정
+        - listitem "도움말" [ref=e104]:
+          - button "도움말" [ref=e105] [cursor=pointer]:
+            - img [ref=e108]: contact_support
+            - generic [ref=e109]: 도움말
+        - listitem "Android 개발자 인증" [ref=e112]:
+          - button "Android 개발자 인증" [ref=e113] [cursor=pointer]:
+            - img [ref=e116]: app_promotion
+            - generic [ref=e117]: Android 개발자 인증
+    - generic [ref=e119]:
+      - generic [ref=e427]:
+        - generic [ref=e431]:
+          - generic:
+            - generic:
+              - link "사용자 및 권한 페이지로 돌아가기":
+                - /url: /console/u/0/developers/6742527097914769594/users-and-permissions
+                - img [ref=e438] [cursor=pointer]: keyboard_backspace
+                - generic [ref=e439] [cursor=pointer]: 사용자 및 권한
+          - heading "사용자 초대" [level=1] [ref=e448]
+        - generic [ref=e449]:
+          - heading "사용자 세부정보" [level=2] [ref=e461]
+          - generic [ref=e462]:
+            - generic [ref=e465]:
+              - group "이메일 주소" [ref=e467]:
+                - generic [ref=e470]: 이메일 주소
+                - generic [ref=e473]:
+                  - textbox "user@example.com" [ref=e475]: manna-252@manna-493011.iam.gserviceaccount.com
+                  - paragraph [ref=e477]
+              - group "액세스 권한 만료" [ref=e479]:
+                - generic [ref=e482]:
+                  - text: 액세스 권한 만료
+                  - button "'액세스 권한 만료' 팁:" [ref=e485] [cursor=pointer]:
+                    - img [ref=e486]: help
+                - generic [ref=e490] [cursor=pointer]:
+                  - generic [ref=e491]:
+                    - checkbox "액세스 권한 만료일 설정" [ref=e492]
+                    - generic:
+                      - img
+                  - generic [ref=e493]: 액세스 권한 만료일 설정
+            - generic [ref=e496]:
+              - generic [ref=e503]:
+                - img [ref=e507]: report
+                - heading "신규 사용자의 신원을 항상 확인하세요" [level=4] [ref=e509]
+              - paragraph [ref=e510]: 사기 및 계정 도용을 방지하려면 개발자 계정에 신규 사용자를 초대하기 전에 항상 신원을 확인하세요. 사용자에게 필요한 권한만 부여하세요. Google은 사용자 추가 또는 삭제를 요청하지 않습니다.
+          - generic [ref=e511]:
+            - generic [ref=e517]:
+              - heading "권한" [level=2] [ref=e523]
+              - generic [ref=e525]: 사용자가 액세스할 수 있는 앱과 Play Console 영역을 선택하세요. 개별 앱에 대한 권한을 부여하거나 계정 권한을 사용하여 개발자 계정의 모든 앱에 대한 액세스를 부여할 수 있습니다. 일부 계정 권한에는 추가적인 액세스 권한이 포함되어 있습니다.
+            - tablist [ref=e532]:
+              - tab "앱 권한" [ref=e533] [cursor=pointer]:
+                - generic [ref=e534]: 앱 권한
+              - tab "계정 권한" [selected] [ref=e536] [cursor=pointer]:
+                - generic [ref=e537]: 계정 권한
+              - tab "권한 그룹" [ref=e539] [cursor=pointer]:
+                - generic [ref=e540]: 권한 그룹
+            - generic [ref=e592]:
+              - generic [ref=e595]:
+                - heading "계정 권한" [level=3] [ref=e601]
+                - generic [ref=e603]: 개발자 계정의 모든 앱에 대한 권한 부여
+              - generic [ref=e605]:
+                - group "앱 액세스 권한" [ref=e607]:
+                  - generic [ref=e610]: 앱 액세스 권한
+                  - generic [ref=e612]:
+                    - generic [ref=e613] [cursor=pointer]:
+                      - generic [ref=e614]:
+                        - checkbox "관리자(모든 권한) 이 권한이 있는 사용자는 개발자 계정에 대한 다른 모든 권한을 갖습니다. 개발자 계정으로 새 사용자를 초대하고, 사용자를 삭제하고, 다른 사용자의 권한을 관리하고, 액세스 만료일을 변경하고 활동 로그를 통해 Play Console의 변경사항을 검토할 수 있습니다. 서비스 약관 동의와 같은 일부 추가 작업은 계정 소유자만이 할 수 있습니다." [checked] [active] [ref=e615]
+                        - generic:
+                          - img
+                      - generic [ref=e616]:
+                        - text: 관리자(모든 권한)
+                        - generic [ref=e619]:
+                          - text: 이 권한이 있는 사용자는 개발자 계정에 대한 다른 모든 권한을 갖습니다. 개발자 계정으로 새 사용자를 초대하고, 사용자를 삭제하고, 다른 사용자의 권한을 관리하고, 액세스 만료일을 변경하고 활동 로그를 통해 Play Console의 변경사항을 검토할 수 있습니다.
+                          - text: 서비스 약관 동의와 같은 일부 추가 작업은 계정 소유자만이 할 수 있습니다.
+                    - generic [ref=e784]:
+                      - generic [ref=e791]:
+                        - img [ref=e795]: report
+                        - heading "이 사용자 계정에 관리자 권한을 부여하시겠어요?" [level=4] [ref=e797]
+                      - paragraph [ref=e799]:
+                        - generic [ref=e801]:
+                          - text: 이 사용자가 내 계정을 완전히 제어할 수 있게 됩니다. 신원 확인이 완료되었으며 완전히 신뢰할 수 있는 사용자에게만 이 권한을 부여하세요.
+                          - strong [ref=e802]: "사기 주의: Google은 계정에서 관리자를 추가하거나 삭제하도록 요청하지 않습니다."
+                    - generic [ref=e620]:
+                      - generic:
+                        - checkbox "앱 정보 보기 및 보고서 일괄 다운로드(읽기 전용) 관련된 Google Play Games 서비스 프로젝트를 포함하여 모든 앱 정보를 보지만 재무 데이터는 볼 수 없습니다. 권한이 있는 사용자는 보고서를 일괄 다운로드하고 향후 Play Console에 추가되는 새로운 앱을 확인할 수 있습니다. 이 권한으로는 정보를 수정하거나 변경할 수 없습니다. 재무 데이터에 액세스하도록 허용하려면 사용자에게 ‘재무 데이터 보기’ 권한을 부여하세요." [checked] [disabled]
+                        - generic:
+                          - img
+                      - generic [ref=e623]:
+                        - text: 앱 정보 보기 및 보고서 일괄 다운로드(읽기 전용)
+                        - generic [ref=e626]:
+                          - text: 관련된 Google Play Games 서비스 프로젝트를 포함하여 모든 앱 정보를 보지만 재무 데이터는 볼 수 없습니다. 권한이 있는 사용자는 보고서를 일괄 다운로드하고 향후 Play Console에 추가되는 새로운 앱을 확인할 수 있습니다.
+                          - text: 이 권한으로는 정보를 수정하거나 변경할 수 없습니다. 재무 데이터에 액세스하도록 허용하려면 사용자에게 ‘재무 데이터 보기’ 권한을 부여하세요.
+                    - generic [ref=e627]:
+                      - generic:
+                        - checkbox "앱 품질 정보 보기(읽기 전용) 이 권한을 보유한 사용자는 Android vitals 및 사전 출시 보고서뿐만 아니라 아티팩트, 트랙, 출시에 관한 기본 정보를 볼 수 있습니다. 이 권한이 있는 사용자는 정보를 수정하거나 변경할 수 없습니다. 다른 앱 데이터에 대한 액세스 권한을 제공하거나 이 사용자가 변경할 수 있도록 허용하려면 다른 계정 권한에 대한 액세스 권한을 부여하기 전에 '앱 정보 보기 및 보고서 일괄 다운로드(읽기 전용)' 권한을 선택하세요." [checked] [disabled]
+                        - generic:
+                          - img
+                      - generic [ref=e630]:
+                        - text: 앱 품질 정보 보기(읽기 전용)
+                        - generic [ref=e633]:
+                          - text: 이 권한을 보유한 사용자는 Android vitals 및 사전 출시 보고서뿐만 아니라 아티팩트, 트랙, 출시에 관한 기본 정보를 볼 수 있습니다.
+                          - text: 이 권한이 있는 사용자는 정보를 수정하거나 변경할 수 없습니다. 다른 앱 데이터에 대한 액세스 권한을 제공하거나 이 사용자가 변경할 수 있도록 허용하려면 다른 계정 권한에 대한 액세스 권한을 부여하기 전에 '앱 정보 보기 및 보고서 일괄 다운로드(읽기 전용)' 권한을 선택하세요.
+                - group "앱 초안" [ref=e635]:
+                  - generic [ref=e638]: 앱 초안
+                  - generic [ref=e641]:
+                    - generic:
+                      - checkbox "앱 초안 생성, 수정 및 삭제 이 권한으로는 Google Play에 앱을 게시할 수 없습니다." [checked] [disabled]
+                      - generic:
+                        - img
+                    - generic [ref=e644]:
+                      - text: 앱 초안 생성, 수정 및 삭제
+                      - generic [ref=e646]: 이 권한으로는 Google Play에 앱을 게시할 수 없습니다.
+                - group "재무 데이터" [ref=e648]:
+                  - generic [ref=e651]: 재무 데이터
+                  - generic [ref=e653]:
+                    - generic [ref=e654]:
+                      - generic:
+                        - checkbox "재무 데이터, 주문, 취소 설문조사 응답 보기 재무 보고서, 매출 보고서, 주문을 봅니다. 사용자 획득 페이지에서 구매자 측정항목을 봅니다. 구매 API에 액세스합니다. 관련된 Play Games 서비스 프로젝트의 수익 정보를 봅니다. 취소 설문조사에 작성된 응답을 다운로드합니다." [checked] [disabled]
+                        - generic:
+                          - img
+                      - generic [ref=e657]:
+                        - text: 재무 데이터, 주문, 취소 설문조사 응답 보기
+                        - generic [ref=e659]: 재무 보고서, 매출 보고서, 주문을 봅니다. 사용자 획득 페이지에서 구매자 측정항목을 봅니다. 구매 API에 액세스합니다. 관련된 Play Games 서비스 프로젝트의 수익 정보를 봅니다. 취소 설문조사에 작성된 응답을 다운로드합니다.
+                    - generic [ref=e660]:
+                      - generic:
+                        - checkbox "주문 및 구독 관리 주문을 확인 및 환불하고, 정기 결제를 취소합니다. 집계 재무 보고서를 보려면 '재무 데이터 보기' 권한도 필요합니다." [checked] [disabled]
+                        - generic:
+                          - img
+                      - generic [ref=e663]:
+                        - text: 주문 및 구독 관리
+                        - generic [ref=e665]: 주문을 확인 및 환불하고, 정기 결제를 취소합니다. 집계 재무 보고서를 보려면 '재무 데이터 보기' 권한도 필요합니다.
+                - group "Play Games 서비스" [ref=e667]:
+                  - generic [ref=e670]: Play Games 서비스
+                  - generic [ref=e672]:
+                    - paragraph [ref=e673]: Play Games 서비스를 사용하면 게임에 흥미로운 소셜 및 멀티플레이어 기능을 추가할 수 있습니다.
+                    - generic [ref=e674]:
+                      - generic:
+                        - checkbox "Play Games 서비스 프로젝트 수정 모든 앱의 Play Games 서비스 프로젝트를 수정합니다. 이 권한과 모든 앱의 ‘앱 정보 보기(읽기 전용)’ 권한이 있는 사용자는 새 프로젝트를 만들고 기존 프로젝트에 앱을 연결할 수도 있습니다." [checked] [disabled]
+                        - generic:
+                          - img
+                      - generic [ref=e677]:
+                        - text: Play Games 서비스 프로젝트 수정
+                        - generic [ref=e679]: 모든 앱의 Play Games 서비스 프로젝트를 수정합니다. 이 권한과 모든 앱의 ‘앱 정보 보기(읽기 전용)’ 권한이 있는 사용자는 새 프로젝트를 만들고 기존 프로젝트에 앱을 연결할 수도 있습니다.
+                    - generic [ref=e680]:
+                      - generic:
+                        - checkbox "Play Games 서비스 프로젝트 게시 모든 앱에 대해 새로운 Play Games 서비스 프로젝트를 게시하고 기존 프로젝트를 게시 취소하거나 다시 게시합니다." [checked] [disabled]
+                        - generic:
+                          - img
+                      - generic [ref=e683]:
+                        - text: Play Games 서비스 프로젝트 게시
+                        - generic [ref=e685]: 모든 앱에 대해 새로운 Play Games 서비스 프로젝트를 게시하고 기존 프로젝트를 게시 취소하거나 다시 게시합니다.
+                - group "출시" [ref=e687]:
+                  - generic [ref=e690]: 출시
+                  - generic [ref=e692]:
+                    - generic [ref=e693]:
+                      - generic:
+                        - checkbox "프로덕션으로 출시, 기기 제외, Play 앱 서명 사용 버전을 생성 및 수정하거나 프로덕션으로 출시하고, 앱을 게시 취소하거나 다시 게시하고, 기기 카탈로그에서 기기를 제외하고 Google Play 앱 서명을 사용하여 APK에 서명합니다. 이 권한을 가진 사용자는 Google Play에서 앱을 사용자에게 게시할 수 있습니다." [checked] [disabled]
+                        - generic:
+                          - img
+                      - generic [ref=e696]:
+                        - text: 프로덕션으로 출시, 기기 제외, Play 앱 서명 사용
+                        - generic [ref=e699]:
+                          - text: 버전을 생성 및 수정하거나 프로덕션으로 출시하고, 앱을 게시 취소하거나 다시 게시하고, 기기 카탈로그에서 기기를 제외하고 Google Play 앱 서명을 사용하여 APK에 서명합니다.
+                          - text: 이 권한을 가진 사용자는 Google Play에서 앱을 사용자에게 게시할 수 있습니다.
+                    - generic [ref=e700]:
+                      - generic:
+                        - checkbox "앱을 테스트 트랙으로 출시 앱 초안을 업로드하고 버전을 생성, 수정한 다음 테스트 트랙으로 출시합니다. 이미 테스트 트랙에 게시된 앱을 게시 취소하거나 다시 게시합니다. .obb 파일을 업로드하고 수정합니다. 프로덕션에 활성화되지 않은 앱의 출시 노트를 수정하고 내부 공유용 App Bundle을 업로드합니다. 이 권한으로는 Google Play에서 앱을 프로덕션에 게시할 수 없습니다." [checked] [disabled]
+                        - generic:
+                          - img
+                      - generic [ref=e703]:
+                        - text: 앱을 테스트 트랙으로 출시
+                        - generic [ref=e706]:
+                          - text: 앱 초안을 업로드하고 버전을 생성, 수정한 다음 테스트 트랙으로 출시합니다. 이미 테스트 트랙에 게시된 앱을 게시 취소하거나 다시 게시합니다. .obb 파일을 업로드하고 수정합니다. 프로덕션에 활성화되지 않은 앱의 출시 노트를 수정하고 내부 공유용 App Bundle을 업로드합니다.
+                          - text: 이 권한으로는 Google Play에서 앱을 프로덕션에 게시할 수 없습니다.
+                    - generic [ref=e707]:
+                      - generic:
+                        - checkbox "테스트 트랙 관리 및 테스터 목록 수정 테스터 목록의 사용자, 그룹, 도메인을 관리합니다. 테스트 트랙을 사용 중지합니다. 테스트 트랙에 대한 국가 타겟팅을 업데이트하고 내부 앱 공유를 위한 업로더와 테스터를 설정합니다. 이 권한으로는 Google Play에서 앱을 프로덕션으로 게시할 수 없습니다." [checked] [disabled]
+                        - generic:
+                          - img
+                      - generic [ref=e710]:
+                        - text: 테스트 트랙 관리 및 테스터 목록 수정
+                        - generic [ref=e713]:
+                          - text: 테스터 목록의 사용자, 그룹, 도메인을 관리합니다. 테스트 트랙을 사용 중지합니다. 테스트 트랙에 대한 국가 타겟팅을 업데이트하고 내부 앱 공유를 위한 업로더와 테스터를 설정합니다.
+                          - text: 이 권한으로는 Google Play에서 앱을 프로덕션으로 게시할 수 없습니다.
+                - group "앱 정보" [ref=e715]:
+                  - generic [ref=e718]: 앱 정보
+                  - generic [ref=e721]:
+                    - generic:
+                      - checkbox "앱 정보 관리 스토어 등록정보를 수정하고 스토어 등록정보 실험을 실행합니다. 가격을 수정하고 인앱 상품을 관리하며 배포 정보 및 콘텐츠 등급을 수정합니다. 프로모션을 생성 및 수정합니다. 필터를 만들고 저장하여 기기 카탈로그를 정렬합니다. 이 권한으로는 기기 카탈로그에서 기기를 제외할 수 없습니다." [checked] [disabled]
+                      - generic:
+                        - img
+                    - generic [ref=e724]:
+                      - text: 앱 정보 관리
+                      - generic [ref=e727]:
+                        - text: 스토어 등록정보를 수정하고 스토어 등록정보 실험을 실행합니다. 가격을 수정하고 인앱 상품을 관리하며 배포 정보 및 콘텐츠 등급을 수정합니다. 프로모션을 생성 및 수정합니다. 필터를 만들고 저장하여 기기 카탈로그를 정렬합니다.
+                        - text: 이 권한으로는 기기 카탈로그에서 기기를 제외할 수 없습니다.
+                - group "사용자 의견" [ref=e729]:
+                  - generic [ref=e732]: 사용자 의견
+                  - generic [ref=e735]:
+                    - generic:
+                      - checkbox "리뷰에 답하기 Google Play에서 리뷰에 답변하고 부적절한 리뷰를 신고하며 답변 제안에 사용되는 연락처 정보를 변경합니다. 이 권한이 없는 사용자도 평점과 리뷰를 볼 수 있지만 답변을 달 수는 없습니다." [checked] [disabled]
+                      - generic:
+                        - img
+                    - generic [ref=e738]:
+                      - text: 리뷰에 답하기
+                      - generic [ref=e740]: Google Play에서 리뷰에 답변하고 부적절한 리뷰를 신고하며 답변 제안에 사용되는 연락처 정보를 변경합니다. 이 권한이 없는 사용자도 평점과 리뷰를 볼 수 있지만 답변을 달 수는 없습니다.
+                - group "정책" [ref=e742]:
+                  - generic [ref=e745]: 정책
+                  - generic [ref=e748]:
+                    - generic:
+                      - checkbox "정책 선언 관리 이 권한이 있는 사용자는 정책 선언을 수정하고 제출할 수 있습니다." [checked] [disabled]
+                      - generic:
+                        - img
+                    - generic [ref=e751]:
+                      - text: 정책 선언 관리
+                      - generic [ref=e753]: 이 권한이 있는 사용자는 정책 선언을 수정하고 제출할 수 있습니다.
+                - group "딥 링크" [ref=e755]:
+                  - generic [ref=e758]: 딥 링크
+                  - generic [ref=e761]:
+                    - generic:
+                      - checkbox "딥 링크 관리 이 권한이 있는 사용자는 Play Console에서 이 앱의 딥 링크를 추가, 수정, 관리할 수 있습니다." [checked] [disabled]
+                      - generic:
+                        - img
+                    - generic [ref=e764]:
+                      - text: 딥 링크 관리
+                      - generic [ref=e766]: 이 권한이 있는 사용자는 Play Console에서 이 앱의 딥 링크를 추가, 수정, 관리할 수 있습니다.
+                - group "Android 개발자 인증" [ref=e768]:
+                  - generic [ref=e771]: Android 개발자 인증
+                  - generic [ref=e774]:
+                    - generic:
+                      - checkbox "Android 개발자 인증을 위해 패키지 이름을 등록하고 관리하세요. 이 권한을 가진 사용자는 Android 개발자 인증 요구사항을 충족하기 위해 패키지 이름과 키를 등록, 관리, 삭제할 수 있습니다." [checked] [disabled]
+                      - generic:
+                        - img
+                    - generic [ref=e777]:
+                      - text: Android 개발자 인증을 위해 패키지 이름을 등록하고 관리하세요.
+                      - generic [ref=e779]: 이 권한을 가진 사용자는 Android 개발자 인증 요구사항을 충족하기 위해 패키지 이름과 키를 등록, 관리, 삭제할 수 있습니다.
+          - generic [ref=e587]:
+            - button "취소" [ref=e781]:
+              - generic [ref=e783]: 취소
+            - button "사용자 초대" [ref=e804]:
+              - generic [ref=e806]: 사용자 초대
+      - generic [ref=e205]:
+        - generic [ref=e206]:
+          - link "제품 업데이트" [ref=e207] [cursor=pointer]:
+            - /url: https://play.google.com/console/about/whats-new/
+          - link "상태 대시보드" [ref=e208] [cursor=pointer]:
+            - /url: https://status.play.google.com/
+          - link "도움말" [ref=e209] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/help-and-support
+        - generic [ref=e210]:
+          - generic [ref=e211]: © 2026 Google
+          - link "개인 정보 보호" [ref=e212] [cursor=pointer]:
+            - /url: https://www.google.com/policies/privacy/
+          - link "개발자 배포 계약" [ref=e213] [cursor=pointer]:
+            - /url: https://play.google.com/about/developer-distribution-agreement.html
+          - link "서비스 약관" [ref=e214] [cursor=pointer]:
+            - /url: https://play.google.com/about/console/terms-of-service/

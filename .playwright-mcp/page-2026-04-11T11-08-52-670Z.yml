@@ -1,0 +1,204 @@
+- generic [ref=e1]:
+  - generic:
+    - generic:
+      - img
+      - progressbar
+      - generic: Google Play Console 로드 중
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e41]:
+          - img "오류" [ref=e44]: error
+          - generic [ref=e45]:
+            - generic [ref=e46]: 비활성 상태로 인해 개발자 계정이 해지될 위험이 있음
+            - link "세부정보 보기" [ref=e51] [cursor=pointer]:
+              - /url: /console/u/0/developers/6742527097914769594/policy-center/issues/4987000237595100703/details
+              - generic [ref=e54]: 세부정보 보기
+        - generic [ref=e6]:
+          - link "Google Play Console 로고" [ref=e7] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/app-list
+            - button "Google Play Console 로고" [ref=e8]
+          - generic [ref=e9]:
+            - button "읽지 않은 알림 알림 센터 열기" [ref=e60]:
+              - img [ref=e64]: notifications_unread
+              - generic [ref=e66]: 읽지 않은 알림
+            - button "개발자 계정 전환" [ref=e14] [cursor=pointer]:
+              - img "개발자 계정 전환" [ref=e16]
+    - navigation [ref=e68]:
+      - list [ref=e69]:
+        - listitem "홈" [ref=e72]:
+          - button "홈" [ref=e73] [cursor=pointer]:
+            - img [ref=e76]: features
+            - generic [ref=e77]: 홈
+        - listitem "정책 상태" [ref=e80]:
+          - button "정책 상태" [ref=e81] [cursor=pointer]:
+            - img [ref=e84]: android_security_privacy_safe
+            - generic [ref=e85]: 정책 상태
+        - listitem "사용자 및 권한" [ref=e88]:
+          - button "사용자 및 권한" [ref=e89] [cursor=pointer]:
+            - img [ref=e92]: user_attributes
+            - generic [ref=e93]: 사용자 및 권한
+        - listitem "주문 관리" [ref=e96]:
+          - button "주문 관리" [ref=e97] [cursor=pointer]:
+            - img [ref=e100]: credit_card
+            - generic [ref=e101]: 주문 관리
+        - listitem "보고서 다운로드" [ref=e104]:
+          - button "보고서 다운로드" [ref=e105] [cursor=pointer]:
+            - img [ref=e107]: arrow_right
+            - img [ref=e110]: download
+            - generic [ref=e111]: 보고서 다운로드
+        - listitem "개발자 계정" [ref=e114]:
+          - button "개발자 계정" [ref=e115] [cursor=pointer]:
+            - img [ref=e118]: badge
+            - generic [ref=e119]: 개발자 계정
+        - listitem "활동 로그" [ref=e122]:
+          - button "활동 로그" [ref=e123] [cursor=pointer]:
+            - img [ref=e126]: description
+            - generic [ref=e127]: 활동 로그
+        - listitem "설정" [ref=e130]:
+          - button "설정" [active] [ref=e131] [cursor=pointer]:
+            - img [ref=e134]: settings
+            - generic [ref=e135]: 설정
+        - listitem "도움말" [ref=e138]:
+          - button "도움말" [ref=e139] [cursor=pointer]:
+            - img [ref=e142]: contact_support
+            - generic [ref=e143]: 도움말
+        - listitem "Android 개발자 인증" [ref=e146]:
+          - button "Android 개발자 인증" [ref=e147] [cursor=pointer]:
+            - img [ref=e150]: app_promotion
+            - generic [ref=e151]: Android 개발자 인증
+    - generic [ref=e22]:
+      - generic [ref=e386]:
+        - heading "설정" [level=1] [ref=e399]
+        - heading "개인 설정 섹션" [level=2] [ref=e411]: 개인
+        - generic [ref=e416]:
+          - generic [ref=e417] [cursor=pointer]:
+            - generic [ref=e418]:
+              - img [ref=e422]: notifications
+              - generic [ref=e423]: 이메일 알림
+            - generic [ref=e424]: 이메일을 통해 수신할 알림 선택
+          - link "알림 페이지 보기" [ref=e426] [cursor=pointer]:
+            - img [ref=e430]: arrow_right_alt
+        - heading "개발자 계정 설정 섹션" [level=2] [ref=e442]: 개발자 계정
+        - heading "일반 설정 하위 섹션" [level=3] [ref=e454]: 기본설정
+        - generic [ref=e459]:
+          - generic [ref=e460] [cursor=pointer]:
+            - generic [ref=e461]:
+              - img [ref=e465]: videogame_asset
+              - generic [ref=e466]: 게임 프로젝트
+            - generic [ref=e467]: 이 개발자 계정이 소유한 Play Games 서비스 게임 프로젝트를 관리하세요.
+          - link "게임 프로젝트 페이지 보기" [ref=e469] [cursor=pointer]:
+            - img [ref=e473]: arrow_right_alt
+        - generic [ref=e478]:
+          - generic [ref=e479] [cursor=pointer]:
+            - generic [ref=e480]:
+              - img [ref=e484]: show_chart
+              - generic [ref=e485]: 벤치마킹
+            - generic [ref=e486]: Android vitals에 맞춤 동종 앱 그룹 사용 선택
+          - link "벤치마킹 페이지 보기" [ref=e488] [cursor=pointer]:
+            - img [ref=e492]: arrow_right_alt
+        - generic [ref=e497]:
+          - generic [ref=e498] [cursor=pointer]:
+            - generic [ref=e499]:
+              - img [ref=e503]: apps
+              - generic [ref=e504]: 앱 이전
+            - generic [ref=e505]: 다른 개발자 계정으로 앱을 이전하세요.
+          - link "앱 이전 페이지 보기" [ref=e507] [cursor=pointer]:
+            - img [ref=e511]: arrow_right_alt
+        - generic [ref=e516]:
+          - generic [ref=e517] [cursor=pointer]:
+            - generic [ref=e518]:
+              - img [ref=e522]: link
+              - generic [ref=e523]: 연결된 서비스
+            - generic [ref=e524]: 개발자 계정을 Google Ads 및 Firebase와 같은 다른 Google 서비스에 연결하여 데이터를 더욱 다양하게 활용하세요.
+          - link "연결된 서비스 페이지 보기" [ref=e526] [cursor=pointer]:
+            - img [ref=e530]: arrow_right_alt
+        - generic [ref=e535]:
+          - generic [ref=e536] [cursor=pointer]:
+            - generic [ref=e537]:
+              - img [ref=e541]: alternate_email
+              - generic [ref=e542]: 이메일 목록
+            - generic [ref=e543]: 앱을 테스트할 때 사용할 이메일 목록을 만들고 관리하세요.
+          - link "이메일 목록 관리 페이지 보기" [ref=e545] [cursor=pointer]:
+            - img [ref=e549]: arrow_right_alt
+        - heading "수익 창출 설정 하위 섹션" [level=3] [ref=e561]: 수익 창출
+        - generic [ref=e566]:
+          - generic [ref=e567] [cursor=pointer]:
+            - generic [ref=e568]:
+              - img [ref=e572]: ballot
+              - generic [ref=e573]: Google Play 결제 외 결제 인보이스
+            - generic [ref=e574]: 개발자 제공 결제 시스템 및 외부 제공 결제 프로그램을 통해 받은 수익금의 인보이스를 관리하세요.
+          - link "구매자 인보이스 페이지 보기" [ref=e576] [cursor=pointer]:
+            - img [ref=e580]: arrow_right_alt
+        - generic [ref=e585]:
+          - generic [ref=e586] [cursor=pointer]:
+            - generic [ref=e587]:
+              - img [ref=e591]: money
+              - generic [ref=e592]: 개발자 제공 결제 시스템
+            - generic [ref=e593]: 고객 거래에 Google Play 결제 시스템과 함께 개발자 제공 결제 시스템을 사용하세요.
+          - link "개발자 제공 결제 페이지 보기" [ref=e595] [cursor=pointer]:
+            - img [ref=e599]: arrow_right_alt
+        - generic [ref=e604]:
+          - generic [ref=e605] [cursor=pointer]:
+            - generic [ref=e606]:
+              - img [ref=e610]: universal_currency
+              - generic [ref=e611]: 결제 프로필
+            - generic [ref=e612]: Google Play에서 판매 수익금을 추적하고 지급받는 데 사용하는 결제 프로필을 관리하세요.
+          - link "결제 프로필 페이지 보기" [ref=e614] [cursor=pointer]:
+            - img [ref=e618]: arrow_right_alt
+        - generic [ref=e623]:
+          - generic [ref=e624] [cursor=pointer]:
+            - generic [ref=e625]:
+              - img [ref=e629]: terminal
+              - generic [ref=e630]: 라이선스 테스트
+            - generic [ref=e631]: 라이선스 및 결제 통합을 테스트하세요.
+          - link "라이선스 테스트 페이지 보기" [ref=e633] [cursor=pointer]:
+            - img [ref=e637]: arrow_right_alt
+        - generic [ref=e642]:
+          - generic [ref=e643] [cursor=pointer]:
+            - generic [ref=e644]:
+              - img [ref=e648]: language
+              - generic [ref=e649]: 세율
+            - generic [ref=e650]: Play 제품의 거래 세율을 국가 또는 지역별로 설정합니다.
+          - link "세율 페이지 보기" [ref=e652] [cursor=pointer]:
+            - img [ref=e656]: arrow_right_alt
+        - generic [ref=e661]:
+          - generic [ref=e662] [cursor=pointer]:
+            - generic [ref=e663]:
+              - img [ref=e667]: mobile_screen_share
+              - generic [ref=e668]: 외부 결제 프로그램
+            - generic [ref=e669]: 일본 사용자를 Google Play 결제 시스템 외부의 결제 수단으로 유도하는 링크를 앱 내에 게시합니다.
+          - link "외부 결제 프로그램 페이지 보기" [ref=e671] [cursor=pointer]:
+            - img [ref=e675]: arrow_right_alt
+        - generic [ref=e680]:
+          - generic [ref=e681] [cursor=pointer]:
+            - generic [ref=e682]:
+              - img [ref=e686]: exit_to_app
+              - generic [ref=e687]: 외부 제공 결제 프로그램
+            - generic [ref=e688]: 혜택 홍보를 위해 사용자를 앱 외부로 유도하는 링크를 앱 내에 게시합니다.
+          - link "외부 제공 결제 프로그램 연결 페이지 보기" [ref=e690] [cursor=pointer]:
+            - img [ref=e694]: arrow_right_alt
+        - generic [ref=e699]:
+          - generic [ref=e700] [cursor=pointer]:
+            - generic [ref=e701]:
+              - img [ref=e705]: mobile_screen_share
+              - generic [ref=e706]: 외부 콘텐츠 링크
+            - generic [ref=e707]: "Play 앱 내에서 외부 콘텐츠(예: 외부 앱 다운로드 또는 인앱 상품 구매 링크)로 연결되는 링크를 미국에서 게시하려면 등록을 시작하세요."
+          - link "외부 콘텐츠 링크 페이지 보기" [ref=e709] [cursor=pointer]:
+            - img [ref=e713]: arrow_right_alt
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - link "제품 업데이트" [ref=e32] [cursor=pointer]:
+            - /url: https://play.google.com/console/about/whats-new/
+          - link "상태 대시보드" [ref=e33] [cursor=pointer]:
+            - /url: https://status.play.google.com/
+          - link "도움말" [ref=e34] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/help-and-support
+        - generic [ref=e35]:
+          - generic [ref=e36]: © 2026 Google
+          - link "개인 정보 보호" [ref=e37] [cursor=pointer]:
+            - /url: https://www.google.com/policies/privacy/
+          - link "개발자 배포 계약" [ref=e38] [cursor=pointer]:
+            - /url: https://play.google.com/about/developer-distribution-agreement.html
+          - link "서비스 약관" [ref=e39] [cursor=pointer]:
+            - /url: https://play.google.com/about/console/terms-of-service/
