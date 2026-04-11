@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -87,27 +87,36 @@ export default function RecommendVersesScreen() {
 
   const isPreset = selectedTheme !== null && THEME_PRESETS.some(p => p.label === selectedTheme);
 
+  // 프리셋 태그 선택 즉시 자동 조회 (로컬 풀, 딜레이 없음)
+  useEffect(() => {
+    if (!selectedTheme) return;
+    setError(null);
+    const result = getPoolRecommendation(selectedTheme);
+    if (result.error || !result.data) {
+      setResults(null);
+      setError('구절을 불러오지 못했습니다. 앱을 다시 시작해 주세요.');
+    } else {
+      setResults(result.data);
+    }
+  }, [selectedTheme]);
+
+  // 커스텀 입력으로 전환 시 이전 결과 초기화
+  useEffect(() => {
+    if (customInput.trim()) {
+      setResults(null);
+      setError(null);
+    }
+  }, [customInput]);
+
+  // 커스텀 입력 전용 (프리셋은 useEffect에서 자동 처리)
   const handleSearch = useCallback(async () => {
-    const queryTheme = activeTheme;
-    if (!queryTheme) return;
+    const queryTheme = customInput.trim();
+    if (!queryTheme || isPreset) return;
 
     setLoading(true);
     setError(null);
     setResults(null);
 
-    // 프리셋 태그: 로컬 풀에서 즉시 추출 (AI 호출 없음)
-    if (isPreset) {
-      const result = getPoolRecommendation(queryTheme);
-      setLoading(false);
-      if (result.error || !result.data) {
-        setError('구절을 불러오지 못했습니다. 앱을 다시 시작해 주세요.');
-      } else {
-        setResults(result.data);
-      }
-      return;
-    }
-
-    // 커스텀 입력: AI 호출 (Pro 전용)
     const [userId, entitled] = await Promise.all([getAppUserId(), checkAIEntitlement()]);
     if (!entitled) {
       setError('직접 입력 구절 추천은 Pro 전용 기능입니다.');
@@ -123,7 +132,7 @@ export default function RecommendVersesScreen() {
     } else {
       setResults(result.data);
     }
-  }, [activeTheme, isPreset]);
+  }, [customInput, isPreset]);
 
   function navigateToVerse(ref: string) {
     const { bookId: bookName, chapter, verse } = parseVerseRef(ref);
@@ -199,14 +208,14 @@ export default function RecommendVersesScreen() {
           })}
         </View>
 
-        {/* 검색 버튼 (선택 후) */}
-        {activeTheme && !loading && !results && (
+        {/* 검색 버튼 (커스텀 입력 전용) */}
+        {!isPreset && customInput.trim() && !loading && !results && (
           <Pressable
             style={({ pressed }) => [styles.searchCTA, pressed && { opacity: 0.85 }]}
             onPress={handleSearch}
           >
             <MaterialCommunityIcons name="compass-rose" size={16} color={theme.bg} />
-            <Text style={styles.searchCTAText}>"{activeTheme}" 관련 구절 찾기</Text>
+            <Text style={styles.searchCTAText}>"{customInput.trim()}" 관련 구절 찾기</Text>
           </Pressable>
         )}
 
