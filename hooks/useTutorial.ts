@@ -4,7 +4,7 @@ import { getSetting, setSetting } from '../db/settings';
 
 const TOTAL_STEPS = 4;
 
-export function useTutorial() {
+export function useTutorial(onComplete?: () => void) {
   const [isActive, setIsActive] = useState(false);
   const [step, setStep] = useState(0);
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -35,7 +35,9 @@ export function useTutorial() {
       toValue: 0, duration: 220, useNativeDriver: true,
     }).start(() => {
       setIsActive(false);
-      setSetting('tutorial_reading_complete', '1');
+      setSetting('tutorial_reading_complete', '1').then(() => {
+        onComplete?.();
+      });
     });
   }
 

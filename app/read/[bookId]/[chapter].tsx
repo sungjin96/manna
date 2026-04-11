@@ -45,8 +45,6 @@ import { BOOKS } from '../../../constants/books';
 import { styles, HEADER_H, PROGRESS_H } from './chapter.styles';
 import { BADGES, BOOK_BADGES } from '../../../app/(tabs)/achievements';
 import { useShowBadgeToast } from '../../../contexts/BadgeToastContext';
-import { useTutorial } from '../../../hooks/useTutorial';
-import { ReadingTutorial } from '../../../components/ReadingTutorial';
 import PaywallSheet from '../../../components/PaywallSheet';
 
 // ── Rich text parser for AI explanation ────────────────────────────────────
@@ -213,8 +211,18 @@ export default function ReadScreen() {
   const showBadgeToast = useShowBadgeToast();
   // AI 선택 구절 범위 (새로고침용)
   const aiVerseRange = useRef<{ start: number; end: number } | null>(null);
-  // Feature 1: Tutorial
-  const { isActive: tutorialActive, step: tutorialStep, overlayOpacity: tutorialOpacity, advanceStep: tutorialAdvance, dismiss: tutorialDismiss } = useTutorial();
+
+  // Feature 1: Tutorial — redirect to dedicated mock screen on first visit
+  useEffect(() => {
+    getSetting('tutorial_reading_complete', '0').then(val => {
+      if (val === '0') {
+        router.replace({
+          pathname: '/tutorial-read',
+          params: { bookId, chapter },
+        });
+      }
+    });
+  }, []);
 
   // ── Initial data load ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -1457,20 +1465,6 @@ export default function ReadScreen() {
             </View>
           </View>
         </Modal>
-        {/* Feature 1: Reading tutorial */}
-        {tutorialActive && (
-          <ReadingTutorial
-            step={tutorialStep}
-            overlayOpacity={tutorialOpacity}
-            onNext={tutorialAdvance}
-            onDismiss={tutorialDismiss}
-            onScrollToEnd={() => {
-              // Step 2 (읽기 완료)는 FlatList 최하단 버튼을 highlight — 스크롤 먼저
-              setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-            }}
-          />
-        )}
-
         {/* Mini toast */}
         {toastMsg && (
           <Animated.View style={[toastStyles.wrap, { opacity: toastOpacity, bottom: insets.bottom + 60 }]}>

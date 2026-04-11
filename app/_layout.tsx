@@ -94,6 +94,10 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
+          name="tutorial-read"
+          options={{ headerShown: false, animation: 'fade' }}
+        />
+        <Stack.Screen
           name="read/[bookId]/[chapter]"
           options={{
             headerShown: true,
