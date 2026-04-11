@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, Image, StyleSheet } from 'react-native';
 import { BadgeToastProvider } from '../contexts/BadgeToastContext';
 import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
@@ -68,14 +68,18 @@ export default function RootLayout() {
     setAppState('ready');
   }
 
-  // Loading: blank screen matching splash bg (hides flash during OTA check)
-  // Updating: show progress indicator before home screen loads
+  // Loading / Updating: 로고 표시 (스플래시와 연속감 유지)
   if (appState !== 'ready') {
     return (
       <View style={styles.splash}>
+        <Image
+          source={require('../assets/splash-icon.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         {appState === 'updating' && (
           <>
-            <ActivityIndicator color={theme.gold} size="large" />
+            <ActivityIndicator color={theme.gold} size="large" style={styles.spinner} />
             <Text style={styles.updateText}>업데이트 중입니다...</Text>
             <Text style={styles.updateSub}>잠시만 기다려 주세요</Text>
           </>
@@ -119,6 +123,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+  },
+  spinner: {
+    marginTop: 8,
   },
   updateText: {
     color: theme.text,
