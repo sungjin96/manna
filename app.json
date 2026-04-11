@@ -24,8 +24,7 @@
       "bundleIdentifier": "com.jsj.manna",
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification",
-          "audio"
+          "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false
       },
