@@ -199,7 +199,23 @@ export default function SettingsScreen() {
   }
 
   const pad = (n: number) => String(n).padStart(2, '0');
-  const version = Constants.expoConfig?.version ?? '1.0.0';
+
+  // 버전 표시: OTA 배포일이 있으면 "1.0.0 · 04-11", 없으면 "1.0.0 (Build 21)"
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+  const buildNumber = Constants.expoConfig?.ios?.buildNumber ?? '';
+  const otaDate = Updates.createdAt
+    ? (() => {
+        const d = Updates.createdAt!;
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${mm}-${dd}`;
+      })()
+    : null;
+  const version = otaDate
+    ? `${appVersion} · ${otaDate}`
+    : buildNumber
+    ? `${appVersion} (Build ${buildNumber})`
+    : appVersion;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>

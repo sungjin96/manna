@@ -394,7 +394,15 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* 테마별 구절 추천 진입점 */}
+        {/* Empty state — first-time user (테마 추천보다 먼저) */}
+        {stats.totalChapters === 0 && !showOnboarding && (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>오늘 창세기 1장부터 시작해볼까요?</Text>
+            <Text style={styles.emptyBody}>매일 한 챕터씩 읽으면 3년 안에 성경 전체를 완독할 수 있어요.</Text>
+          </View>
+        )}
+
+        {/* 테마별 구절 추천 — 스크롤 끝 탐색 진입점 */}
         <Pressable
           style={({ pressed }) => [styles.recommendCard, pressed && { opacity: 0.85 }]}
           onPress={() => router.push('/recommend-verses')}
@@ -408,14 +416,6 @@ export default function HomeScreen() {
           </View>
           <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
         </Pressable>
-
-        {/* Empty state — first-time user */}
-        {stats.totalChapters === 0 && !showOnboarding && (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>오늘 창세기 1장부터 시작해볼까요?</Text>
-            <Text style={styles.emptyBody}>매일 한 챕터씩 읽으면 3년 안에 성경 전체를 완독할 수 있어요.</Text>
-          </View>
-        )}
 
       </ScrollView>
 
@@ -754,6 +754,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: theme.goldBorder,
+    marginTop: 8,
   },
   recommendLeft: {
     flexDirection: 'row',
