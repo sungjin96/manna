@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -402,55 +403,65 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>구독</Text>
 
         {isPremiumLoading ? (
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: theme.textMuted }]}>확인 중...</Text>
+          <View style={[styles.subsCard, { alignItems: 'center', paddingVertical: 24 }]}>
+            <ActivityIndicator color={theme.gold} />
           </View>
         ) : isPremium ? (
-          <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <MaterialCommunityIcons name="crown" size={20} color={theme.gold} />
-              <Text style={styles.rowLabel}>프리미엄 구독 중</Text>
+          /* ── Pro 구독 중 ── */
+          <View style={styles.subsCard}>
+            {/* Pro badge row */}
+            <View style={styles.subsActiveHeader}>
+              <View style={styles.subsActiveBadge}>
+                <MaterialCommunityIcons name="crown" size={15} color={theme.bg} />
+                <Text style={styles.subsActiveBadgeText}>Manna Pro</Text>
+              </View>
+              <MaterialCommunityIcons name="check-circle" size={18} color={theme.gold} />
             </View>
-            <MaterialCommunityIcons name="check-circle" size={18} color={theme.gold} />
+            <Text style={[styles.subsActiveDesc, { color: theme.textMuted }]}>
+              모든 Pro 기능을 무제한으로 이용 중입니다.
+            </Text>
+            {/* 구독 관리 (취소) — App Store로 이동 */}
+            <Pressable
+              style={({ pressed }) => [styles.subsManageBtn, pressed && { opacity: 0.7 }]}
+              onPress={() => Linking.openURL('itms-apps://apps.apple.com/account/subscriptions')}
+            >
+              <Text style={[styles.subsManageBtnText, { color: theme.textSub }]}>구독 관리 / 취소</Text>
+              <MaterialCommunityIcons name="open-in-new" size={13} color={theme.textMuted} />
+            </Pressable>
           </View>
         ) : (
+          /* ── 미구독 — 업셀 카드 ── */
           <View style={styles.subsCard}>
-            {/* 출시 기념 할인 배너 */}
-            <View style={styles.subsDiscountBanner}>
-              <MaterialCommunityIcons name="lightning-bolt" size={13} color={theme.bg} />
-              <Text style={styles.subsDiscountBannerText}>출시 기념 50% 할인</Text>
-            </View>
-
-            {/* Header: title + price pill */}
-            <View style={styles.subsCardHeader}>
-              <View style={styles.rowLeft}>
-                <MaterialCommunityIcons name="crown-outline" size={20} color={theme.gold} />
-                <Text style={styles.rowLabel}>Manna Pro</Text>
+            {/* 가격 히어로 */}
+            <View style={styles.subsPriceHero}>
+              <MaterialCommunityIcons name="crown-outline" size={28} color={theme.gold} />
+              <Text style={styles.subsPriceTitle}>Manna Pro</Text>
+              <View style={styles.subsPriceRow}>
+                <Text style={styles.subsPriceStrike}>₩6,600</Text>
+                <Text style={styles.subsPriceCurrent}>₩3,300</Text>
+                <Text style={styles.subsPriceUnit}>/월</Text>
               </View>
-              <View style={styles.pricePill}>
-                <Text style={styles.pricePillStrike}>₩6,600</Text>
-                <Text style={styles.pricePillText}>₩3,300/월</Text>
+              <View style={styles.subsDiscountChip}>
+                <MaterialCommunityIcons name="lightning-bolt" size={11} color={theme.gold} />
+                <Text style={styles.subsDiscountChipText}>출시 기념 50% 할인</Text>
               </View>
             </View>
 
-            {/* Features */}
-            <View style={styles.subsFeatures}>
+            {/* 기능 그리드 (2열) */}
+            <View style={styles.subsGrid}>
               {([
-                { icon: 'headphones',             label: 'TTS 성경 낭독',     desc: '전체 장 자동 낭독 + 타이머·자동 다음 장' },
-                { icon: 'brain',                  label: 'AI 묵상 질문',      desc: '무제한 — 무료는 하루 1회' },
-                { icon: 'book-open-page-variant', label: 'AI 구절 해설',      desc: '무제한 — 무료는 하루 1회' },
-                { icon: 'hands-pray',             label: 'AI 기도문',          desc: '무제한 — 무료는 하루 1회' },
-                { icon: 'compass-rose',           label: '테마별 구절 추천',   desc: '감정·상황에 맞는 말씀' },
-                { icon: 'calendar-month',         label: 'Streak 히트맵',      desc: '연간 읽기 기록 시각화' },
+                { icon: 'headphones',              label: 'TTS 낭독' },
+                { icon: 'brain',                   label: 'AI 묵상 무제한' },
+                { icon: 'book-open-page-variant',  label: '구절 해설 무제한' },
+                { icon: 'hands-pray',              label: '기도문 무제한' },
+                { icon: 'compass-rose',            label: '테마 구절 추천' },
+                { icon: 'calendar-month',          label: 'Streak 히트맵' },
               ] as const).map((f) => (
-                <View key={f.label} style={styles.subsFeatureRow}>
-                  <View style={styles.subsFeatureIconBox}>
-                    <MaterialCommunityIcons name={f.icon} size={14} color={theme.gold} />
+                <View key={f.label} style={styles.subsGridItem}>
+                  <View style={styles.subsGridIcon}>
+                    <MaterialCommunityIcons name={f.icon} size={15} color={theme.gold} />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.subsFeatureText}>{f.label}</Text>
-                    <Text style={styles.subsFeatureDesc}>{f.desc}</Text>
-                  </View>
+                  <Text style={styles.subsGridLabel}>{f.label}</Text>
                 </View>
               ))}
             </View>
@@ -461,10 +472,14 @@ export default function SettingsScreen() {
               onPress={handlePurchase}
               disabled={purchasing}
             >
-              <Text style={styles.subsCTAText}>{purchasing ? '처리 중...' : '지금 시작하기 — ₩3,300/월'}</Text>
+              {purchasing ? (
+                <ActivityIndicator color={theme.bg} size="small" />
+              ) : (
+                <Text style={styles.subsCTAText}>지금 시작하기</Text>
+              )}
             </Pressable>
 
-            {/* Footer */}
+            {/* Footer links */}
             <View style={styles.subsFooter}>
               <Text style={styles.subsFooterText}>언제든 취소 가능</Text>
               <Text style={styles.subsFooterText}> · </Text>
@@ -780,102 +795,166 @@ const styles = StyleSheet.create({
   },
 
   // Subscription card
+  // ── 구독 카드 (공통 컨테이너) ─────────────────────────────────────────────
   subsCard: {
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
-    gap: 14,
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 16,
     borderTopWidth: 1,
     borderTopColor: theme.borderSubtle,
   },
-  subsDiscountBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    backgroundColor: theme.gold,
-    borderRadius: 8,
-    paddingVertical: 7,
-  },
-  subsDiscountBannerText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: theme.bg,
-    letterSpacing: 0.3,
-  },
-  subsCardHeader: {
+
+  // ── 구독 중 상태 ──────────────────────────────────────────────────────────
+  subsActiveHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  pricePill: {
-    backgroundColor: `${theme.gold}20`,
+  subsActiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.gold,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: theme.goldBorder,
-    alignItems: 'flex-end',
-    gap: 1,
   },
-  pricePillStrike: {
-    fontSize: 10,
+  subsActiveBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.bg,
+    letterSpacing: 0.2,
+  },
+  subsActiveDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: -4,
+  },
+  subsManageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  subsManageBtnText: {
+    fontSize: 12,
+  },
+
+  // ── 미구독 — 가격 히어로 ──────────────────────────────────────────────────
+  subsPriceHero: {
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  subsPriceTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: theme.text,
+    letterSpacing: 0.3,
+  },
+  subsPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginTop: 2,
+  },
+  subsPriceStrike: {
+    fontSize: 14,
     fontWeight: '500',
     color: theme.textMuted,
     textDecorationLine: 'line-through',
   },
-  pricePillText: {
-    fontSize: 12,
-    fontWeight: '700',
+  subsPriceCurrent: {
+    fontSize: 32,
+    fontWeight: '900',
     color: theme.gold,
+    letterSpacing: -0.5,
   },
-  subsFeatures: {
-    gap: 10,
-    paddingLeft: 4,
+  subsPriceUnit: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.textMuted,
   },
-  subsFeatureRow: {
+  subsDiscountChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 4,
+    backgroundColor: `${theme.gold}18`,
+    borderWidth: 1,
+    borderColor: `${theme.gold}40`,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 2,
   },
-  subsFeatureIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 7,
+  subsDiscountChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.gold,
+    letterSpacing: 0.2,
+  },
+
+  // ── 기능 2열 그리드 ──────────────────────────────────────────────────────
+  subsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  subsGridItem: {
+    width: '47%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: theme.goldBg,
     borderWidth: 1,
     borderColor: theme.goldBorder,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  subsGridIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    backgroundColor: `${theme.gold}22`,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
-  subsFeatureText: {
-    fontSize: 13,
+  subsGridLabel: {
+    fontSize: 12,
     fontWeight: '600',
     color: theme.text,
+    flex: 1,
   },
-  subsFeatureDesc: {
-    fontSize: 11,
-    color: theme.textMuted,
-    marginTop: 1,
-  },
+
+  // ── CTA 버튼 ─────────────────────────────────────────────────────────────
   subsCTA: {
     backgroundColor: theme.gold,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 14,
+    paddingVertical: 15,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 50,
   },
   subsCTAText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     color: theme.bg,
     letterSpacing: 0.3,
   },
+
+  // ── Footer ───────────────────────────────────────────────────────────────
   subsFooter: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 12,
+    paddingBottom: 8,
+    gap: 0,
   },
   subsFooterText: {
     fontSize: 11,

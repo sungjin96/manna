@@ -1460,6 +1460,10 @@ export default function ReadScreen() {
             overlayOpacity={tutorialOpacity}
             onNext={tutorialAdvance}
             onDismiss={tutorialDismiss}
+            onScrollToEnd={() => {
+              // Step 2 (읽기 완료)는 FlatList 최하단 버튼을 highlight — 스크롤 먼저
+              setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+            }}
           />
         )}
 

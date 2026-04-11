@@ -1,16 +1,29 @@
+import { useEffect, useRef } from 'react';
 import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
+// Fixed pixel layout constants (matches chapter.styles.ts)
+const HEADER_H = 44;
+const PROGRESS_H = 28;
+const LIST_PADDING_TOP = 20;
+// First verse top = insets.top + HEADER_H + PROGRESS_H + LIST_PADDING_TOP
+// Complete button sits above 100px paddingBottom, button height ~90px
+const COMPLETE_BTN_H = 90;
+const COMPLETE_BTN_PADDING_BOTTOM = 100;
+// Bottom nav height (paddingTop 8 + content ~34 + paddingBottom 4 = ~46px before insets)
+const BOTTOM_NAV_CONTENT_H = 46;
+
 interface StepDef {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   title: string;
   body: string;
-  hlYFrac: number;   // spotlight top as fraction of screen height
-  hlHFrac: number;   // spotlight height as fraction
   tooltipBelow: boolean;
+  /** px from top of screen to spotlight top (computed dynamically) */
+  spotYFn: (insetsTop: number, insetsBottom: number) => number;
+  spotH: number;
 }
 
 const STEPS: StepDef[] = [
@@ -18,33 +31,36 @@ const STEPS: StepDef[] = [
     icon: 'gesture-tap',
     title: '절을 탭하세요',
     body: '절을 탭하면 읽은 절로 표시됩니다.\n완독한 절은 반투명하게 변해요.',
-    hlYFrac: 0.28,
-    hlHFrac: 0.09,
     tooltipBelow: true,
+    // Spotlight at first verse row — centered
+    spotYFn: (top) => top + HEADER_H + PROGRESS_H + LIST_PADDING_TOP,
+    spotH: 52,
   },
   {
     icon: 'check-circle-outline',
     title: '읽기 완료',
     body: '"읽기 완료" 버튼을 탭하면 챕터를 완료해요.\n묵상을 기록하거나 다음 챕터로 이동합니다.',
-    hlYFrac: 0.76,
-    hlHFrac: 0.10,
     tooltipBelow: false,
+    // After scrollToEnd, button is above paddingBottom(100) + bottomNav
+    spotYFn: (_, bottom) =>
+      SCREEN_H - bottom - BOTTOM_NAV_CONTENT_H - COMPLETE_BTN_PADDING_BOTTOM - COMPLETE_BTN_H,
+    spotH: COMPLETE_BTN_H,
   },
   {
     icon: 'swap-horizontal',
     title: '이전 / 다음 챕터',
     body: '화면 하단 좌우 버튼으로\n이전/다음 챕터를 이동해요.',
-    hlYFrac: 0.88,
-    hlHFrac: 0.09,
     tooltipBelow: false,
+    spotYFn: (_, bottom) => SCREEN_H - bottom - BOTTOM_NAV_CONTENT_H,
+    spotH: BOTTOM_NAV_CONTENT_H,
   },
   {
     icon: 'gesture-tap-hold',
     title: '길게 누르기',
     body: '절을 길게 누르면 범위를 선택할 수 있어요.\n선택 후 묵상을 남기거나 복사할 수 있습니다.',
-    hlYFrac: 0.33,
-    hlHFrac: 0.09,
     tooltipBelow: true,
+    spotYFn: (top) => top + HEADER_H + PROGRESS_H + LIST_PADDING_TOP + 56,
+    spotH: 52,
   },
 ];
 
@@ -57,14 +73,25 @@ interface Props {
   overlayOpacity: Animated.Value;
   onNext: () => void;
   onDismiss: () => void;
+  /** Called when step advances to index 1 (읽기 완료) — use to scrollToEnd */
+  onScrollToEnd?: () => void;
 }
 
-export function ReadingTutorial({ step, overlayOpacity, onNext, onDismiss }: Props) {
+export function ReadingTutorial({ step, overlayOpacity, onNext, onDismiss, onScrollToEnd }: Props) {
   const insets = useSafeAreaInsets();
-  const s = STEPS[step];
+  const prevStepRef = useRef(step);
 
-  const spotY = s.hlYFrac * SCREEN_H;
-  const spotH = s.hlHFrac * SCREEN_H;
+  // When step advances to 1 (읽기 완료), trigger scroll to bottom
+  useEffect(() => {
+    if (step === 1 && prevStepRef.current !== 1) {
+      onScrollToEnd?.();
+    }
+    prevStepRef.current = step;
+  }, [step, onScrollToEnd]);
+
+  const s = STEPS[step];
+  const spotY = s.spotYFn(insets.top, insets.bottom);
+  const spotH = s.spotH;
 
   // Tooltip vertical position
   let tooltipTop: number;

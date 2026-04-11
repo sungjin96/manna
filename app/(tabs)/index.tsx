@@ -394,6 +394,21 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* 테마별 구절 추천 진입점 */}
+        <Pressable
+          style={({ pressed }) => [styles.recommendCard, pressed && { opacity: 0.85 }]}
+          onPress={() => router.push('/recommend-verses')}
+        >
+          <View style={styles.recommendLeft}>
+            <MaterialCommunityIcons name="compass-rose" size={22} color={theme.gold} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.recommendTitle}>테마별 구절 추천</Text>
+              <Text style={styles.recommendSub}>오늘 마음 상태에 맞는 말씀 찾기</Text>
+            </View>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
+        </Pressable>
+
         {/* Empty state — first-time user */}
         {stats.totalChapters === 0 && !showOnboarding && (
           <View style={styles.emptyCard}>
@@ -729,6 +744,33 @@ const styles = StyleSheet.create({
   },
 
   // Empty state
+  recommendCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.surface,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+  },
+  recommendLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  recommendTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.text,
+  },
+  recommendSub: {
+    fontSize: 12,
+    color: theme.textMuted,
+    marginTop: 2,
+  },
   emptyCard: {
     backgroundColor: theme.surface,
     borderRadius: 16,
