@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, Pressable, Modal, ScrollView, StyleSheet, Switch,
   Animated, PanResponder,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { TTS_RATE_LABELS, TTS_TIMER_OPTIONS, TTSVoice } from '../hooks/useTTS';
+import { TTS_RATE_LABELS, TTS_TIMER_PRESETS, TTSVoice } from '../hooks/useTTS';
 
 interface Colors {
   bg: string;
@@ -28,6 +28,7 @@ interface TTSMiniPlayerProps {
   autoCompleteEnabled: boolean;
   autoAdvanceEnabled: boolean;
   pauseEnabled: boolean;
+  verseReadEnabled: boolean;
   colors: Colors;
   paddingBottom: number;
   onStop: () => void;
@@ -40,75 +41,318 @@ interface TTSMiniPlayerProps {
   onToggleAutoComplete: () => void;
   onToggleAutoAdvance: () => void;
   onTogglePauseEnabled: () => void;
+  onToggleVerseRead: () => void;
 }
 
-function formatSeconds(secs: number): string {
+function formatTime(secs: number): string {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// ── Wheel Picker ──────────────────────────────────────────────────────────
+const ITEM_H = 52;
+const VISIBLE = 5;
+
+interface WheelColumnProps {
+  data: string[];
+  initialIndex: number;
+  onSelect: (index: number) => void;
+  colors: Colors;
+  width: number;
+}
+
+function WheelColumn({ data, initialIndex, onSelect, colors, width }: WheelColumnProps) {
+  const scrollRef = useRef<ScrollView>(null);
+  const [curIdx, setCurIdx] = useState(initialIndex);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: initialIndex * ITEM_H, animated: false });
+    }, 60);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <View style={{ width, height: ITEM_H * VISIBLE, overflow: 'hidden' }}>
+      {/* Selection highlight */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: ITEM_H * 2,
+          left: 6,
+          right: 6,
+          height: ITEM_H,
+          borderTopWidth: 1,
+          borderBottomWidth: 1,
+          borderColor: `${colors.gold}55`,
+          backgroundColor: `${colors.gold}10`,
+          borderRadius: 10,
+        }}
+      />
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
+        onScroll={e => {
+          const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          setCurIdx(Math.max(0, Math.min(data.length - 1, idx)));
+        }}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={e => {
+          const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          const clamped = Math.max(0, Math.min(data.length - 1, idx));
+          setCurIdx(clamped);
+          onSelect(clamped);
+        }}
+      >
+        {data.map((item, i) => {
+          const dist = Math.abs(i - curIdx);
+          return (
+            <View key={i} style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}>
+              <Text
+                style={{
+                  fontSize: dist === 0 ? 26 : dist === 1 ? 20 : 15,
+                  fontWeight: dist === 0 ? '700' : '400',
+                  color: dist === 0 ? colors.text : colors.muted,
+                  opacity: dist === 0 ? 1 : dist === 1 ? 0.55 : 0.2,
+                }}
+              >
+                {item}
+              </Text>
+            </View>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+const HOURS_DATA = ['0', '1', '2', '3', '4'];
+const MINS_DATA  = ['0', '5', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+
+interface TimerWheelPickerProps {
+  colors: Colors;
+  timerMinutes: number | null;
+  onConfirm: (min: number) => void;
+  onCancel: () => void;
+}
+
+function TimerWheelPicker({ colors, timerMinutes, onConfirm, onCancel }: TimerWheelPickerProps) {
+  const initH = timerMinutes !== null ? Math.min(4, Math.floor(timerMinutes / 60)) : 0;
+  const rawMinsRemainder = timerMinutes !== null ? timerMinutes % 60 : 30;
+  const initMIdx = Math.max(0, MINS_DATA.findIndex(m => parseInt(m) === rawMinsRemainder));
+
+  const [hIdx, setHIdx] = useState(initH);
+  const [mIdx, setMIdx] = useState(initMIdx >= 0 ? initMIdx : 6);
+
+  const totalMins = parseInt(HOURS_DATA[hIdx]) * 60 + parseInt(MINS_DATA[mIdx]);
+  const isActive = timerMinutes !== null && timerMinutes === totalMins;
+  const isValid = totalMins > 0;
+
+  const colW = 80;
+
+  return (
+    <View style={wheelStyles.wrap}>
+      <View style={wheelStyles.row}>
+        <WheelColumn data={HOURS_DATA} initialIndex={hIdx} onSelect={setHIdx} colors={colors} width={colW} />
+        <Text style={[wheelStyles.unit, { color: colors.muted }]}>시간</Text>
+        <WheelColumn data={MINS_DATA} initialIndex={mIdx} onSelect={setMIdx} colors={colors} width={colW} />
+        <Text style={[wheelStyles.unit, { color: colors.muted }]}>분</Text>
+      </View>
+      <View style={wheelStyles.actions}>
+        {timerMinutes !== null && (
+          <Pressable
+            onPress={onCancel}
+            style={[wheelStyles.cancelBtn, { borderColor: colors.border }]}
+          >
+            <Text style={[wheelStyles.cancelBtnText, { color: colors.muted }]}>타이머 취소</Text>
+          </Pressable>
+        )}
+        <Pressable
+          onPress={() => isValid && onConfirm(totalMins)}
+          style={[
+            wheelStyles.confirmBtn,
+            { backgroundColor: isValid ? colors.gold : colors.border },
+            timerMinutes !== null && { flex: 1 },
+          ]}
+        >
+          <Text style={[wheelStyles.confirmBtnText, { color: isValid ? '#0B0A12' : colors.muted }]}>
+            {isActive ? '다시 설정' : isValid ? `${totalMins}분 후 정지` : '시간 선택'}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const wheelStyles = StyleSheet.create({
+  wrap: {
+    paddingHorizontal: 20,
+    paddingBottom: 4,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginBottom: 12,
+  },
+  unit: {
+    fontSize: 16,
+    fontWeight: '500',
+    width: 36,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cancelBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  confirmBtn: {
+    flex: 2,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  confirmBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+});
+
+// ── Toggle row helper ─────────────────────────────────────────────────────
+function ToggleRow({ label, desc, value, onToggle, colors }: {
+  label: string;
+  desc: string;
+  value: boolean;
+  onToggle: () => void;
+  colors: Colors;
+}) {
+  return (
+    <View style={[toggleStyles.row, { borderBottomColor: colors.border }]}>
+      <View style={{ flex: 1, marginRight: 12 }}>
+        <Text style={[toggleStyles.label, { color: colors.text }]}>{label}</Text>
+        <Text style={[toggleStyles.desc, { color: colors.muted }]}>{desc}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onToggle}
+        trackColor={{ false: `${colors.muted}40`, true: `${colors.gold}90` }}
+        thumbColor={value ? colors.gold : '#888'}
+        ios_backgroundColor={`${colors.muted}40`}
+      />
+    </View>
+  );
+}
+
+const toggleStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  desc: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+});
+
+// ── Main component ────────────────────────────────────────────────────────
 export function TTSMiniPlayer({
   isTTS, isPaused, currentVerseText, ttsRateIdx,
   availableVoices, selectedVoiceId, timerMinutes, timerRemaining,
-  autoCompleteEnabled, autoAdvanceEnabled, pauseEnabled,
+  autoCompleteEnabled, autoAdvanceEnabled, pauseEnabled, verseReadEnabled,
   colors, paddingBottom,
   onStop, onTogglePause, onSkip, onSelectRate, onSelectVoice,
   onStartTimer, onCancelTimer,
-  onToggleAutoComplete, onToggleAutoAdvance, onTogglePauseEnabled,
+  onToggleAutoComplete, onToggleAutoAdvance, onTogglePauseEnabled, onToggleVerseRead,
 }: TTSMiniPlayerProps) {
   const [showSheet, setShowSheet] = useState(false);
-  const sheetY = useRef(new Animated.Value(0)).current;
+  const [activePanel, setActivePanel] = useState<'voice' | 'speed' | 'timer' | null>(null);
 
+  const sheetY = useRef(new Animated.Value(800)).current;
+
+  // PanResponder only on the handle bar
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+      onMoveShouldSetPanResponder: (_, { dy }) => dy > 4,
       onPanResponderMove: (_, { dy }) => {
         if (dy > 0) sheetY.setValue(dy);
       },
-      onPanResponderRelease: (_, { dy }) => {
-        if (dy > 80) {
-          Animated.timing(sheetY, { toValue: 600, duration: 200, useNativeDriver: true }).start(() => {
-            sheetY.setValue(0);
-            setShowSheet(false);
-          });
+      onPanResponderRelease: (_, { dy, vy }) => {
+        if (dy > 70 || vy > 0.6) {
+          closeSheet();
         } else {
-          Animated.spring(sheetY, { toValue: 0, useNativeDriver: true }).start();
+          Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }).start();
         }
       },
     })
   ).current;
 
+  function openSheet() {
+    setShowSheet(true);
+    sheetY.setValue(800);
+    Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, tension: 60, friction: 11 }).start();
+  }
+
+  function closeSheet() {
+    Animated.timing(sheetY, { toValue: 800, duration: 260, useNativeDriver: true }).start(() => {
+      setShowSheet(false);
+      setActivePanel(null);
+      sheetY.setValue(800); // reset after modal is hidden
+    });
+  }
+
+  function togglePanel(panel: 'voice' | 'speed' | 'timer') {
+    setActivePanel(prev => prev === panel ? null : panel);
+  }
+
   if (!isTTS && !isPaused) return null;
 
   const isPlaying = isTTS && !isPaused;
 
+  // Short voice name for chip
+  const voiceName = availableVoices.find(v => v.identifier === selectedVoiceId)?.name ?? '기본';
+  const chipVoiceName = voiceName.length > 6 ? voiceName.slice(0, 6) : voiceName;
+
   return (
     <>
-      {/* ── Mini player bar ─────────────────────────────────────── */}
+      {/* ── Mini bar ──────────────────────────────────────────── */}
       <Pressable
+        onPress={openSheet}
         style={[
           miniStyles.bar,
           { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom },
         ]}
-        onPress={() => setShowSheet(true)}
       >
-        {/* Verse preview */}
         <Text style={[miniStyles.preview, { color: colors.muted }]} numberOfLines={1}>
           {currentVerseText ?? ''}
         </Text>
-
-        {/* Controls */}
         <View style={miniStyles.controls}>
-          <Pressable
-            onPress={e => { e.stopPropagation(); onSkip(-1); }}
-            hitSlop={8}
-            style={miniStyles.ctrlBtn}
-          >
+          <Pressable onPress={e => { e.stopPropagation(); onSkip(-1); }} hitSlop={8} style={miniStyles.ctrlBtn}>
             <MaterialCommunityIcons name="skip-previous" size={22} color={colors.muted} />
           </Pressable>
-
           <Pressable
             onPress={e => { e.stopPropagation(); pauseEnabled ? onTogglePause() : onStop(); }}
             style={[miniStyles.playBtn, { backgroundColor: colors.gold }]}
@@ -120,220 +364,249 @@ export function TTSMiniPlayer({
               color="#0B0A12"
             />
           </Pressable>
-
-          <Pressable
-            onPress={e => { e.stopPropagation(); onSkip(1); }}
-            hitSlop={8}
-            style={miniStyles.ctrlBtn}
-          >
+          <Pressable onPress={e => { e.stopPropagation(); onSkip(1); }} hitSlop={8} style={miniStyles.ctrlBtn}>
             <MaterialCommunityIcons name="skip-next" size={22} color={colors.muted} />
           </Pressable>
-
           {timerRemaining !== null && (
             <Text style={[miniStyles.timerBadge, { color: colors.gold }]}>
-              {formatSeconds(timerRemaining)}
+              {formatTime(timerRemaining)}
             </Text>
           )}
-
-          <View style={[miniStyles.settingsTag, { backgroundColor: `${colors.muted}20` }]}>
-            <MaterialCommunityIcons name="cog-outline" size={12} color={colors.muted} />
-            <Text style={[miniStyles.settingsTagText, { color: colors.muted }]}>설정</Text>
-          </View>
+          <MaterialCommunityIcons name="chevron-up" size={22} color={colors.muted} style={{ marginLeft: 4 }} />
         </View>
       </Pressable>
 
-      {/* ── Full settings sheet ─────────────────────────────────── */}
-      <Modal visible={showSheet} transparent animationType="slide" onRequestClose={() => setShowSheet(false)}>
-        <Pressable style={sheetStyles.backdrop} onPress={() => setShowSheet(false)} />
+      {/* ── Settings sheet ────────────────────────────────────── */}
+      <Modal visible={showSheet} transparent animationType="none" onRequestClose={closeSheet}>
+        <Pressable style={sheetStyles.backdrop} onPress={closeSheet} />
+
         <Animated.View
           style={[
             sheetStyles.sheet,
-            { backgroundColor: colors.surface, borderTopColor: colors.border },
+            {
+              backgroundColor: colors.surface,
+              borderTopColor: `${colors.gold}50`,
+            },
             { transform: [{ translateY: sheetY }] },
           ]}
         >
-          {/* Handle + 닫기 */}
+          {/* Handle — drag to close */}
           <View style={sheetStyles.handleArea} {...panResponder.panHandlers}>
             <View style={[sheetStyles.handle, { backgroundColor: colors.muted }]} />
           </View>
-          <View style={[sheetStyles.sheetHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[sheetStyles.sheetTitle, { color: colors.text }]}>TTS 설정</Text>
-            <Pressable onPress={() => setShowSheet(false)} hitSlop={12}>
-              <MaterialCommunityIcons name="close" size={20} color={colors.muted} />
+
+          {/* Verse text */}
+          <Text style={[sheetStyles.verseText, { color: colors.text }]} numberOfLines={2}>
+            {currentVerseText ?? ''}
+          </Text>
+
+          {/* Gold accent separator */}
+          <View style={[sheetStyles.accentLine, { backgroundColor: `${colors.gold}55` }]} />
+
+          {/* Compact control row — reference image style */}
+          <View style={sheetStyles.controlRow}>
+            {/* Voice chip */}
+            <Pressable
+              onPress={() => togglePanel('voice')}
+              style={[
+                sheetStyles.ctrlChip,
+                { borderColor: activePanel === 'voice' ? colors.gold : colors.border },
+                activePanel === 'voice' && { backgroundColor: `${colors.gold}12` },
+              ]}
+            >
+              <Text style={[sheetStyles.ctrlChipText, { color: activePanel === 'voice' ? colors.gold : colors.text }]}>
+                {chipVoiceName}
+              </Text>
+              <MaterialCommunityIcons
+                name={activePanel === 'voice' ? 'chevron-up' : 'chevron-down'}
+                size={13}
+                color={activePanel === 'voice' ? colors.gold : colors.muted}
+              />
+            </Pressable>
+
+            {/* Speed chip */}
+            <Pressable
+              onPress={() => togglePanel('speed')}
+              style={[
+                sheetStyles.ctrlChip,
+                { borderColor: activePanel === 'speed' ? colors.gold : colors.border },
+                activePanel === 'speed' && { backgroundColor: `${colors.gold}12` },
+              ]}
+            >
+              <Text style={[sheetStyles.ctrlChipText, { color: activePanel === 'speed' ? colors.gold : colors.text }]}>
+                {TTS_RATE_LABELS[ttsRateIdx]}
+              </Text>
+              <MaterialCommunityIcons
+                name={activePanel === 'speed' ? 'chevron-up' : 'chevron-down'}
+                size={13}
+                color={activePanel === 'speed' ? colors.gold : colors.muted}
+              />
+            </Pressable>
+
+            {/* Timer chip */}
+            <Pressable
+              onPress={() => togglePanel('timer')}
+              style={[
+                sheetStyles.ctrlChip,
+                {
+                  borderColor: (timerRemaining !== null || activePanel === 'timer')
+                    ? colors.gold : colors.border,
+                },
+                (timerRemaining !== null || activePanel === 'timer') && {
+                  backgroundColor: `${colors.gold}12`,
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="timer-outline"
+                size={14}
+                color={timerRemaining !== null ? colors.gold : colors.muted}
+              />
+              {timerRemaining !== null ? (
+                <Text style={[sheetStyles.ctrlChipText, { color: colors.gold }]}>
+                  {formatTime(timerRemaining)}
+                </Text>
+              ) : (
+                <>
+                  <Text style={[sheetStyles.ctrlChipText, { color: activePanel === 'timer' ? colors.gold : colors.text }]}>
+                    타이머
+                  </Text>
+                  <MaterialCommunityIcons
+                    name={activePanel === 'timer' ? 'chevron-up' : 'chevron-down'}
+                    size={13}
+                    color={activePanel === 'timer' ? colors.gold : colors.muted}
+                  />
+                </>
+              )}
+            </Pressable>
+
+            <View style={{ flex: 1 }} />
+
+            {/* Stop button */}
+            <Pressable
+              onPress={() => { closeSheet(); setTimeout(onStop, 280); }}
+              hitSlop={10}
+              style={[sheetStyles.stopIconBtn, { borderColor: colors.border }]}
+            >
+              <MaterialCommunityIcons name="stop-circle-outline" size={18} color={colors.muted} />
             </Pressable>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: paddingBottom + 16 }}>
-            {/* Playback controls */}
-            <View style={sheetStyles.bigControls}>
-              <Text style={[sheetStyles.versePreview, { color: colors.muted }]} numberOfLines={2}>
-                {currentVerseText ?? ''}
-              </Text>
-
-              <View style={sheetStyles.bigBtns}>
-                <Pressable onPress={() => onSkip(-1)} hitSlop={8} style={sheetStyles.bigCtrlBtn}>
-                  <MaterialCommunityIcons name="skip-previous" size={32} color={colors.muted} />
-                </Pressable>
-
-                <Pressable
-                  onPress={pauseEnabled ? onTogglePause : onStop}
-                  style={[sheetStyles.bigPlayBtn, { backgroundColor: colors.gold }]}
-                >
-                  <MaterialCommunityIcons
-                    name={pauseEnabled ? (isPlaying ? 'pause' : 'play') : (isTTS ? 'stop' : 'play')}
-                    size={28}
-                    color="#0B0A12"
-                  />
-                </Pressable>
-
-                <Pressable onPress={() => onSkip(1)} hitSlop={8} style={sheetStyles.bigCtrlBtn}>
-                  <MaterialCommunityIcons name="skip-next" size={32} color={colors.muted} />
-                </Pressable>
+          {/* Expanded panels */}
+          {activePanel === 'voice' && availableVoices.length > 0 && (
+            <View style={[sheetStyles.panelBox, { borderColor: `${colors.border}` }]}>
+              <View style={sheetStyles.chipRow}>
+                {availableVoices.map(voice => {
+                  const active = voice.identifier === selectedVoiceId;
+                  return (
+                    <Pressable
+                      key={voice.identifier}
+                      style={[
+                        sheetStyles.chip,
+                        { borderColor: active ? colors.gold : colors.border },
+                        active && { backgroundColor: `${colors.gold}20` },
+                      ]}
+                      onPress={() => { onSelectVoice(voice.identifier); setActivePanel(null); }}
+                    >
+                      <Text style={[sheetStyles.chipText, { color: active ? colors.gold : colors.text }]}>
+                        {voice.name}
+                      </Text>
+                      {voice.quality === 'Enhanced' && (
+                        <View style={[sheetStyles.hdBadge, { backgroundColor: `${colors.gold}25` }]}>
+                          <Text style={[sheetStyles.hdText, { color: colors.gold }]}>HD</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
+          )}
 
-            <View style={[sheetStyles.divider, { backgroundColor: colors.border }]} />
-
-            {/* Speed */}
-            <Text style={[sheetStyles.sectionLabel, { color: colors.muted }]}>읽기 속도</Text>
-            <View style={sheetStyles.chipRow}>
-              {TTS_RATE_LABELS.map((label, idx) => (
-                <Pressable
-                  key={idx}
-                  style={[
-                    sheetStyles.chip,
-                    { borderColor: colors.border },
-                    idx === ttsRateIdx && { backgroundColor: `${colors.gold}20`, borderColor: colors.gold },
-                  ]}
-                  onPress={() => onSelectRate(idx)}
-                >
-                  <Text style={[sheetStyles.chipText, { color: idx === ttsRateIdx ? colors.gold : colors.text }]}>
-                    {label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            {/* Voice */}
-            {availableVoices.length > 0 && (
-              <>
-                <View style={[sheetStyles.divider, { backgroundColor: colors.border }]} />
-                <Text style={[sheetStyles.sectionLabel, { color: colors.muted }]}>목소리</Text>
-                <View style={sheetStyles.chipRow}>
-                  {availableVoices.map(voice => {
-                    const active = voice.identifier === selectedVoiceId;
-                    return (
-                      <Pressable
-                        key={voice.identifier}
-                        style={[
-                          sheetStyles.chip,
-                          { borderColor: colors.border },
-                          active && { backgroundColor: `${colors.gold}20`, borderColor: colors.gold },
-                        ]}
-                        onPress={() => onSelectVoice(voice.identifier)}
-                      >
-                        <Text style={[sheetStyles.chipText, { color: active ? colors.gold : colors.text }]}>
-                          {voice.name}
-                        </Text>
-                        {voice.quality === 'Enhanced' && (
-                          <View style={[sheetStyles.hdBadge, { backgroundColor: `${colors.gold}25` }]}>
-                            <Text style={[sheetStyles.hdText, { color: colors.gold }]}>HD</Text>
-                          </View>
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </>
-            )}
-
-            {/* Timer */}
-            <View style={[sheetStyles.divider, { backgroundColor: colors.border }]} />
-            <View style={sheetStyles.timerHeader}>
-              <Text style={[sheetStyles.sectionLabel, { color: colors.muted, marginBottom: 0 }]}>슬립 타이머</Text>
-              {timerRemaining !== null && (
-                <View style={sheetStyles.timerBadgeRow}>
-                  <Text style={[sheetStyles.timerBadgeText, { color: colors.gold }]}>
-                    {formatSeconds(timerRemaining)} 남음
-                  </Text>
-                  <Pressable onPress={onCancelTimer} hitSlop={8} style={{ marginLeft: 8 }}>
-                    <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
-                  </Pressable>
-                </View>
-              )}
-            </View>
-            <View style={sheetStyles.chipRow}>
-              {TTS_TIMER_OPTIONS.map(min => {
-                const active = timerMinutes === min;
-                return (
+          {activePanel === 'speed' && (
+            <View style={[sheetStyles.panelBox, { borderColor: colors.border }]}>
+              <View style={sheetStyles.chipRow}>
+                {TTS_RATE_LABELS.map((label, idx) => (
                   <Pressable
-                    key={min}
+                    key={idx}
                     style={[
                       sheetStyles.chip,
-                      { borderColor: colors.border },
-                      active && { backgroundColor: `${colors.gold}20`, borderColor: colors.gold },
+                      { borderColor: idx === ttsRateIdx ? colors.gold : colors.border },
+                      idx === ttsRateIdx && { backgroundColor: `${colors.gold}20` },
                     ]}
-                    onPress={() => active ? onCancelTimer() : onStartTimer(min)}
+                    onPress={() => { onSelectRate(idx); setActivePanel(null); }}
                   >
-                    <Text style={[sheetStyles.chipText, { color: active ? colors.gold : colors.text }]}>
-                      {min}분
+                    <Text style={[sheetStyles.chipText, { color: idx === ttsRateIdx ? colors.gold : colors.text }]}>
+                      {label}
                     </Text>
                   </Pressable>
-                );
-              })}
-            </View>
-
-            {/* Toggles */}
-            <View style={[sheetStyles.divider, { backgroundColor: colors.border }]} />
-
-            <View style={sheetStyles.toggleRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={[sheetStyles.toggleLabel, { color: colors.text }]}>자동 완료 처리</Text>
-                <Text style={[sheetStyles.toggleDesc, { color: colors.muted }]}>마지막 구절 읽으면 장 완료로 표시</Text>
+                ))}
               </View>
-              <Switch
-                value={autoCompleteEnabled}
-                onValueChange={onToggleAutoComplete}
-                trackColor={{ true: colors.gold }}
-                thumbColor="#fff"
+            </View>
+          )}
+
+          {activePanel === 'timer' && (
+            <View style={[sheetStyles.panelBox, { borderColor: colors.border, paddingHorizontal: 0, paddingVertical: 12 }]}>
+              <TimerWheelPicker
+                colors={colors}
+                timerMinutes={timerMinutes}
+                onConfirm={min => { onStartTimer(min); setActivePanel(null); }}
+                onCancel={() => { onCancelTimer(); setActivePanel(null); }}
               />
             </View>
+          )}
 
-            <View style={sheetStyles.toggleRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={[sheetStyles.toggleLabel, { color: colors.text }]}>자동 다음 장 이동</Text>
-                <Text style={[sheetStyles.toggleDesc, { color: colors.muted }]}>끝나면 자동으로 다음 장으로 넘어감</Text>
-              </View>
-              <Switch
-                value={autoAdvanceEnabled}
-                onValueChange={onToggleAutoAdvance}
-                trackColor={{ true: colors.gold }}
-                thumbColor="#fff"
-              />
-            </View>
-
-            <View style={sheetStyles.toggleRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={[sheetStyles.toggleLabel, { color: colors.text }]}>일시정지 버튼</Text>
-                <Text style={[sheetStyles.toggleDesc, { color: colors.muted }]}>재생 중 일시정지 가능</Text>
-              </View>
-              <Switch
-                value={pauseEnabled}
-                onValueChange={onTogglePauseEnabled}
-                trackColor={{ true: colors.gold }}
-                thumbColor="#fff"
-              />
-            </View>
-
-            {/* Stop button */}
-            <View style={[sheetStyles.divider, { backgroundColor: colors.border }]} />
-            <Pressable
-              style={[sheetStyles.stopBtn, { borderColor: colors.border }]}
-              onPress={() => { setShowSheet(false); onStop(); }}
-            >
-              <MaterialCommunityIcons name="stop-circle-outline" size={18} color={colors.muted} />
-              <Text style={[sheetStyles.stopBtnText, { color: colors.muted }]}>읽기 중지</Text>
+          {/* Large play controls — reference image layout */}
+          <View style={sheetStyles.bigControls}>
+            <Pressable onPress={() => onSkip(-1)} hitSlop={8} style={sheetStyles.bigCtrlBtn}>
+              <MaterialCommunityIcons name="skip-previous" size={38} color={colors.muted} />
             </Pressable>
+            <Pressable
+              onPress={pauseEnabled ? onTogglePause : onStop}
+              style={[sheetStyles.bigPlayBtn, { backgroundColor: colors.gold }]}
+            >
+              <MaterialCommunityIcons
+                name={pauseEnabled ? (isPlaying ? 'pause' : 'play') : (isTTS ? 'stop' : 'play')}
+                size={34}
+                color="#0B0A12"
+              />
+            </Pressable>
+            <Pressable onPress={() => onSkip(1)} hitSlop={8} style={sheetStyles.bigCtrlBtn}>
+              <MaterialCommunityIcons name="skip-next" size={38} color={colors.muted} />
+            </Pressable>
+          </View>
+
+          {/* Settings toggles */}
+          <View style={[sheetStyles.divider, { backgroundColor: colors.border }]} />
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: paddingBottom + 8 }}>
+            <ToggleRow
+              label="자동 완료 처리"
+              desc="마지막 구절 읽으면 장 완료로 표시"
+              value={autoCompleteEnabled}
+              onToggle={onToggleAutoComplete}
+              colors={colors}
+            />
+            <ToggleRow
+              label="자동 다음 장 이동"
+              desc="끝나면 자동으로 다음 장으로 넘어감"
+              value={autoAdvanceEnabled}
+              onToggle={onToggleAutoAdvance}
+              colors={colors}
+            />
+            <ToggleRow
+              label="일시정지 버튼"
+              desc="재생 중 일시정지 사용"
+              value={pauseEnabled}
+              onToggle={onTogglePauseEnabled}
+              colors={colors}
+            />
+            <ToggleRow
+              label="읽은 절 읽음 처리"
+              desc="TTS가 읽은 절을 자동으로 읽음 표시"
+              value={verseReadEnabled}
+              onToggle={onToggleVerseRead}
+              colors={colors}
+            />
           </ScrollView>
         </Animated.View>
       </Modal>
@@ -341,6 +614,7 @@ export function TTSMiniPlayer({
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────
 const miniStyles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
@@ -377,18 +651,6 @@ const miniStyles = StyleSheet.create({
     minWidth: 36,
     textAlign: 'right',
   },
-  settingsTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  settingsTagText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
 });
 
 const sheetStyles = StyleSheet.create({
@@ -399,74 +661,80 @@ const sheetStyles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    borderTopWidth: 1,
-    maxHeight: '85%',
+    borderTopWidth: 1.5,
+    maxHeight: '88%',
+    // Shadow for depth
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 20,
   },
   handleArea: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 4,
     borderRadius: 2,
+    opacity: 0.5,
   },
-  bigControls: {
-    alignItems: 'center',
+  verseText: {
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '500',
     paddingHorizontal: 24,
-    paddingBottom: 20,
-    gap: 16,
+    paddingBottom: 14,
+    textAlign: 'left',
   },
-  versePreview: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
+  accentLine: {
+    height: 1,
+    marginHorizontal: 0,
+    marginBottom: 12,
   },
-  bigBtns: {
+  // Control row — reference image style
+  controlRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
   },
-  bigCtrlBtn: {
-    padding: 8,
+  ctrlChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 18,
+    borderWidth: 1,
   },
-  bigPlayBtn: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  ctrlChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  stopIconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  sheetTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: 24,
-    marginVertical: 8,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    paddingHorizontal: 24,
-    marginTop: 12,
-    marginBottom: 10,
+  // Expanded panel
+  panelBox: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 24,
     gap: 8,
   },
   chip: {
@@ -491,51 +759,26 @@ const sheetStyles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
   },
-  timerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    marginTop: 12,
-    marginBottom: 10,
-  },
-  timerBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timerBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  toggleLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  toggleDesc: {
-    fontSize: 12,
-  },
-  stopBtn: {
+  // Large play controls
+  bigControls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginHorizontal: 24,
-    marginTop: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
+    gap: 28,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
   },
-  stopBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
+  bigCtrlBtn: {
+    padding: 4,
+  },
+  bigPlayBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
   },
 });

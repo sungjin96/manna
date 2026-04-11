@@ -24,11 +24,12 @@
       "bundleIdentifier": "com.jsj.manna",
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification"
+          "remote-notification",
+          "audio"
         ],
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "19"
+      "buildNumber": "20"
     },
     "android": {
       "package": "com.jsj.manna",

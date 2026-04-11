@@ -4,7 +4,9 @@ import { getSetting, setSetting } from '../db/settings';
 
 export const TTS_RATES = [0.75, 0.9, 1.1, 1.3];
 export const TTS_RATE_LABELS = ['0.75×', '1×', '1.25×', '1.5×'];
-export const TTS_TIMER_OPTIONS = [5, 10, 15, 30, 60]; // minutes
+export const TTS_TIMER_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90, 120]; // minutes
+export const TTS_TIMER_MIN = 1;
+export const TTS_TIMER_MAX = 240;
 
 export interface TTSVoice {
   identifier: string;
@@ -15,11 +17,15 @@ export interface TTSVoice {
 export interface TTSOptions {
   onChapterEnd?: () => void;
   onAutoAdvance?: () => void;
+  onVerseRead?: (verseNumber: number) => void;
 }
 
 // Cache Korean voices list
 let _koVoicesResolved = false;
 let _koVoices: TTSVoice[] = [];
+
+// Timer end time persists across chapter navigation (component remount)
+let _globalTimerEndMs: number | null = null;
 
 async function getKoreanVoices(): Promise<TTSVoice[]> {
   if (_koVoicesResolved) return _koVoices;
@@ -69,6 +75,7 @@ export function useTTS(
   const [autoCompleteEnabled, setAutoCompleteEnabled] = useState(true);
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false);
   const [pauseEnabled, setPauseEnabled] = useState(true);
+  const [verseReadEnabled, setVerseReadEnabled] = useState(true);
 
   // Refs for use inside async loops
   const ttsRateIdxRef = useRef(1);
@@ -78,6 +85,7 @@ export function useTTS(
   const timerStoppedRef = useRef(false);
   const autoCompleteRef = useRef(true);
   const autoAdvanceRef = useRef(false);
+  const verseReadRef = useRef(true);
   const optionsRef = useRef(options);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -87,6 +95,7 @@ export function useTTS(
   // Keep setting refs in sync
   useEffect(() => { autoCompleteRef.current = autoCompleteEnabled; }, [autoCompleteEnabled]);
   useEffect(() => { autoAdvanceRef.current = autoAdvanceEnabled; }, [autoAdvanceEnabled]);
+  useEffect(() => { verseReadRef.current = verseReadEnabled; }, [verseReadEnabled]);
 
   // Load voices + saved settings on mount
   useEffect(() => {
@@ -108,54 +117,84 @@ export function useTTS(
       const autoComplete = await getSetting('tts_auto_complete', '1');
       const autoAdvance = await getSetting('tts_auto_advance', '0');
       const pauseEn = await getSetting('tts_pause_enabled', '1');
+      const verseRead = await getSetting('tts_verse_read', '1');
+      const rateIdx = await getSetting('tts_rate_idx', '1');
       setAutoCompleteEnabled(autoComplete === '1');
       setAutoAdvanceEnabled(autoAdvance === '1');
       setPauseEnabled(pauseEn === '1');
+      setVerseReadEnabled(verseRead === '1');
+      const rateIdxNum = Math.min(3, Math.max(0, parseInt(rateIdx as string, 10) || 1));
+      setTtsRateIdx(rateIdxNum);
+      ttsRateIdxRef.current = rateIdxNum;
       autoCompleteRef.current = autoComplete === '1';
       autoAdvanceRef.current = autoAdvance === '1';
+      verseReadRef.current = verseRead === '1';
     })();
   }, []);
 
-  // Cleanup on unmount
+  // Resume timer if one was active during chapter navigation
+  useEffect(() => {
+    if (_globalTimerEndMs !== null) {
+      const remainingSecs = Math.round((_globalTimerEndMs - Date.now()) / 1000);
+      if (remainingSecs > 0) {
+        setTimerMinutes(Math.ceil(remainingSecs / 60));
+        setTimerRemaining(remainingSecs);
+        _runTimerFromSeconds(remainingSecs);
+      } else {
+        _globalTimerEndMs = null;
+      }
+    }
+  }, []);
+
+  // Cleanup on unmount — clear intervals but keep _globalTimerEndMs
+  // so timer carries over to the next chapter on auto-advance
   useEffect(() => {
     return () => {
       sessionRef.current += 1; // Invalidate any running session
       Speech.stop();
-      clearTimer();
+      clearTimer(); // Clears intervals only, NOT _globalTimerEndMs
     };
   }, []);
 
+  // Clears JS intervals only — does NOT clear _globalTimerEndMs
+  // so the timer carries over when navigating between chapters
   function clearTimer() {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
   }
 
-  function startTimer(minutes: number) {
+  function _runTimerFromSeconds(totalSecs: number) {
     clearTimer();
-    setTimerMinutes(minutes);
-    const totalSecs = minutes * 60;
-    setTimerRemaining(totalSecs);
     timerStoppedRef.current = false;
-
     let remaining = totalSecs;
     countdownRef.current = setInterval(() => {
       remaining -= 1;
       setTimerRemaining(remaining);
       if (remaining <= 0) {
         clearTimer();
+        _globalTimerEndMs = null;
         setTimerMinutes(null);
         setTimerRemaining(null);
       }
     }, 1000);
-
     timerRef.current = setTimeout(async () => {
       timerStoppedRef.current = true;
+      _globalTimerEndMs = null;
       await _stopTTS();
     }, totalSecs * 1000);
   }
 
+  function startTimer(minutes: number) {
+    const totalSecs = minutes * 60;
+    _globalTimerEndMs = Date.now() + totalSecs * 1000;
+    setTimerMinutes(minutes);
+    setTimerRemaining(totalSecs);
+    _runTimerFromSeconds(totalSecs);
+  }
+
   function cancelTimer() {
     clearTimer();
+    _globalTimerEndMs = null;
     setTimerMinutes(null);
     setTimerRemaining(null);
   }
@@ -195,6 +234,11 @@ export function useTTS(
         }
         Speech.speak(verses[i].text, opts);
       });
+
+      // Notify verse read (only if enabled and session still valid)
+      if (sessionRef.current === session && verseReadRef.current) {
+        optionsRef.current?.onVerseRead?.(verses[i].verse);
+      }
     }
 
     if (sessionRef.current !== session) return; // Interrupted
@@ -218,6 +262,15 @@ export function useTTS(
   function startTTS() {
     currentVerseIdxRef.current = 0;
     startTTSFrom(0);
+  }
+
+  async function startFromVerse(verseNum: number) {
+    if (!verses) return;
+    const idx = verses.findIndex(v => v.verse === verseNum);
+    if (idx < 0) return;
+    sessionRef.current += 1; // Invalidate current session
+    await Speech.stop();
+    startTTSFrom(idx);
   }
 
   async function stopTTS() {
@@ -258,6 +311,7 @@ export function useTTS(
   function selectTTSRate(idx: number) {
     ttsRateIdxRef.current = idx;
     setTtsRateIdx(idx);
+    setSetting('tts_rate_idx', String(idx));
     if (isTTS && !isPaused) Speech.stop(); // Loop will restart next verse
   }
 
@@ -288,6 +342,13 @@ export function useTTS(
     await setSetting('tts_pause_enabled', next ? '1' : '0');
   }
 
+  async function toggleVerseRead() {
+    const next = !verseReadEnabled;
+    setVerseReadEnabled(next);
+    verseReadRef.current = next;
+    await setSetting('tts_verse_read', next ? '1' : '0');
+  }
+
   return {
     isTTS,
     isPaused,
@@ -301,7 +362,9 @@ export function useTTS(
     autoCompleteEnabled,
     autoAdvanceEnabled,
     pauseEnabled,
+    verseReadEnabled,
     startTTS,
+    startFromVerse,
     stopTTS,
     pauseTTS,
     resumeTTS,
@@ -315,5 +378,6 @@ export function useTTS(
     toggleAutoComplete,
     toggleAutoAdvance,
     togglePauseEnabled,
+    toggleVerseRead,
   };
 }

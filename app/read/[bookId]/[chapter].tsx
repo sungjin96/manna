@@ -170,11 +170,11 @@ export default function ReadScreen() {
     isTTS, isPaused, ttsVerse, ttsRateIdx, noKoreanVoice,
     availableVoices, selectedVoiceId,
     timerMinutes, timerRemaining,
-    autoCompleteEnabled, autoAdvanceEnabled, pauseEnabled,
-    startTTS, toggleTTS, stopTTS, togglePause, skipVerse,
+    autoCompleteEnabled, autoAdvanceEnabled, pauseEnabled, verseReadEnabled,
+    startTTS, startFromVerse, toggleTTS, stopTTS, togglePause, skipVerse,
     selectTTSRate, selectVoice,
     startTimer, cancelTimer,
-    toggleAutoComplete, toggleAutoAdvance, togglePauseEnabled,
+    toggleAutoComplete, toggleAutoAdvance, togglePauseEnabled, toggleVerseRead,
   } = useTTS(verses, {
     onChapterEnd: () => {
       if (alreadyDoneRef.current) return;
@@ -183,6 +183,10 @@ export default function ReadScreen() {
     onAutoAdvance: () => {
       const next = nextAfter(bookId, chapter);
       router.replace(`/read/${next.bookId}/${next.chapter}?ttsAutoStart=1` as any);
+    },
+    onVerseRead: (verseNumber: number) => {
+      markVerseRead(bookId, chapter, verseNumber);
+      setReadVerses(prev => new Set([...prev, verseNumber]));
     },
   });
 
@@ -705,7 +709,7 @@ export default function ReadScreen() {
           styles.verseRow,
           { borderWidth: 1.5, borderColor: 'transparent', borderRadius: 8 },
           inSelection && { backgroundColor: `${colors.gold}20` },
-          isTTSActive && { backgroundColor: `${colors.gold}12` },
+          isTTSActive && { backgroundColor: `${colors.gold}30`, borderColor: `${colors.gold}60` },
           isHighlighted && {
             borderColor: colors.gold,
             shadowColor: colors.gold,
@@ -887,6 +891,7 @@ export default function ReadScreen() {
               autoCompleteEnabled={autoCompleteEnabled}
               autoAdvanceEnabled={autoAdvanceEnabled}
               pauseEnabled={pauseEnabled}
+              verseReadEnabled={verseReadEnabled}
               colors={colors}
               paddingBottom={insets.bottom + 4}
               onStop={stopTTS}
@@ -899,6 +904,7 @@ export default function ReadScreen() {
               onToggleAutoComplete={toggleAutoComplete}
               onToggleAutoAdvance={toggleAutoAdvance}
               onTogglePauseEnabled={togglePauseEnabled}
+              onToggleVerseRead={toggleVerseRead}
             />
           ) : (
             <Animated.View style={[
@@ -934,6 +940,18 @@ export default function ReadScreen() {
               <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={openAIMeditation}>
                 <MaterialCommunityIcons name="robot-outline" size={15} color={colors.gold} />
                 <Text style={[styles.selBtnText, { color: colors.gold }]}>AI</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]}
+                onPress={() => {
+                  if (!selectionRange) return;
+                  const verseNum = selectionRange.start;
+                  cancelSelection();
+                  startFromVerse(verseNum);
+                }}
+              >
+                <MaterialCommunityIcons name="play-circle-outline" size={15} color={colors.text} />
+                <Text style={[styles.selBtnText, { color: colors.text }]}>TTS</Text>
               </Pressable>
               <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={copySelectedVerses}>
                 <MaterialCommunityIcons name="content-copy" size={15} color={colors.text} />
