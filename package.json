@@ -9,12 +9,14 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo-google-fonts/nanum-myeongjo": "^0.4.1",
     "expo": "^55.0.0",
     "expo-clipboard": "~55.0.13",
     "expo-constants": "~55.0.13",
     "expo-document-picker": "~55.0.13",
     "expo-file-system": "~55.0.16",
     "expo-haptics": "~55.0.14",
+    "expo-keep-awake": "~55.0.6",
     "expo-linking": "~55.0.12",
     "expo-notifications": "~55.0.18",
     "expo-router": "~55.0.12",

@@ -18,10 +18,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { useFonts } from 'expo-font';
+import { NanumMyeongjo_400Regular } from '@expo-google-fonts/nanum-myeongjo';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useBibleText } from '../../../hooks/useBibleText';
-import { useReaderSettings, READER_THEMES, ReaderTheme } from '../../../hooks/useReaderSettings';
+import { useReaderSettings, MARGIN_MAP } from '../../../hooks/useReaderSettings';
+import ReaderSettingsSheet from '../../../components/ReaderSettingsSheet';
 import { useTTS } from '../../../hooks/useTTS';
 import { TTSMiniPlayer } from '../../../components/TTSMiniPlayer';
 import { useHeaderAnim } from '../../../hooks/useHeaderAnim';
@@ -114,6 +118,16 @@ export default function ReadScreen() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
   const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
+  const [centerVerseIndex, setCenterVerseIndex] = useState<number | null>(null);
+  const viewabilityConfigCallbackPairs = useRef([{
+    viewabilityConfig: { itemVisiblePercentThreshold: 50 },
+    onViewableItemsChanged: ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+      if (viewableItems.length > 0) {
+        const mid = viewableItems[Math.floor(viewableItems.length / 2)];
+        if (mid?.index != null) setCenterVerseIndex(mid.index);
+      }
+    },
+  }]);
   const [aiPrompts, setAiPrompts] = useState<string[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [showAiSheet, setShowAiSheet] = useState(false);
@@ -201,7 +215,6 @@ export default function ReadScreen() {
 
   const {
     showSettings,
-    settingsSheetY, settingsBgOpacity, settingsPR,
     openSettingsSheet, closeSettingsSheet,
   } = useSettingsSheet();
 
@@ -689,25 +702,45 @@ export default function ReadScreen() {
     await setSetting('meditation_prompt_enabled', val ? '1' : '0');
   }
 
+  // keepAwake: 설정 변경 및 화면 진입/이탈 시 활성화/비활성화
+  useEffect(() => {
+    if (settings.keepAwake) {
+      activateKeepAwakeAsync();
+    } else {
+      deactivateKeepAwake();
+    }
+    return () => { deactivateKeepAwake(); };
+  }, [settings.keepAwake]);
+
   // ── Derived ───────────────────────────────────────────────────────────────
   const title = book ? `${book.name} ${chapter}장` : `${bookId}:${chapter}`;
   const totalVerses = verses?.length ?? 0;
   const readCount = readVerses.size;
   const progressPct = totalVerses > 0 ? readCount / totalVerses : 0;
-  const fontFamily = settings.font === 'serif'
-    ? (Platform.OS === 'ios' ? 'Georgia' : 'serif') : undefined;
+  const [fontsLoaded] = useFonts({ NanumMyeongjo_400Regular });
+  const FONT_FAMILY_MAP: Record<string, string | undefined> = {
+    default: undefined,
+    serif: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    nanumMyeongjo: fontsLoaded ? 'NanumMyeongjo_400Regular' : undefined,
+    nanumGothic: undefined,
+    nanumSquareRound: undefined,
+  };
+  const fontFamily = FONT_FAMILY_MAP[settings.font];
   const verseLabel = selectionRange
     ? `${book?.name} ${chapter}:${selectionRange.start}${selectionRange.start !== selectionRange.end ? `–${selectionRange.end}` : ''} 선택됨`
     : '';
 
   // ── Render verse row ──────────────────────────────────────────────────────
-  const renderVerse = useCallback(({ item }: { item: { verse: number; text: string } }) => {
+  const renderVerse = useCallback(({ item, index }: { item: { verse: number; text: string }; index: number }) => {
     const isRead = readVerses.has(item.verse);
     const inSelection = selectionMode && selectionRange
       && item.verse >= selectionRange.start && item.verse <= selectionRange.end;
     const isTTSActive = isTTS && ttsVerse === item.verse;
     const hasMeditation = showMeditationMarkers && getVerseMeditations(item.verse).length > 0;
     const isHighlighted = highlightVerse === item.verse;
+    const isFocused = settings.focusMode && isProUser
+      ? centerVerseIndex === index
+      : true;
 
     return (
       <Pressable
@@ -727,35 +760,38 @@ export default function ReadScreen() {
             shadowRadius: 8,
             elevation: 6,
           },
+          !isFocused && { opacity: 0.35 },
         ]}
       >
-        <View style={{ alignItems: 'center' }}>
-          <Text style={[styles.verseNum, { color: colors.gold, fontFamily }, isRead && { opacity: 0.35 }]}>
-            {item.verse}
-          </Text>
-          {hasMeditation && (
-            <Pressable
-              hitSlop={8}
-              onPress={() => {
-                const items = getVerseMeditations(item.verse);
-                setMeditationPopupVerse(item.verse);
-                setMeditationPopupItems(items);
-              }}
-            >
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.gold, marginTop: 2 }} />
-            </Pressable>
-          )}
-        </View>
+        {!settings.hideVerseNumbers && (
+          <View style={{ alignItems: 'center' }}>
+            <Text style={[styles.verseNum, { color: colors.gold, fontFamily }, isRead && { opacity: 0.35 }]}>
+              {item.verse}
+            </Text>
+            {hasMeditation && (
+              <Pressable
+                hitSlop={8}
+                onPress={() => {
+                  const items = getVerseMeditations(item.verse);
+                  setMeditationPopupVerse(item.verse);
+                  setMeditationPopupItems(items);
+                }}
+              >
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.gold, marginTop: 2 }} />
+              </Pressable>
+            )}
+          </View>
+        )}
         <Text style={[
           styles.verseText,
-          { color: colors.text, fontSize: settings.fontSize, lineHeight: settings.fontSize * settings.lineHeight, fontFamily },
+          { color: colors.text, fontSize: settings.fontSize, lineHeight: settings.fontSize * settings.lineHeight, fontFamily, letterSpacing: settings.letterSpacing },
           isRead && { opacity: 0.45 },
         ]}>
           {item.text}
         </Text>
       </Pressable>
     );
-  }, [readVerses, selectionMode, selectionRange, isTTS, ttsVerse, settings, colors, fontFamily, chapterMeditations, showMeditationMarkers, highlightVerse]);
+  }, [readVerses, selectionMode, selectionRange, isTTS, ttsVerse, settings, colors, fontFamily, chapterMeditations, showMeditationMarkers, highlightVerse, centerVerseIndex, isProUser]);
 
   return (
     <>
@@ -827,11 +863,12 @@ export default function ReadScreen() {
             ref={flatListRef}
             data={verses}
             keyExtractor={v => String(v.verse)}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[styles.list, { paddingHorizontal: MARGIN_MAP[settings.horizontalMargin] }]}
             onScroll={handleScroll}
             scrollEventThrottle={16}
             onScrollToIndexFailed={() => {}}
             renderItem={renderVerse}
+            viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current}
             ListFooterComponent={
               <Pressable
                 style={({ pressed }) => [
@@ -1122,72 +1159,18 @@ export default function ReadScreen() {
         </Modal>
 
         {/* Settings sheet */}
-        <Modal visible={showSettings} transparent animationType="none">
-          <Animated.View style={[styles.backdrop, { opacity: settingsBgOpacity }]} />
-          <View style={styles.overlayInner}>
-            <Pressable style={StyleSheet.absoluteFillObject} onPress={closeSettingsSheet} />
-            <Animated.View style={[styles.settingsSheet, { backgroundColor: colors.surface, borderTopColor: colors.border }, { transform: [{ translateY: settingsSheetY }] }]}>
-              <View {...settingsPR.panHandlers} style={styles.handleArea}>
-                <View style={[styles.modalHandle, { backgroundColor: colors.muted }]} />
-              </View>
-              <Text style={[styles.settingsTitle, { color: colors.text }]}>읽기 설정</Text>
-
-              <Text style={[styles.settingLabel, { color: colors.muted }]}>화면 테마</Text>
-              <View style={styles.themeRow}>
-                {(['dark', 'sepia', 'light'] as ReaderTheme[]).map(t => {
-                  const tc = READER_THEMES[t];
-                  return (
-                    <Pressable key={t} style={[styles.themeSwatch, { backgroundColor: tc.bg, borderColor: settings.theme === t ? tc.gold : tc.border }, settings.theme === t && { borderWidth: 2 }]} onPress={() => updateSettings({ theme: t })}>
-                      <Text style={[styles.themeSwatchLabel, { color: tc.text }]}>{t === 'dark' ? '다크' : t === 'sepia' ? '세피아' : '라이트'}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <Text style={[styles.settingLabel, { color: colors.muted }]}>글자 크기</Text>
-              <View style={styles.stepperRow}>
-                <Pressable style={[styles.stepBtn, { borderColor: colors.border }]} onPress={() => updateSettings({ fontSize: Math.max(14, settings.fontSize - 1) })} hitSlop={8}>
-                  <MaterialCommunityIcons name="minus" size={18} color={colors.text} />
-                </Pressable>
-                <Text style={[styles.stepValue, { color: colors.text }]}>{settings.fontSize}</Text>
-                <Pressable style={[styles.stepBtn, { borderColor: colors.border }]} onPress={() => updateSettings({ fontSize: Math.min(22, settings.fontSize + 1) })} hitSlop={8}>
-                  <MaterialCommunityIcons name="plus" size={18} color={colors.text} />
-                </Pressable>
-                <Text style={[styles.stepPreview, { color: colors.text, fontSize: settings.fontSize, fontFamily }]}>미리보기 가나다</Text>
-              </View>
-
-              <Text style={[styles.settingLabel, { color: colors.muted }]}>줄 간격</Text>
-              <View style={styles.stepperRow}>
-                <Pressable style={[styles.stepBtn, { borderColor: colors.border }]} onPress={() => updateSettings({ lineHeight: Math.max(1.4, Math.round((settings.lineHeight - 0.1) * 10) / 10) })} hitSlop={8}>
-                  <MaterialCommunityIcons name="minus" size={18} color={colors.text} />
-                </Pressable>
-                <Text style={[styles.stepValue, { color: colors.text }]}>{settings.lineHeight.toFixed(1)}</Text>
-                <Pressable style={[styles.stepBtn, { borderColor: colors.border }]} onPress={() => updateSettings({ lineHeight: Math.min(2.0, Math.round((settings.lineHeight + 0.1) * 10) / 10) })} hitSlop={8}>
-                  <MaterialCommunityIcons name="plus" size={18} color={colors.text} />
-                </Pressable>
-              </View>
-
-              <Text style={[styles.settingLabel, { color: colors.muted }]}>폰트</Text>
-              <View style={styles.fontRow}>
-                {(['default', 'serif'] as const).map(f => (
-                  <Pressable key={f} style={[styles.fontBtn, { borderColor: settings.font === f ? colors.gold : colors.border }, settings.font === f && { backgroundColor: `${colors.gold}20` }]} onPress={() => updateSettings({ font: f })}>
-                    <Text style={[styles.fontBtnText, { color: settings.font === f ? colors.gold : colors.muted }, f === 'serif' && { fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' }]}>
-                      {f === 'default' ? '기본체' : '세리프체'}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              <View style={[styles.toggleRow, { borderTopColor: colors.border }]}>
-                <View style={styles.toggleInfo}>
-                  <Text style={[styles.toggleLabel, { color: colors.text }]}>읽기 완료 후 묵상 입력</Text>
-                  <Text style={[styles.toggleDesc, { color: colors.muted }]}>끄면 완료 즉시 다음 챕터로 이동</Text>
-                </View>
-                <Switch value={meditationPromptEnabled} onValueChange={toggleMeditationPrompt} trackColor={{ false: colors.border, true: `${colors.gold}80` }} thumbColor={meditationPromptEnabled ? colors.gold : colors.muted} />
-              </View>
-            </Animated.View>
-          </View>
-        </Modal>
+        <ReaderSettingsSheet
+          visible={showSettings}
+          onClose={closeSettingsSheet}
+          settings={settings}
+          colors={colors}
+          onUpdate={updateSettings}
+          fontsLoaded={fontsLoaded ?? false}
+          meditationPromptEnabled={meditationPromptEnabled}
+          onToggleMeditationPrompt={toggleMeditationPrompt}
+          isPro={isProUser}
+          onUpgrade={() => { closeSettingsSheet(); setShowPaywall(true); }}
+        />
 
         {/* Paywall 바텀시트 */}
         <PaywallSheet

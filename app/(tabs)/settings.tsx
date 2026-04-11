@@ -20,7 +20,7 @@ import { getSetting, setSetting } from '../../db/settings';
 import { theme } from '../../constants/theme';
 import { exportToJSON, importFromJSON, backupErrorMessage } from '../../utils/backup';
 import { checkAIEntitlement, purchasePremium, restorePurchases, purchaseErrorMessage } from '../../utils/subscriptions';
-import { useReaderSettings, READER_THEMES, ReaderTheme } from '../../hooks/useReaderSettings';
+import { useReaderSettings, READER_THEMES, READER_THEME_LABELS, type ReaderTheme } from '../../hooks/useReaderSettings';
 import { scheduleReadingReminder, cancelReadingReminder } from '../../utils/notifications';
 import { READING_PLANS, PlanId } from '../../constants/reading-plans';
 import { getActivePlan, setActivePlan, clearActivePlan, todayISO } from '../../db/reading_plans';
@@ -231,7 +231,7 @@ export default function SettingsScreen() {
         <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 12 }]}>
           <Text style={styles.rowLabel}>화면 테마</Text>
           <View style={styles.themeRow}>
-            {(['dark', 'sepia', 'light'] as ReaderTheme[]).map(t => {
+            {(Object.keys(READER_THEMES) as ReaderTheme[]).map(t => {
               const tc = READER_THEMES[t];
               return (
                 <Pressable
@@ -244,7 +244,7 @@ export default function SettingsScreen() {
                   onPress={() => updateReader({ theme: t })}
                 >
                   <Text style={[styles.themeSwatchLabel, { color: tc.text }]}>
-                    {t === 'dark' ? '다크' : t === 'sepia' ? '세피아' : '라이트'}
+                    {READER_THEME_LABELS[t]}
                   </Text>
                 </Pressable>
               );
