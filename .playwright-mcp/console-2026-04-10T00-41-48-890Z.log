@@ -1,2 +1,0 @@
-[    1292ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://app.revenuecat.com/internal/v1/rc_capital/onboarding/status:0
-[    1796ms] [ERROR] Attestation check for Attribution Reporting on https://www.facebook.com failed. @ https://app.revenuecat.com/projects/9cbdf808/product-catalog/entitlements:0

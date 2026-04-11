@@ -1,8 +1,0 @@
-- generic [ref=e3]:
-  - generic "Loading RevenueCat…" [ref=e4]
-  - generic [ref=e5]:
-    - text: Dashboard not loading?
-    - button "Reset RevenueCat and reload" [ref=e7] [cursor=pointer]
-    - separator [ref=e8]: •
-    - link "Contact support" [ref=e9] [cursor=pointer]:
-      - /url: mailto:support@revenuecat.com
