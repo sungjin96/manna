@@ -1,12 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,6 +18,7 @@ import { getAllMeditations, searchMeditations, updateMeditation, deleteMeditatio
 import { BOOKS } from '../../constants/books';
 import { theme } from '../../constants/theme';
 import MeditationShareCard from '../../components/MeditationShareCard';
+import MannaAlert from '../../components/MannaAlert';
 
 function highlight(text: string, query: string): { part: string; match: boolean }[] {
   if (!query.trim()) return [{ part: text, match: false }];
@@ -65,6 +66,9 @@ export default function MeditationsScreen() {
   const [query, setQuery] = useState('');
   const [editTarget, setEditTarget] = useState<Meditation | null>(null);
   const [editNote, setEditNote] = useState('');
+  const [editQaEntries, setEditQaEntries] = useState<{ q: string; a: string }[]>([]);
+  const [editIsQa, setEditIsQa] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Meditation | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (q = '') => {
@@ -89,32 +93,40 @@ export default function MeditationsScreen() {
 
   function openEdit(item: Meditation) {
     setEditTarget(item);
+    try {
+      const parsed = JSON.parse(item.note);
+      if (parsed?.type === 'qa' && Array.isArray(parsed.entries)) {
+        setEditIsQa(true);
+        setEditQaEntries(parsed.entries.map((e: { q: string; a: string }) => ({ q: e.q ?? '', a: e.a ?? '' })));
+        setEditNote('');
+        return;
+      }
+    } catch {}
+    setEditIsQa(false);
     setEditNote(item.note);
   }
 
   async function handleSaveEdit() {
     if (!editTarget) return;
-    await updateMeditation(editTarget.id, editNote.trim());
+    if (editIsQa) {
+      const noteToSave = JSON.stringify({ type: 'qa', entries: editQaEntries });
+      await updateMeditation(editTarget.id, noteToSave);
+    } else {
+      await updateMeditation(editTarget.id, editNote.trim());
+    }
     setEditTarget(null);
     load(query);
   }
 
   function handleDelete(item: Meditation) {
-    Alert.alert(
-      '묵상 삭제',
-      '이 묵상 기록을 삭제할까요?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteMeditation(item.id);
-            load(query);
-          },
-        },
-      ]
-    );
+    setDeleteTarget(item);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    await deleteMeditation(deleteTarget.id);
+    setDeleteTarget(null);
+    load(query);
   }
 
   if (loading) {
@@ -190,11 +202,15 @@ export default function MeditationsScreen() {
                       : seg.part
                   )}
                 </Text>
-                <View style={styles.cardActions}>
+                <Pressable style={styles.cardActions} onPress={(e) => e.stopPropagation()}>
                   <MeditationShareCard
                     verseRef={bookChapterLabel(item.bookId, item.chapter, item.verseStart, item.verseEnd)}
-                    noteText={renderNotePreview(item.note)}
+                    noteText={item.note}
                     date={formatDate(item.createdAt)}
+                    bookId={item.bookId}
+                    chapter={item.chapter}
+                    verseStart={item.verseStart}
+                    verseEnd={item.verseEnd}
                   />
                   <Pressable style={styles.actionBtn} onPress={() => openEdit(item)} hitSlop={8}>
                     <MaterialCommunityIcons name="pencil-outline" size={18} color={theme.textMuted} />
@@ -202,7 +218,7 @@ export default function MeditationsScreen() {
                   <Pressable style={styles.actionBtn} onPress={() => handleDelete(item)} hitSlop={8}>
                     <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.textMuted} />
                   </Pressable>
-                </View>
+                </Pressable>
               </Pressable>
             );
           }}
@@ -224,17 +240,75 @@ export default function MeditationsScreen() {
                 {bookChapterLabel(editTarget.bookId, editTarget.chapter, editTarget.verseStart, editTarget.verseEnd)}
               </Text>
             )}
-            <TextInput
-              style={styles.textInput}
-              placeholder="묵상 내용..."
-              placeholderTextColor={theme.textMuted}
-              multiline
-              maxLength={200}
-              value={editNote}
-              onChangeText={setEditNote}
-              autoFocus
-            />
-            <Text style={styles.charCount}>{editNote.length}/200</Text>
+
+            {editIsQa ? (
+              <ScrollView style={styles.qaScrollWrap} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                {editQaEntries.map((entry, i) => (
+                  <View key={i} style={styles.qaEntry}>
+                    <View style={styles.qaRow}>
+                      <Text style={styles.qaNum}>{i + 1}</Text>
+                      <View style={styles.qaInputCol}>
+                        <TextInput
+                          style={styles.qaQ}
+                          placeholder="질문을 입력하세요"
+                          placeholderTextColor={theme.textMuted}
+                          multiline
+                          value={entry.q}
+                          onChangeText={(text) => {
+                            const updated = [...editQaEntries];
+                            updated[i] = { ...updated[i], q: text };
+                            setEditQaEntries(updated);
+                          }}
+                        />
+                        <View style={styles.qaDiv} />
+                        <TextInput
+                          style={styles.qaA}
+                          placeholder="묵상 내용..."
+                          placeholderTextColor={theme.textMuted}
+                          multiline
+                          value={entry.a}
+                          onChangeText={(text) => {
+                            const updated = [...editQaEntries];
+                            updated[i] = { ...updated[i], a: text };
+                            setEditQaEntries(updated);
+                          }}
+                        />
+                      </View>
+                      {editQaEntries.length > 1 && (
+                        <Pressable hitSlop={10} onPress={() => setEditQaEntries(prev => prev.filter((_, idx) => idx !== i))}>
+                          <MaterialCommunityIcons name="close" size={15} color={theme.textMuted} />
+                        </Pressable>
+                      )}
+                    </View>
+                  </View>
+                ))}
+                {editQaEntries.length < 5 && (
+                  <Pressable
+                    style={styles.addPairBtn}
+                    onPress={() => setEditQaEntries(prev => [...prev, { q: '', a: '' }])}
+                    hitSlop={8}
+                  >
+                    <MaterialCommunityIcons name="plus" size={14} color={theme.textMuted} />
+                    <Text style={styles.addPairText}>질문 추가</Text>
+                  </Pressable>
+                )}
+              </ScrollView>
+            ) : (
+              <>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="묵상 내용..."
+                  placeholderTextColor={theme.textMuted}
+                  multiline
+                  maxLength={2000}
+                  value={editNote}
+                  onChangeText={setEditNote}
+                  autoFocus
+                />
+                <Text style={styles.charCount}>{editNote.length}/2000</Text>
+              </>
+            )}
+
             <View style={styles.modalActions}>
               <Pressable
                 style={styles.cancelBtn}
@@ -243,9 +317,9 @@ export default function MeditationsScreen() {
                 <Text style={styles.cancelBtnText}>취소</Text>
               </Pressable>
               <Pressable
-                style={[styles.saveBtn, !editNote.trim() && styles.saveBtnDisabled]}
+                style={[styles.saveBtn, (!editIsQa && !editNote.trim()) && styles.saveBtnDisabled]}
                 onPress={handleSaveEdit}
-                disabled={!editNote.trim()}
+                disabled={!editIsQa && !editNote.trim()}
               >
                 <Text style={styles.saveBtnText}>저장</Text>
               </Pressable>
@@ -253,6 +327,18 @@ export default function MeditationsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Delete confirmation */}
+      <MannaAlert
+        visible={deleteTarget !== null}
+        title="묵상 삭제"
+        message="이 묵상 기록을 삭제할까요?"
+        buttons={[
+          { text: '취소', style: 'cancel' },
+          { text: '삭제', style: 'destructive', onPress: confirmDelete },
+        ]}
+        onDismiss={() => setDeleteTarget(null)}
+      />
     </View>
   );
 }
@@ -379,4 +465,15 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText: { color: theme.bg, fontSize: 15, fontWeight: '700' },
+
+  qaScrollWrap: { maxHeight: 320 },
+  qaEntry: { marginBottom: 12 },
+  qaRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  qaNum: { fontSize: 13, fontWeight: '700', width: 16, lineHeight: 22, color: theme.gold },
+  qaInputCol: { flex: 1 },
+  qaQ: { fontSize: 15, lineHeight: 22, paddingVertical: 0, minHeight: 22, color: theme.text },
+  qaDiv: { height: StyleSheet.hairlineWidth, marginVertical: 8, backgroundColor: theme.border },
+  qaA: { fontSize: 14, lineHeight: 21, paddingVertical: 0, minHeight: 44, opacity: 0.85, color: theme.text },
+  addPairBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
+  addPairText: { fontSize: 12, color: theme.textMuted },
 });

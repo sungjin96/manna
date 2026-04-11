@@ -89,7 +89,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         book_id      INTEGER NOT NULL,
         chapter      INTEGER NOT NULL,
-        note         TEXT    NOT NULL CHECK (length(note) <= 200),
+        note         TEXT    NOT NULL CHECK (length(note) <= 2000),
         created_at   TEXT    NOT NULL   -- ISO 8601 datetime
       );
 
@@ -182,6 +182,25 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
         count INTEGER NOT NULL DEFAULT 0
       );
       PRAGMA user_version = 6;
+    `);
+  }
+
+  // v6 → v7: meditations note 길이 제한 200 → 2000
+  if (user_version < 7) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS meditations_new (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_id      INTEGER NOT NULL,
+        chapter      INTEGER NOT NULL,
+        note         TEXT    NOT NULL CHECK (length(note) <= 2000),
+        created_at   TEXT    NOT NULL,
+        verse_start  INTEGER,
+        verse_end    INTEGER
+      );
+      INSERT INTO meditations_new SELECT id, book_id, chapter, note, created_at, verse_start, verse_end FROM meditations;
+      DROP TABLE meditations;
+      ALTER TABLE meditations_new RENAME TO meditations;
+      PRAGMA user_version = 7;
     `);
   }
 }

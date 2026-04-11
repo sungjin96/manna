@@ -10,6 +10,8 @@ export interface Meditation {
   verseEnd?: number;
 }
 
+const MAX_NOTE_LENGTH = 2000;
+
 export async function saveMeditation(
   bookId: number,
   chapter: number,
@@ -17,7 +19,8 @@ export async function saveMeditation(
   verseStart?: number,
   verseEnd?: number,
 ): Promise<void> {
-  if (note.length === 0 || note.length > 2000) return;
+  if (note.length === 0) return;
+  if (note.length > MAX_NOTE_LENGTH) note = note.slice(0, MAX_NOTE_LENGTH);
   const db = await getDb();
   const now = new Date().toISOString();
   await db.runAsync(
@@ -27,7 +30,8 @@ export async function saveMeditation(
 }
 
 export async function updateMeditation(id: number, note: string): Promise<void> {
-  if (note.length === 0 || note.length > 2000) return;
+  if (note.length === 0) return;
+  if (note.length > MAX_NOTE_LENGTH) note = note.slice(0, MAX_NOTE_LENGTH);
   const db = await getDb();
   await db.runAsync('UPDATE meditations SET note = ? WHERE id = ?', [note, id]);
 }

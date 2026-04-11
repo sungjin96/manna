@@ -48,6 +48,33 @@ import { useTutorial } from '../../../hooks/useTutorial';
 import { ReadingTutorial } from '../../../components/ReadingTutorial';
 import PaywallSheet from '../../../components/PaywallSheet';
 
+// ── Rich text parser for AI explanation ────────────────────────────────────
+type RichSegment = { text: string; type: 'normal' | 'ref' | 'quote' };
+
+function parseRichText(text: string): RichSegment[] {
+  // Match: (...) 괄호 부연, '인용', 「인용」, "인용"
+  const pattern = /(\([^)]+\))|('[^']+')|(「[^」]+」)|("[^"]+")/g;
+  const segments: RichSegment[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ text: text.slice(lastIndex, match.index), type: 'normal' });
+    }
+    if (match[1]) {
+      segments.push({ text: match[1], type: 'ref' });
+    } else {
+      segments.push({ text: match[0], type: 'quote' });
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    segments.push({ text: text.slice(lastIndex), type: 'normal' });
+  }
+  return segments;
+}
+
 // ── Helper ─────────────────────────────────────────────────────────────────
 function nextAfter(bookId: number, chapter: number): { bookId: number; chapter: number } {
   const book = BOOKS.find(b => b.id === bookId);
@@ -111,6 +138,20 @@ export default function ReadScreen() {
   const [showMeditationMarkers, setShowMeditationMarkers] = useState(true);
   const [meditationPopupVerse, setMeditationPopupVerse] = useState<number | null>(null);
   const [meditationPopupItems, setMeditationPopupItems] = useState<Meditation[]>([]);
+
+  // Mini toast
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function showToast(msg: string) {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToastMsg(msg);
+    toastOpacity.setValue(0);
+    Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    toastTimer.current = setTimeout(() => {
+      Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setToastMsg(null));
+    }, 1800);
+  }
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -264,9 +305,19 @@ export default function ReadScreen() {
   // ── Verse interactions ────────────────────────────────────────────────────
   async function handleVerseTap(verseNum: number) {
     if (selectionMode) {
-      // 단일 선택 상태에서 같은 절을 다시 탭하면 선택 취소
-      if (selectionRange && selectionRange.start === verseNum && selectionRange.end === verseNum) {
-        cancelSelection();
+      // 이미 선택된 범위 안의 절을 다시 탭하면 해당 절 제거
+      if (selectionRange && verseNum >= selectionRange.start && verseNum <= selectionRange.end) {
+        if (selectionRange.start === selectionRange.end) {
+          // 단일 절 → 전체 해제
+          cancelSelection();
+        } else if (verseNum === selectionRange.start) {
+          setSelectionRange({ start: selectionRange.start + 1, end: selectionRange.end });
+        } else if (verseNum === selectionRange.end) {
+          setSelectionRange({ start: selectionRange.start, end: selectionRange.end - 1 });
+        } else {
+          // 중간 절 → 전체 해제 (연속 범위 유지 불가)
+          cancelSelection();
+        }
         return;
       }
       setSelectionRange(prev => {
@@ -556,18 +607,25 @@ export default function ReadScreen() {
 
   async function handleSaveMeditation() {
     const wasChapter = meditationVerse === null;
-    if (meditationMode === 'qa') {
-      const validEntries = qaEntries.filter(e => e.q.trim() || e.a.trim());
-      if (validEntries.length > 0) {
-        const noteToSave = JSON.stringify({ type: 'qa', entries: validEntries });
-        await saveMeditation(bookId, chapter, noteToSave, meditationVerse?.start, meditationVerse?.end);
+    try {
+      if (meditationMode === 'qa') {
+        const validEntries = qaEntries.filter(e => e.q.trim() || e.a.trim());
+        if (validEntries.length > 0) {
+          const noteToSave = JSON.stringify({ type: 'qa', entries: validEntries });
+          await saveMeditation(bookId, chapter, noteToSave, meditationVerse?.start, meditationVerse?.end);
+        }
+      } else if (note.trim()) {
+        await saveMeditation(bookId, chapter, note.trim(), meditationVerse?.start, meditationVerse?.end);
       }
-    } else if (note.trim()) {
-      await saveMeditation(bookId, chapter, note.trim(), meditationVerse?.start, meditationVerse?.end);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showToast('묵상이 저장되었습니다');
+      // Feature 2: reload meditation markers
+      getMeditationsForChapter(bookId, chapter).then(setChapterMeditations);
+      closeMeditationSheet(() => { if (wasChapter) navigateNext(); });
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showToast('저장에 실패했습니다');
     }
-    // Feature 2: reload meditation markers
-    getMeditationsForChapter(bookId, chapter).then(setChapterMeditations);
-    closeMeditationSheet(() => { if (wasChapter) navigateNext(); });
   }
 
   async function toggleMeditationPrompt(val: boolean) {
@@ -1196,13 +1254,26 @@ export default function ReadScreen() {
                 ) : aiExplanation ? (
                   <ScrollView style={aiStyles.explainScroll} showsVerticalScrollIndicator={false}>
                     {([
-                      { label: '역사적 배경', value: aiExplanation.background },
-                      { label: '원어 의미',   value: aiExplanation.originalWord },
-                      { label: '신학적 핵심', value: aiExplanation.theology },
-                    ]).map(({ label, value }) => (
+                      { label: '역사적 배경', value: aiExplanation.background, icon: 'map-marker-outline' as const },
+                      { label: '원어 의미',   value: aiExplanation.originalWord, icon: 'translate' as const },
+                      { label: '신학적 핵심', value: aiExplanation.theology, icon: 'cross' as const },
+                    ]).map(({ label, value, icon }) => (
                       <View key={label} style={[aiStyles.explainCard, { borderColor: colors.border }]}>
-                        <Text style={[aiStyles.explainLabel, { color: colors.gold }]}>{label}</Text>
-                        <Text style={[aiStyles.explainText, { color: colors.text }]}>{value}</Text>
+                        <View style={aiStyles.explainHeader}>
+                          <View style={[aiStyles.explainIconWrap, { backgroundColor: `${colors.gold}15` }]}>
+                            <MaterialCommunityIcons name={icon} size={14} color={colors.gold} />
+                          </View>
+                          <Text style={[aiStyles.explainLabel, { color: colors.gold }]}>{label}</Text>
+                        </View>
+                        <Text style={[aiStyles.explainText, { color: colors.text }]}>
+                          {parseRichText(value).map((seg, si) =>
+                            seg.type === 'ref'
+                              ? <Text key={si} style={aiStyles.explainRef}>{seg.text}</Text>
+                              : seg.type === 'quote'
+                                ? <Text key={si} style={[aiStyles.explainQuote, { color: colors.gold }]}>{seg.text}</Text>
+                                : seg.text
+                          )}
+                        </Text>
                       </View>
                     ))}
                   </ScrollView>
@@ -1320,7 +1391,7 @@ export default function ReadScreen() {
                   style={[aiStyles.writeBtn, { backgroundColor: colors.gold }]}
                   onPress={() => {
                     setShowAiSheet(false);
-                    setMeditationVerse(null);
+                    setMeditationVerse(aiVerseRange.current ?? null);
                     if (isProUser && aiPrompts.length > 0) {
                       setMeditationMode('qa');
                       setQaEntries(aiPrompts.map(q => ({ q, a: '' })));
@@ -1346,6 +1417,15 @@ export default function ReadScreen() {
             onNext={tutorialAdvance}
             onDismiss={tutorialDismiss}
           />
+        )}
+
+        {/* Mini toast */}
+        {toastMsg && (
+          <Animated.View style={[toastStyles.wrap, { opacity: toastOpacity, bottom: insets.bottom + 60 }]}>
+            <View style={[toastStyles.inner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[toastStyles.text, { color: colors.text }]}>{toastMsg}</Text>
+            </View>
+          </Animated.View>
         )}
       </View>
     </>
@@ -1384,12 +1464,21 @@ const aiStyles = StyleSheet.create({
   promptNum: { fontSize: 16, fontWeight: '700', width: 20, lineHeight: 22 },
   promptText: { flex: 1, fontSize: 14, lineHeight: 21 },
   // Explain tab
-  explainScroll: { maxHeight: 280, marginBottom: 12 },
+  explainScroll: { maxHeight: 360, marginBottom: 12 },
   explainCard: {
-    borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderRadius: 14, padding: 16, marginBottom: 12,
   },
-  explainLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 6 },
-  explainText: { fontSize: 14, lineHeight: 21 },
+  explainHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10,
+  },
+  explainIconWrap: {
+    width: 26, height: 26, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  explainLabel: { fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
+  explainText: { fontSize: 15, lineHeight: 24 },
+  explainRef: { fontSize: 13, color: 'rgba(255,255,255,0.4)' },
+  explainQuote: { fontWeight: '600' },
   // Prayer tab
   prayerCard: {
     borderWidth: 1, borderRadius: 14, padding: 18,
@@ -1514,4 +1603,20 @@ const milestoneStyles = StyleSheet.create({
     borderRadius: 14, marginTop: 8,
   },
   btnText: { fontSize: 16, fontWeight: '700' },
+});
+
+const toastStyles = StyleSheet.create({
+  wrap: {
+    position: 'absolute',
+    left: 0, right: 0,
+    alignItems: 'center',
+    zIndex: 600,
+  },
+  inner: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  text: { fontSize: 13, fontWeight: '600' },
 });

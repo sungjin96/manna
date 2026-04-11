@@ -1,0 +1,105 @@
+- generic [ref=e2]:
+  - region "Notifications alt+T"
+  - link "skip to content" [ref=e3] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - link "Home" [ref=e6] [cursor=pointer]:
+        - /url: /overview
+        - img "Home" [ref=e7]
+      - button "Loading" [ref=e10] [cursor=pointer]:
+        - generic [ref=e11]:
+          - img [ref=e14]
+          - generic "Loading" [ref=e16]
+        - img [ref=e18]
+      - generic [ref=e21]:
+        - img [ref=e23]
+        - combobox "Search…" [ref=e25]
+        - generic [ref=e27]: ⌘K
+        - group
+      - link "Help" [ref=e28] [cursor=pointer]:
+        - /url: /settings/support
+        - img [ref=e29]
+        - generic [ref=e31]: Help
+      - link "Account" [ref=e32] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e33]
+        - generic [ref=e35]: Account
+    - generic [ref=e36]:
+      - navigation [ref=e37]:
+        - link "Overview" [ref=e38] [cursor=pointer]:
+          - /url: /projects/9cbdf808/overview
+          - img [ref=e39]
+          - generic [ref=e41]: Overview
+        - link "Charts" [ref=e42] [cursor=pointer]:
+          - /url: /projects/9cbdf808/charts
+          - img [ref=e43]
+          - generic [ref=e45]: Charts
+        - link "Customers" [ref=e46] [cursor=pointer]:
+          - /url: /projects/9cbdf808/customer-lists
+          - img [ref=e47]
+          - generic [ref=e49]: Customers
+        - link "Product catalog" [ref=e50] [cursor=pointer]:
+          - /url: /projects/9cbdf808/product-catalog
+          - img [ref=e51]
+          - generic [ref=e53]:
+            - text: Product catalog
+            - img [ref=e55]
+        - link "Paywalls" [ref=e57] [cursor=pointer]:
+          - /url: /projects/9cbdf808/paywalls
+          - img [ref=e58]
+          - generic [ref=e60]: Paywalls
+        - link "Ads" [ref=e61] [cursor=pointer]:
+          - /url: /projects/9cbdf808/ads
+          - img [ref=e62]
+          - generic [ref=e64]: Ads
+        - link "Targeting" [ref=e65] [cursor=pointer]:
+          - /url: /projects/9cbdf808/targeting
+          - img [ref=e66]
+          - generic [ref=e68]: Targeting
+        - link "Experiments" [ref=e69] [cursor=pointer]:
+          - /url: /projects/9cbdf808/experiments
+          - img [ref=e70]
+          - generic [ref=e72]: Experiments
+        - link "Web" [ref=e73] [cursor=pointer]:
+          - /url: /projects/9cbdf808/web-home
+          - img [ref=e74]
+          - generic [ref=e76]: Web
+        - link "Customer Center" [ref=e77] [cursor=pointer]:
+          - /url: /projects/9cbdf808/customer-center
+          - img [ref=e78]
+          - generic [ref=e80]: Customer Center
+        - link "Apps & providers" [ref=e82] [cursor=pointer]:
+          - /url: /projects/9cbdf808/apps
+          - img [ref=e83]
+          - generic [ref=e85]:
+            - text: Apps & providers
+            - img [ref=e87]
+        - link "Integrations" [ref=e89] [cursor=pointer]:
+          - /url: /projects/9cbdf808/integrations
+          - img [ref=e90]
+          - generic [ref=e92]: Integrations
+        - link "Project settings" [ref=e93] [cursor=pointer]:
+          - /url: /projects/9cbdf808/settings
+          - img [ref=e94]
+          - generic [ref=e96]:
+            - text: Project settings
+            - img [ref=e98]
+        - button "Collapse navigation" [ref=e100] [cursor=pointer]:
+          - img [ref=e101]
+      - main [ref=e104]:
+        - generic [ref=e106]:
+          - navigation [ref=e109]:
+            - list [ref=e110]:
+              - listitem [ref=e111]:
+                - link "Loading" [ref=e112] [cursor=pointer]:
+                  - /url: /projects/9cbdf808
+                  - generic "Loading" [ref=e113]
+              - listitem [ref=e114]: /
+              - listitem [ref=e115]:
+                - link "Product catalog" [ref=e116] [cursor=pointer]:
+                  - /url: /projects/9cbdf808/product-catalog
+          - generic [ref=e118]:
+            - heading "Loading" [level=2] [ref=e121]:
+              - generic "Loading" [ref=e122]
+            - generic "Loading" [ref=e123]

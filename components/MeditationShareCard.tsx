@@ -9,9 +9,10 @@
  *       Expo Go에서는 동작하지 않음.
  */
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import { getVerseRange } from '../db/bible';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 
@@ -20,14 +21,28 @@ interface Props {
   noteText: string;     // 묵상 내용 (plain text, already parsed from QA format)
   date: string;         // formatted date string
   isPro?: boolean;      // Pro 유저 여부 (워터마크 제어)
+  bookId?: number;
+  chapter?: number;
+  verseStart?: number;
+  verseEnd?: number;
 }
 
-/** Q&A 형식 파싱: "Q1. 질문\n답변" 패턴 감지 */
+/** Q&A 형식 파싱: JSON 또는 "Q1. 질문\n답변" 텍스트 패턴 감지 */
 function parseQA(text: string): { q: string; a: string }[] | null {
+  // 1) JSON 형식 (DB 저장 포맷)
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed?.type === 'qa' && Array.isArray(parsed.entries)) {
+      const valid = parsed.entries.filter((e: { q: string; a: string }) => e.q || e.a);
+      return valid.length > 0 ? valid : null;
+    }
+  } catch {}
+
+  // 2) 텍스트 형식 (renderNotePreview 출력)
   const blocks = text.split(/\n\n+/);
   const entries: { q: string; a: string }[] = [];
   for (const block of blocks) {
-    const match = block.match(/^Q\d+\.\s*(.+)\n([\s\S]*)$/);
+    const match = block.match(/^Q\d+\.\s*(.+?)(?:\n([\s\S]*))?$/);
     if (match) {
       entries.push({ q: match[1].trim(), a: (match[2] ?? '').trim() });
     }
@@ -35,18 +50,47 @@ function parseQA(text: string): { q: string; a: string }[] | null {
   return entries.length > 0 ? entries : null;
 }
 
-export default function MeditationShareCard({ verseRef, noteText, date, isPro }: Props) {
+export default function MeditationShareCard({ verseRef, noteText, date, isPro, bookId, chapter, verseStart, verseEnd }: Props) {
   const cardRef = useRef<ViewShot>(null);
   const [sharing, setSharing] = useState(false);
+
+  function buildShareUrl(): string {
+    if (!bookId || !chapter) return '';
+    let url = `https://manna-ai-proxy.sungjin5891.workers.dev/share?b=${bookId}&c=${chapter}`;
+    if (verseStart) {
+      url += `&vs=${verseStart}`;
+      if (verseEnd && verseEnd !== verseStart) url += `&ve=${verseEnd}`;
+    }
+    return url;
+  }
 
   async function handleShare() {
     if (sharing) return;
     setSharing(true);
     try {
       const uri = await captureRef(cardRef, { format: 'png', quality: 1 });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: '묵상 공유' });
+      const shareUrl = buildShareUrl();
+
+      if (shareUrl) {
+        let message = verseRef;
+        // 구절 본문 조회 (최대 4절)
+        if (bookId && chapter && verseStart) {
+          const end = verseEnd ?? verseStart;
+          const maxEnd = Math.min(end, verseStart + 3);
+          const verses = await getVerseRange(bookId, chapter, verseStart, maxEnd);
+          if (verses.length > 0) {
+            const text = verses.map(v => `${v.verse} ${v.text}`).join('\n');
+            const hasMore = end > maxEnd;
+            message += `\n\n${text}${hasMore ? '\n...' : ''}`;
+          }
+        }
+        message += `\n\n${shareUrl}`;
+        await Share.share({ message, url: uri });
+      } else {
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: '묵상 공유' });
+        }
       }
     } catch {
       // Sharing canceled or unavailable — silent failure

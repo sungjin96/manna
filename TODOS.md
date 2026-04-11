@@ -39,6 +39,8 @@
 | 29 | 묵상 공유 카드 (react-native-view-shot) | P3 | 🗓️ 보류 |
 | 30 | AI 응답 TTL 캐시 (meditations.cached_at + 7일) | P2 | 🗓️ 보류 |
 | 31 | 홈 FAB 바운스 애니메이션 반복 안 됨 | P2 | 🐛 버그 |
+| 32 | 공유 딥링크 앱스토어 URL 교체 | P1 | 🗓️ 보류 |
+| 33 | 카카오톡 큰 카드 미리보기 (Kakao SDK 연동) | P2 | 🗓️ 보류 |
 
 ---
 

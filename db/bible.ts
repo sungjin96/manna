@@ -78,6 +78,14 @@ export function parseReference(query: string): BookReference | null {
   return { bookId, bookName: book.name, chapter, verse };
 }
 
+export async function getVerseRange(bookId: number, chapter: number, start: number, end: number): Promise<Verse[]> {
+  const db = await getDb();
+  return db.getAllAsync<Verse>(
+    'SELECT verse, text FROM bible WHERE book_id = ? AND chapter = ? AND verse >= ? AND verse <= ? ORDER BY verse',
+    [bookId, chapter, start, end]
+  );
+}
+
 export async function getChapter(bookId: number, chapter: number): Promise<Verse[]> {
   const db = await getDb();
   return db.getAllAsync<Verse>(
