@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
-import { generateRecommendation, type RecommendVerse } from '../utils/ai-meditation';
+import { generateRecommendation, getPoolRecommendation, type RecommendVerse } from '../utils/ai-meditation';
 import { getAppUserId, checkAIEntitlement } from '../utils/subscriptions';
 
 // ── 테마 프리셋 ───────────────────────────────────────────────────────────────
@@ -85,6 +85,8 @@ export default function RecommendVersesScreen() {
 
   const activeTheme = selectedTheme ?? (customInput.trim() || null);
 
+  const isPreset = selectedTheme !== null && THEME_PRESETS.some(p => p.label === selectedTheme);
+
   const handleSearch = useCallback(async () => {
     const queryTheme = activeTheme;
     if (!queryTheme) return;
@@ -93,9 +95,22 @@ export default function RecommendVersesScreen() {
     setError(null);
     setResults(null);
 
+    // 프리셋 태그: 로컬 풀에서 즉시 추출 (AI 호출 없음)
+    if (isPreset) {
+      const result = getPoolRecommendation(queryTheme);
+      setLoading(false);
+      if (result.error || !result.data) {
+        setError('구절을 불러오지 못했습니다. 앱을 다시 시작해 주세요.');
+      } else {
+        setResults(result.data);
+      }
+      return;
+    }
+
+    // 커스텀 입력: AI 호출 (Pro 전용)
     const [userId, entitled] = await Promise.all([getAppUserId(), checkAIEntitlement()]);
     if (!entitled) {
-      setError('테마별 구절 추천은 Pro 전용 기능입니다.');
+      setError('직접 입력 구절 추천은 Pro 전용 기능입니다.');
       setLoading(false);
       return;
     }
@@ -108,7 +123,7 @@ export default function RecommendVersesScreen() {
     } else {
       setResults(result.data);
     }
-  }, [activeTheme]);
+  }, [activeTheme, isPreset]);
 
   function navigateToVerse(ref: string) {
     const { bookId: bookName, chapter, verse } = parseVerseRef(ref);

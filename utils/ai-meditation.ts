@@ -1,3 +1,5 @@
+import versePools from '../assets/verse-pools.json';
+
 export interface MeditationPrompts {
   prompts: string[];
   verseRef: string;
@@ -234,7 +236,7 @@ export async function generatePrayer(
   }
 }
 
-// ── AI 테마별 구절 추천 ───────────────────────────────────────────────────────
+// ── 테마별 구절 추천 ─────────────────────────────────────────────────────────
 
 export interface RecommendVerse {
   ref: string;    // 예: "요한복음 3:16"
@@ -247,6 +249,26 @@ export interface AIRecommendResult {
   error: AIMeditationError | null;
 }
 
+/**
+ * 프리셋 태그용: verse-pools.json에서 무작위 3개 추출.
+ * AI 호출 없음 — 즉시 반환, 무료.
+ */
+export function getPoolRecommendation(theme: string): AIRecommendResult {
+  const pool = (versePools as Record<string, RecommendVerse[]>)[theme];
+  if (!pool || pool.length === 0) return { data: null, error: 'parse_error' };
+
+  // Fisher-Yates shuffle → 앞 3개
+  const arr = [...pool];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return { data: arr.slice(0, 3), error: null };
+}
+
+/**
+ * 커스텀 입력용: Worker에 AI 요청 (Pro 전용).
+ */
 export async function generateRecommendation(
   theme: string,
   appUserId: string,
@@ -263,7 +285,8 @@ export async function generateRecommendation(
     };
   }
 
-  if (!appUserId) return { data: null, error: 'no_subscription' };
+  const resolvedUserId = resolveUserId(appUserId);
+  if (!resolvedUserId) return { data: null, error: 'no_subscription' };
   if (!theme.trim()) return { data: null, error: 'parse_error' };
 
   const controller = new AbortController();
@@ -273,7 +296,7 @@ export async function generateRecommendation(
     const response = await fetch(`${WORKER_URL}/ai`, {
       method: 'POST',
       signal: controller.signal,
-      headers: { 'Content-Type': 'application/json', 'X-RC-App-User-Id': appUserId },
+      headers: { 'Content-Type': 'application/json', 'X-RC-App-User-Id': resolvedUserId },
       body: JSON.stringify({ action: 'recommend', theme }),
     });
     clearTimeout(timeoutId);
