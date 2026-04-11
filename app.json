@@ -28,7 +28,7 @@
         ],
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "13"
+      "buildNumber": "14"
     },
     "android": {
       "package": "com.jsj.manna",
@@ -53,8 +53,7 @@
           "color": "#D4A847",
           "sounds": []
         }
-      ],
-      "expo-sharing"
+      ]
     ],
     "extra": {
       "router": {},

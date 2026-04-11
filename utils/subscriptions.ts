@@ -1,7 +1,9 @@
 import Purchases, { LOG_LEVEL, PurchasesPackage } from 'react-native-purchases';
 
-// RevenueCat API key (iOS only for now)
-const IOS_RC_API_KEY = process.env.EXPO_PUBLIC_RC_IOS_KEY ?? '';
+// RevenueCat API key — Expo Go에서는 Test Store 키, 프로덕션에서는 App Store 키 사용
+const IOS_RC_API_KEY = __DEV__
+  ? (process.env.EXPO_PUBLIC_TEST_RC_IOS_KEY ?? '')
+  : (process.env.EXPO_PUBLIC_RC_IOS_KEY ?? '');
 
 const AI_ENTITLEMENT_ID = 'Manna Pro';
 
