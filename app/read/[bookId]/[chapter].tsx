@@ -240,7 +240,7 @@ export default function ReadScreen() {
       markVerseRead(bookId, chapter, verseNumber);
       setReadVerses(prev => new Set([...prev, verseNumber]));
     },
-  });
+  }, isProUser);
 
   const { headerOpacity, headerHeightValue, bottomNavOpacity, headerTransitioningRef, headerVisibleRef, afterAnimRef, handleScroll } = useHeaderAnim(HEADER_FULL_H);
   // 헤더 애니메이션 완료 후 집중 모드 포커스 재계산 (stale 방지)
@@ -864,10 +864,6 @@ export default function ReadScreen() {
             <View style={styles.headerRight}>
               <Pressable
                 onPress={() => {
-                  if (!isProUser && !isTTS && !isPaused) {
-                    setShowPaywall(true);
-                    return;
-                  }
                   if (noKoreanVoice && !isTTS && !isPaused) {
                     Alert.alert(
                       '한국어 음성 미설치',
@@ -999,8 +995,10 @@ export default function ReadScreen() {
               autoAdvanceEnabled={autoAdvanceEnabled}
               pauseEnabled={pauseEnabled}
               verseReadEnabled={verseReadEnabled}
+              isProUser={isProUser}
               colors={colors}
               paddingBottom={insets.bottom + 4}
+              onUpgrade={() => setShowPaywall(true)}
               onStop={stopTTS}
               onTogglePause={togglePause}
               onSkip={skipVerse}

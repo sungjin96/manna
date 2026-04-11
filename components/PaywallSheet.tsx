@@ -9,7 +9,7 @@ interface Feature {
 }
 
 const PRO_FEATURES: Feature[] = [
-  { icon: 'headphones',         title: 'TTS 낭독',       desc: '말씀을 음성으로 듣기' },
+  { icon: 'headphones',         title: 'TTS 고급 설정',  desc: '속도·목소리·타이머·백그라운드 재생' },
   { icon: 'brain',              title: 'AI 묵상 질문',   desc: '구절에서 나온 깊은 질문 3가지' },
   { icon: 'book-open-page-variant', title: 'AI 구절 해설', desc: '역사적 배경과 원어 의미' },
   { icon: 'hands-pray',         title: 'AI 기도문',      desc: '말씀에서 나온 나만의 기도' },

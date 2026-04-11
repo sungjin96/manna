@@ -38,6 +38,8 @@ interface TTSMiniPlayerProps {
   onSelectVoice: (id: string) => void;
   onStartTimer: (minutes: number) => void;
   onCancelTimer: () => void;
+  isProUser: boolean;
+  onUpgrade: () => void;
   onToggleAutoComplete: () => void;
   onToggleAutoAdvance: () => void;
   onTogglePauseEnabled: () => void;
@@ -258,6 +260,19 @@ function ToggleRow({ label, desc, value, onToggle, colors }: {
   );
 }
 
+const proStyles = StyleSheet.create({
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+});
+
 const toggleStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
@@ -282,8 +297,8 @@ export function TTSMiniPlayer({
   isTTS, isPaused, currentVerseText, ttsRateIdx,
   availableVoices, selectedVoiceId, timerMinutes, timerRemaining,
   autoCompleteEnabled, autoAdvanceEnabled, pauseEnabled, verseReadEnabled,
-  colors, paddingBottom,
-  onStop, onTogglePause, onSkip, onSelectRate, onSelectVoice,
+  isProUser, colors, paddingBottom,
+  onUpgrade, onStop, onTogglePause, onSkip, onSelectRate, onSelectVoice,
   onStartTimer, onCancelTimer,
   onToggleAutoComplete, onToggleAutoAdvance, onTogglePauseEnabled, onToggleVerseRead,
 }: TTSMiniPlayerProps) {
@@ -407,7 +422,7 @@ export function TTSMiniPlayer({
           <View style={sheetStyles.controlRow}>
             {/* Voice chip */}
             <Pressable
-              onPress={() => togglePanel('voice')}
+              onPress={() => isProUser ? togglePanel('voice') : onUpgrade()}
               style={[
                 sheetStyles.ctrlChip,
                 { borderColor: activePanel === 'voice' ? colors.gold : colors.border },
@@ -417,16 +432,20 @@ export function TTSMiniPlayer({
               <Text style={[sheetStyles.ctrlChipText, { color: activePanel === 'voice' ? colors.gold : colors.text }]}>
                 {chipVoiceName}
               </Text>
-              <MaterialCommunityIcons
-                name={activePanel === 'voice' ? 'chevron-up' : 'chevron-down'}
-                size={13}
-                color={activePanel === 'voice' ? colors.gold : colors.muted}
-              />
+              {isProUser ? (
+                <MaterialCommunityIcons
+                  name={activePanel === 'voice' ? 'chevron-up' : 'chevron-down'}
+                  size={13}
+                  color={activePanel === 'voice' ? colors.gold : colors.muted}
+                />
+              ) : (
+                <MaterialCommunityIcons name="lock-outline" size={13} color={colors.muted} />
+              )}
             </Pressable>
 
             {/* Speed chip */}
             <Pressable
-              onPress={() => togglePanel('speed')}
+              onPress={() => isProUser ? togglePanel('speed') : onUpgrade()}
               style={[
                 sheetStyles.ctrlChip,
                 { borderColor: activePanel === 'speed' ? colors.gold : colors.border },
@@ -436,16 +455,20 @@ export function TTSMiniPlayer({
               <Text style={[sheetStyles.ctrlChipText, { color: activePanel === 'speed' ? colors.gold : colors.text }]}>
                 {TTS_RATE_LABELS[ttsRateIdx]}
               </Text>
-              <MaterialCommunityIcons
-                name={activePanel === 'speed' ? 'chevron-up' : 'chevron-down'}
-                size={13}
-                color={activePanel === 'speed' ? colors.gold : colors.muted}
-              />
+              {isProUser ? (
+                <MaterialCommunityIcons
+                  name={activePanel === 'speed' ? 'chevron-up' : 'chevron-down'}
+                  size={13}
+                  color={activePanel === 'speed' ? colors.gold : colors.muted}
+                />
+              ) : (
+                <MaterialCommunityIcons name="lock-outline" size={13} color={colors.muted} />
+              )}
             </Pressable>
 
             {/* Timer chip */}
             <Pressable
-              onPress={() => togglePanel('timer')}
+              onPress={() => isProUser ? togglePanel('timer') : onUpgrade()}
               style={[
                 sheetStyles.ctrlChip,
                 {
@@ -466,7 +489,7 @@ export function TTSMiniPlayer({
                 <Text style={[sheetStyles.ctrlChipText, { color: colors.gold }]}>
                   {formatTime(timerRemaining)}
                 </Text>
-              ) : (
+              ) : isProUser ? (
                 <>
                   <Text style={[sheetStyles.ctrlChipText, { color: activePanel === 'timer' ? colors.gold : colors.text }]}>
                     타이머
@@ -476,6 +499,11 @@ export function TTSMiniPlayer({
                     size={13}
                     color={activePanel === 'timer' ? colors.gold : colors.muted}
                   />
+                </>
+              ) : (
+                <>
+                  <Text style={[sheetStyles.ctrlChipText, { color: colors.text }]}>타이머</Text>
+                  <MaterialCommunityIcons name="lock-outline" size={13} color={colors.muted} />
                 </>
               )}
             </Pressable>
@@ -586,13 +614,31 @@ export function TTSMiniPlayer({
               onToggle={onToggleAutoComplete}
               colors={colors}
             />
-            <ToggleRow
-              label="자동 다음 장 이동"
-              desc="끝나면 자동으로 다음 장으로 넘어감"
-              value={autoAdvanceEnabled}
-              onToggle={onToggleAutoAdvance}
-              colors={colors}
-            />
+            {isProUser ? (
+              <ToggleRow
+                label="자동 다음 장 이동"
+                desc="끝나면 자동으로 다음 장으로 넘어감"
+                value={autoAdvanceEnabled}
+                onToggle={onToggleAutoAdvance}
+                colors={colors}
+              />
+            ) : (
+              <Pressable
+                onPress={onUpgrade}
+                style={[toggleStyles.row, { borderBottomColor: colors.border }]}
+              >
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <Text style={[toggleStyles.label, { color: colors.muted }]}>자동 다음 장 이동</Text>
+                    <View style={[proStyles.badge, { backgroundColor: `${colors.gold}18`, borderColor: `${colors.gold}50` }]}>
+                      <Text style={[proStyles.badgeText, { color: colors.gold }]}>Pro</Text>
+                    </View>
+                  </View>
+                  <Text style={[toggleStyles.desc, { color: colors.muted }]}>끝나면 자동으로 다음 장으로 넘어감</Text>
+                </View>
+                <MaterialCommunityIcons name="lock-outline" size={18} color={colors.muted} />
+              </Pressable>
+            )}
             <ToggleRow
               label="일시정지 버튼"
               desc="재생 중 일시정지 사용"
@@ -607,6 +653,23 @@ export function TTSMiniPlayer({
               onToggle={onToggleVerseRead}
               colors={colors}
             />
+            {!isProUser && (
+              <Pressable
+                onPress={onUpgrade}
+                style={[toggleStyles.row, { borderBottomColor: colors.border }]}
+              >
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <Text style={[toggleStyles.label, { color: colors.muted }]}>백그라운드 재생</Text>
+                    <View style={[proStyles.badge, { backgroundColor: `${colors.gold}18`, borderColor: `${colors.gold}50` }]}>
+                      <Text style={[proStyles.badgeText, { color: colors.gold }]}>Pro</Text>
+                    </View>
+                  </View>
+                  <Text style={[toggleStyles.desc, { color: colors.muted }]}>앱 화면 꺼도 말씀을 계속 들을 수 있어요</Text>
+                </View>
+                <MaterialCommunityIcons name="lock-outline" size={18} color={colors.muted} />
+              </Pressable>
+            )}
           </ScrollView>
         </Animated.View>
       </Modal>

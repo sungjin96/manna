@@ -58,6 +58,7 @@ async function getKoreanVoices(): Promise<TTSVoice[]> {
 export function useTTS(
   verses: Array<{ verse: number; text: string }> | null | undefined,
   options?: TTSOptions,
+  isProUser?: boolean,
 ) {
   const [isTTS, setIsTTS] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -90,8 +91,10 @@ export function useTTS(
   const optionsRef = useRef(options);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isProUserRef = useRef(!!isProUser);
 
   optionsRef.current = options;
+  isProUserRef.current = !!isProUser;
 
   // Keep setting refs in sync
   useEffect(() => { autoCompleteRef.current = autoCompleteEnabled; }, [autoCompleteEnabled]);
@@ -224,7 +227,7 @@ export function useTTS(
       await new Promise<void>(resolve => {
         const opts: Speech.SpeechOptions = {
           rate: TTS_RATES[ttsRateIdxRef.current],
-          useApplicationAudioSession: false,
+          useApplicationAudioSession: isProUserRef.current,
           onDone: resolve,
           onStopped: resolve,
           onError: () => resolve(),
