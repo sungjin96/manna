@@ -14,6 +14,7 @@ import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { getSetting, setSetting } from '../../db/settings';
 import { theme } from '../../constants/theme';
 import { exportToJSON, importFromJSON, backupErrorMessage } from '../../utils/backup';
@@ -22,8 +23,11 @@ import { useReaderSettings, READER_THEMES, ReaderTheme } from '../../hooks/useRe
 import { scheduleReadingReminder, cancelReadingReminder } from '../../utils/notifications';
 import { READING_PLANS, PlanId } from '../../constants/reading-plans';
 import { getActivePlan, setActivePlan, clearActivePlan, todayISO } from '../../db/reading_plans';
+import { resetSettings } from '../../db/reset';
+import MannaAlert from '../../components/MannaAlert';
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [notifHour, setNotifHour] = useState(8);
   const [notifMinute, setNotifMinute] = useState(0);
@@ -36,6 +40,8 @@ export default function SettingsScreen() {
   const [activePlanId, setActivePlanId] = useState<PlanId | null>(null);
   const [autoUpdate, setAutoUpdate] = useState(true);
   const [updateStatus, setUpdateStatus] = useState<'checking' | 'latest' | 'available' | 'downloading' | 'restarting' | 'error'>('checking');
+  const [resetConfirmVisible, setResetConfirmVisible] = useState(false);
+  const [resetDoneVisible, setResetDoneVisible] = useState(false);
   const { settings, update: updateReader } = useReaderSettings();
 
   useEffect(() => {
@@ -530,6 +536,34 @@ export default function SettingsScreen() {
           </View>
           <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
         </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.row, styles.rowPressable, pressed && styles.rowPressed]}
+          onPress={() => setResetConfirmVisible(true)}
+        >
+          <View style={styles.rowLeft}>
+            <MaterialCommunityIcons name="restart" size={20} color={theme.textSub} />
+            <View style={{ gap: 2 }}>
+              <Text style={styles.rowLabel}>설정 초기화</Text>
+              <Text style={styles.rowHint}>모든 설정을 기본값으로 복원</Text>
+            </View>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.row, styles.rowPressable, pressed && styles.rowPressed]}
+          onPress={() => router.push('/reset-data')}
+        >
+          <View style={styles.rowLeft}>
+            <MaterialCommunityIcons name="delete-alert-outline" size={20} color="#FF4444" />
+            <View style={{ gap: 2 }}>
+              <Text style={[styles.rowLabel, { color: '#FF4444' }]}>데이터 초기화</Text>
+              <Text style={styles.rowHint}>읽기 기록, 묵상, 뱃지 등 모든 데이터 삭제</Text>
+            </View>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
+        </Pressable>
       </View>
 
       {/* 앱 정보 섹션 */}
@@ -597,6 +631,33 @@ export default function SettingsScreen() {
           </Text>
         </View>
       </View>
+
+      <MannaAlert
+        visible={resetConfirmVisible}
+        title="설정 초기화"
+        message="알림, 테마, 폰트, 통독 계획 등 모든 설정이 기본값으로 돌아갑니다. 읽기 기록과 묵상은 유지됩니다."
+        buttons={[
+          { text: '취소', style: 'cancel' },
+          {
+            text: '초기화',
+            style: 'destructive',
+            onPress: async () => {
+              await resetSettings();
+              setResetConfirmVisible(false);
+              setResetDoneVisible(true);
+            },
+          },
+        ]}
+        onDismiss={() => setResetConfirmVisible(false)}
+      />
+
+      <MannaAlert
+        visible={resetDoneVisible}
+        title="설정 초기화 완료"
+        message="앱을 다시 시작하면 기본 설정이 적용됩니다."
+        buttons={[{ text: '확인', style: 'default' }]}
+        onDismiss={() => setResetDoneVisible(false)}
+      />
     </ScrollView>
   );
 }

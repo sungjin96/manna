@@ -9,11 +9,15 @@ let _configured = false;
 
 export function configureRevenueCat() {
   if (_configured || !IOS_RC_API_KEY) return;
-  if (__DEV__) {
-    Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+  try {
+    if (__DEV__) {
+      Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+    }
+    Purchases.configure({ apiKey: IOS_RC_API_KEY });
+    _configured = true;
+  } catch {
+    // Expo Go에서는 네이티브 스토어가 없어 configure 실패 — 무시
   }
-  Purchases.configure({ apiKey: IOS_RC_API_KEY });
-  _configured = true;
 }
 
 // ── App User ID ───────────────────────────────────────────────────────────
