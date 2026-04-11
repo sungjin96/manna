@@ -2,11 +2,12 @@
  * TutorialReadScreen
  *
  * 실제 읽기 화면처럼 보이지만 고정 콘텐츠(창세기 1장)를 사용하는 튜토리얼 전용 화면.
- * 레이아웃이 고정되어 있어 오버레이 좌표가 항상 정확하게 맞는다.
+ * 레이아웃이 고정되어 있고 measure()로 실제 좌표를 직접 측정하므로
+ * spotlight이 항상 정확한 위치에 표시된다.
  * 튜토리얼 완료 후 사용자가 원래 열려고 했던 장(bookId/chapter)으로 이동한다.
  */
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,18 +25,46 @@ const TUTORIAL_VERSES = [
   { verse: 5, text: '하나님이 빛을 낮이라 부르시고 어둠을 밤이라 부르시니라 저녁이 되고 아침이 되니 이는 첫째 날이니라' },
 ];
 
+type MeasuredSpots = Partial<Record<number, { y: number; h: number }>>;
+
 export default function TutorialReadScreen() {
   const { bookId, chapter } = useLocalSearchParams<{ bookId: string; chapter: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
+  const firstVerseRef = useRef<View>(null);
+  const completeBtnRef = useRef<View>(null);
   const [readVerses, setReadVerses] = useState<Set<number>>(new Set());
+  const [measuredSpots, setMeasuredSpots] = useState<MeasuredSpots>({});
 
   const { colors, settings } = useReaderSettings();
 
   const { isActive, step, overlayOpacity, advanceStep, dismiss } = useTutorial(() => {
     router.replace(`/read/${bookId}/${chapter}`);
   });
+
+  // Step 0: 레이아웃 완료 후 첫 번째 구절 위치 측정
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      firstVerseRef.current?.measure((_x, _y, _w, height, _px, pageY) => {
+        if (pageY > 0) {
+          setMeasuredSpots(prev => ({ ...prev, 0: { y: pageY, h: height } }));
+        }
+      });
+    }, 200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  function measureCompleteBtn() {
+    // 스크롤 애니메이션 완료 후 측정 (300ms 여유)
+    setTimeout(() => {
+      completeBtnRef.current?.measure((_x, _y, _w, height, _px, pageY) => {
+        if (pageY > 0) {
+          setMeasuredSpots(prev => ({ ...prev, 1: { y: pageY, h: height } }));
+        }
+      });
+    }, 300);
+  }
 
   function toggleVerse(verse: number) {
     setReadVerses(prev => {
@@ -76,10 +105,11 @@ export default function TutorialReadScreen() {
         data={TUTORIAL_VERSES}
         keyExtractor={item => String(item.verse)}
         contentContainerStyle={s.list}
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const isRead = readVerses.has(item.verse);
           return (
             <Pressable
+              ref={index === 0 ? firstVerseRef : undefined}
               style={s.verseRow}
               onPress={() => toggleVerse(item.verse)}
             >
@@ -101,7 +131,7 @@ export default function TutorialReadScreen() {
           );
         }}
         ListFooterComponent={
-          <Pressable style={s.completeBtn}>
+          <Pressable ref={completeBtnRef} style={s.completeBtn}>
             <Text style={s.completeBtnText}>읽기 완료</Text>
           </Pressable>
         }
@@ -131,8 +161,12 @@ export default function TutorialReadScreen() {
           overlayOpacity={overlayOpacity}
           onNext={advanceStep}
           onDismiss={dismiss}
+          measuredSpots={measuredSpots}
           onScrollToEnd={() => {
-            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+            setTimeout(() => {
+              flatListRef.current?.scrollToEnd({ animated: true });
+              measureCompleteBtn();
+            }, 100);
           }}
         />
       )}

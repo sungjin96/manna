@@ -75,9 +75,15 @@ interface Props {
   onDismiss: () => void;
   /** Called when step advances to index 1 (읽기 완료) — use to scrollToEnd */
   onScrollToEnd?: () => void;
+  /**
+   * 직접 측정한 spotlight 위치 오버라이드.
+   * key: step index, value: { y: pageY from top of screen, h: element height }
+   * 제공된 경우 STEPS의 spotYFn 계산보다 우선 적용.
+   */
+  measuredSpots?: Partial<Record<number, { y: number; h: number }>>;
 }
 
-export function ReadingTutorial({ step, overlayOpacity, onNext, onDismiss, onScrollToEnd }: Props) {
+export function ReadingTutorial({ step, overlayOpacity, onNext, onDismiss, onScrollToEnd, measuredSpots }: Props) {
   const insets = useSafeAreaInsets();
   const prevStepRef = useRef(step);
 
@@ -90,8 +96,9 @@ export function ReadingTutorial({ step, overlayOpacity, onNext, onDismiss, onScr
   }, [step, onScrollToEnd]);
 
   const s = STEPS[step];
-  const spotY = s.spotYFn(insets.top, insets.bottom);
-  const spotH = s.spotH;
+  const measured = measuredSpots?.[step];
+  const spotY = measured ? measured.y : s.spotYFn(insets.top, insets.bottom);
+  const spotH = measured ? measured.h : s.spotH;
 
   // Tooltip vertical position
   let tooltipTop: number;
