@@ -434,7 +434,7 @@ export default function SettingsScreen() {
               <MaterialCommunityIcons name="check-circle" size={18} color={theme.gold} />
             </View>
             <Text style={[styles.subsActiveDesc, { color: theme.textMuted }]}>
-              모든 Pro 기능을 무제한으로 이용 중입니다.
+              모든 Pro 기능을 이용 중입니다.
             </Text>
             {/* 구독 관리 (취소) — App Store로 이동 */}
             <Pressable
@@ -467,9 +467,9 @@ export default function SettingsScreen() {
             <View style={styles.subsGrid}>
               {([
                 { icon: 'headphones',              label: 'TTS 낭독' },
-                { icon: 'brain',                   label: 'AI 묵상 무제한' },
-                { icon: 'book-open-page-variant',  label: '구절 해설 무제한' },
-                { icon: 'hands-pray',              label: '기도문 무제한' },
+                { icon: 'brain',                   label: 'AI 묵상 30회/일' },
+                { icon: 'book-open-page-variant',  label: '구절 해설 30회/일' },
+                { icon: 'hands-pray',              label: '기도문 30회/일' },
                 { icon: 'compass-rose',            label: '테마 구절 추천' },
                 { icon: 'calendar-month',          label: 'Streak 히트맵' },
               ] as const).map((f) => (

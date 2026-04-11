@@ -767,6 +767,10 @@ export default function ReadScreen() {
             <View style={styles.headerRight}>
               <Pressable
                 onPress={() => {
+                  if (!isProUser && !isTTS && !isPaused) {
+                    setShowPaywall(true);
+                    return;
+                  }
                   if (noKoreanVoice && !isTTS && !isPaused) {
                     Alert.alert(
                       '한국어 음성 미설치',
