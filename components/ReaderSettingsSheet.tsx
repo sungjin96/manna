@@ -2,7 +2,6 @@ import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, T
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSettingsSheet } from '../hooks/useSettingsSheet';
 import { READER_THEMES, READER_THEME_LABELS, type ReaderSettings, type ReaderColors, type ReaderTheme, type HorizontalMargin } from '../hooks/useReaderSettings';
-import ProGate from './ProGate';
 
 const ALL_THEMES = Object.keys(READER_THEMES) as ReaderTheme[];
 const ALL_MARGINS: HorizontalMargin[] = ['narrow', 'normal', 'wide'];
@@ -32,7 +31,7 @@ export default function ReaderSettingsSheet({
   fontsLoaded, meditationPromptEnabled, onToggleMeditationPrompt,
   isPro, onUpgrade,
 }: Props) {
-  const { settingsSheetY, settingsBgOpacity, settingsPR, openSettingsSheet, closeSettingsSheet } = useSettingsSheet();
+  const { settingsSheetY, settingsBgOpacity, settingsPR, openSettingsSheet, closeSettingsSheet } = useSettingsSheet(onClose);
 
   const prevVisible = require('react').useRef(false);
   require('react').useEffect(() => {
@@ -42,7 +41,6 @@ export default function ReaderSettingsSheet({
 
   function handleClose() {
     closeSettingsSheet();
-    setTimeout(onClose, 240);
   }
 
   const fontFamily = (key: string): string | undefined => {
@@ -203,20 +201,33 @@ export default function ReaderSettingsSheet({
                 colors={colors}
               />
               <View style={[s.toggleDivider, { backgroundColor: colors.border }]} />
-              <View style={s.toggleRow}>
+              <Pressable
+                style={s.toggleRow}
+                onPress={!isPro ? onUpgrade : undefined}
+                disabled={isPro}
+              >
                 <View style={s.toggleInfo}>
-                  <Text style={[s.toggleLabel, { color: colors.text }]}>집중 모드</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[s.toggleLabel, { color: colors.text }]}>집중 모드</Text>
+                    {!isPro && (
+                      <View style={[s.proBadge, { backgroundColor: `${colors.gold}18`, borderColor: `${colors.gold}50` }]}>
+                        <Text style={[s.proBadgeText, { color: colors.gold }]}>Pro 전용</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={[s.toggleDesc, { color: colors.muted }]}>현재 구절만 강조, 나머지 흐리게</Text>
                 </View>
-                <ProGate isPro={isPro} featureName="집중 모드" onUpgrade={onUpgrade}>
+                {isPro ? (
                   <Switch
                     value={settings.focusMode}
                     onValueChange={val => onUpdate({ focusMode: val })}
                     trackColor={{ false: colors.border, true: `${colors.gold}80` }}
                     thumbColor={settings.focusMode ? colors.gold : colors.muted}
                   />
-                </ProGate>
-              </View>
+                ) : (
+                  <MaterialCommunityIcons name="lock-outline" size={18} color={colors.muted} />
+                )}
+              </Pressable>
             </View>
 
             {/* ── 섹션 4: 읽기 완료 ── */}
@@ -456,5 +467,18 @@ const s = StyleSheet.create({
   toggleDesc: {
     fontSize: 12,
     marginTop: 2,
+  },
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  proBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

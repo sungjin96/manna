@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,7 +19,6 @@ import { getSetting, setSetting } from '../../db/settings';
 import { theme } from '../../constants/theme';
 import { exportToJSON, importFromJSON, backupErrorMessage } from '../../utils/backup';
 import { checkAIEntitlement, purchasePremium, restorePurchases, purchaseErrorMessage } from '../../utils/subscriptions';
-import { useReaderSettings, READER_THEMES, READER_THEME_LABELS, type ReaderTheme } from '../../hooks/useReaderSettings';
 import { scheduleReadingReminder, cancelReadingReminder } from '../../utils/notifications';
 import { READING_PLANS, PlanId } from '../../constants/reading-plans';
 import { getActivePlan, setActivePlan, clearActivePlan, todayISO } from '../../db/reading_plans';
@@ -37,26 +35,21 @@ export default function SettingsScreen() {
   const [isPremium, setIsPremium] = useState(false);
   const [isPremiumLoading, setIsPremiumLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
-  const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
   const [activePlanId, setActivePlanId] = useState<PlanId | null>(null);
   const [autoUpdate, setAutoUpdate] = useState(true);
   const [updateStatus, setUpdateStatus] = useState<'checking' | 'latest' | 'available' | 'downloading' | 'restarting' | 'error'>('checking');
   const [resetConfirmVisible, setResetConfirmVisible] = useState(false);
   const [resetDoneVisible, setResetDoneVisible] = useState(false);
-  const { settings, update: updateReader } = useReaderSettings();
-
   useEffect(() => {
     (async () => {
       const enabled = await getSetting('notification_enabled', '0');
       const hour = parseInt(await getSetting('notification_hour', '8'), 10);
       const minute = parseInt(await getSetting('notification_minute', '0'), 10);
-      const meditPrompt = await getSetting('meditation_prompt_enabled', '1');
       const plan = await getActivePlan();
       const autoUpd = await getSetting('auto_update', '1');
       setNotifEnabled(enabled === '1');
       setNotifHour(hour);
       setNotifMinute(minute);
-      setMeditationPromptEnabled(meditPrompt === '1');
       setActivePlanId((plan?.planId as PlanId) ?? null);
       setAutoUpdate(autoUpd === '1');
       const premium = await checkAIEntitlement();
@@ -103,11 +96,6 @@ export default function SettingsScreen() {
       await setActivePlan(planId, todayISO());
       setActivePlanId(planId);
     }
-  }
-
-  async function toggleMeditationPrompt(val: boolean) {
-    setMeditationPromptEnabled(val);
-    await setSetting('meditation_prompt_enabled', val ? '1' : '0');
   }
 
   async function toggleNotification(value: boolean) {
@@ -223,197 +211,6 @@ export default function SettingsScreen() {
         <Text style={styles.headerTitle}>설정</Text>
       </View>
 
-      {/* 독서 설정 섹션 */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>독서 설정</Text>
-
-        {/* Theme */}
-        <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 12 }]}>
-          <Text style={styles.rowLabel}>화면 테마</Text>
-          <View style={styles.themeRow}>
-            {(Object.keys(READER_THEMES) as ReaderTheme[]).map(t => {
-              const tc = READER_THEMES[t];
-              return (
-                <Pressable
-                  key={t}
-                  style={[
-                    styles.themeSwatch,
-                    { backgroundColor: tc.bg, borderColor: settings.theme === t ? tc.gold : tc.border },
-                    settings.theme === t && { borderWidth: 2 },
-                  ]}
-                  onPress={() => updateReader({ theme: t })}
-                >
-                  <Text style={[styles.themeSwatchLabel, { color: tc.text }]}>
-                    {READER_THEME_LABELS[t]}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Font size */}
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>글자 크기</Text>
-          <View style={styles.stepperRow}>
-            <Pressable
-              style={styles.stepBtn}
-              onPress={() => updateReader({ fontSize: Math.max(14, settings.fontSize - 1) })}
-              hitSlop={8}
-            >
-              <MaterialCommunityIcons name="minus" size={16} color={theme.gold} />
-            </Pressable>
-            <Text style={styles.stepValue}>{settings.fontSize}</Text>
-            <Pressable
-              style={styles.stepBtn}
-              onPress={() => updateReader({ fontSize: Math.min(22, settings.fontSize + 1) })}
-              hitSlop={8}
-            >
-              <MaterialCommunityIcons name="plus" size={16} color={theme.gold} />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Line height */}
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>줄 간격</Text>
-          <View style={styles.stepperRow}>
-            <Pressable
-              style={styles.stepBtn}
-              onPress={() => updateReader({ lineHeight: Math.max(1.4, Math.round((settings.lineHeight - 0.1) * 10) / 10) })}
-              hitSlop={8}
-            >
-              <MaterialCommunityIcons name="minus" size={16} color={theme.gold} />
-            </Pressable>
-            <Text style={styles.stepValue}>{settings.lineHeight.toFixed(1)}</Text>
-            <Pressable
-              style={styles.stepBtn}
-              onPress={() => updateReader({ lineHeight: Math.min(2.0, Math.round((settings.lineHeight + 0.1) * 10) / 10) })}
-              hitSlop={8}
-            >
-              <MaterialCommunityIcons name="plus" size={16} color={theme.gold} />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Font */}
-        <View style={[styles.row, { gap: 12 }]}>
-          <Text style={styles.rowLabel}>폰트</Text>
-          <View style={styles.fontRow}>
-            {(['default', 'serif'] as const).map(f => (
-              <Pressable
-                key={f}
-                style={[
-                  styles.fontBtn,
-                  settings.font === f && { backgroundColor: `${theme.gold}20`, borderColor: theme.gold },
-                ]}
-                onPress={() => updateReader({ font: f })}
-              >
-                <Text style={[
-                  styles.fontBtnText,
-                  { color: settings.font === f ? theme.gold : theme.textMuted },
-                  f === 'serif' && { fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' },
-                ]}>
-                  {f === 'default' ? '기본체' : '세리프체'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* Meditation prompt toggle */}
-        <View style={styles.row}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.rowLabel}>읽기 완료 후 묵상 입력</Text>
-            <Text style={styles.rowHint}>끄면 완료 즉시 다음 챕터로 이동</Text>
-          </View>
-          <Switch
-            value={meditationPromptEnabled}
-            onValueChange={toggleMeditationPrompt}
-            trackColor={{ false: theme.borderSubtle, true: `${theme.gold}80` }}
-            thumbColor={meditationPromptEnabled ? theme.gold : theme.textMuted}
-          />
-        </View>
-      </View>
-
-      {/* 알림 섹션 */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>알림</Text>
-
-        <View style={styles.row}>
-          <View style={styles.rowLeft}>
-            <MaterialCommunityIcons name="bell-outline" size={20} color={theme.gold} />
-            <Text style={styles.rowLabel}>매일 읽기 알림</Text>
-          </View>
-          <Switch
-            value={notifEnabled}
-            onValueChange={toggleNotification}
-            trackColor={{ false: theme.borderSubtle, true: theme.gold }}
-            thumbColor={theme.bg}
-          />
-        </View>
-
-        {notifEnabled && (
-          <View style={styles.timePicker}>
-            {/* 프리셋 시간대 */}
-            <View style={styles.presetRow}>
-              {([
-                { label: '새벽', hour: 5, minute: 0 },
-                { label: '아침', hour: 7, minute: 0 },
-                { label: '점심', hour: 12, minute: 0 },
-                { label: '저녁', hour: 21, minute: 0 },
-              ] as const).map(p => {
-                const active = notifHour === p.hour && notifMinute === p.minute;
-                return (
-                  <Pressable
-                    key={p.label}
-                    style={[styles.presetChip, active && styles.presetChipActive]}
-                    onPress={async () => {
-                      setNotifHour(p.hour);
-                      setNotifMinute(p.minute);
-                      await setSetting('notification_hour', String(p.hour));
-                      await setSetting('notification_minute', String(p.minute));
-                      await scheduleReadingReminder(p.hour, p.minute);
-                    }}
-                  >
-                    <Text style={[styles.presetLabel, active && styles.presetLabelActive]}>
-                      {p.label}
-                    </Text>
-                    <Text style={[styles.presetTime, active && styles.presetTimeActive]}>
-                      {pad(p.hour)}:{pad(p.minute)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* 직접 설정 — 가운데 정렬 */}
-            <Text style={styles.timePickerLabel}>직접 설정</Text>
-            <View style={styles.timeRow}>
-              <View style={styles.timeUnit}>
-                <Pressable style={styles.timeBtn} onPress={() => changeHour(1)} hitSlop={8}>
-                  <MaterialCommunityIcons name="chevron-up" size={20} color={theme.gold} />
-                </Pressable>
-                <Text style={styles.timeValue}>{pad(notifHour)}</Text>
-                <Pressable style={styles.timeBtn} onPress={() => changeHour(-1)} hitSlop={8}>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color={theme.gold} />
-                </Pressable>
-              </View>
-              <Text style={styles.timeSep}>:</Text>
-              <View style={styles.timeUnit}>
-                <Pressable style={styles.timeBtn} onPress={() => changeMinute(5)} hitSlop={8}>
-                  <MaterialCommunityIcons name="chevron-up" size={20} color={theme.gold} />
-                </Pressable>
-                <Text style={styles.timeValue}>{pad(notifMinute)}</Text>
-                <Pressable style={styles.timeBtn} onPress={() => changeMinute(-5)} hitSlop={8}>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color={theme.gold} />
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        )}
-      </View>
-
       {/* 구독 섹션 */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>구독</Text>
@@ -502,6 +299,84 @@ export default function SettingsScreen() {
               <Pressable onPress={handleRestorePurchases} disabled={purchasing} hitSlop={12}>
                 <Text style={[styles.subsFooterText, { color: theme.textSub }]}>구독 복원</Text>
               </Pressable>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {/* 알림 섹션 */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>알림</Text>
+
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            <MaterialCommunityIcons name="bell-outline" size={20} color={theme.gold} />
+            <Text style={styles.rowLabel}>매일 읽기 알림</Text>
+          </View>
+          <Switch
+            value={notifEnabled}
+            onValueChange={toggleNotification}
+            trackColor={{ false: theme.borderSubtle, true: theme.gold }}
+            thumbColor={theme.bg}
+          />
+        </View>
+
+        {notifEnabled && (
+          <View style={styles.timePicker}>
+            {/* 프리셋 시간대 */}
+            <View style={styles.presetRow}>
+              {([
+                { label: '새벽', hour: 5, minute: 0 },
+                { label: '아침', hour: 7, minute: 0 },
+                { label: '점심', hour: 12, minute: 0 },
+                { label: '저녁', hour: 21, minute: 0 },
+              ] as const).map(p => {
+                const active = notifHour === p.hour && notifMinute === p.minute;
+                return (
+                  <Pressable
+                    key={p.label}
+                    style={[styles.presetChip, active && styles.presetChipActive]}
+                    onPress={async () => {
+                      setNotifHour(p.hour);
+                      setNotifMinute(p.minute);
+                      await setSetting('notification_hour', String(p.hour));
+                      await setSetting('notification_minute', String(p.minute));
+                      await scheduleReadingReminder(p.hour, p.minute);
+                    }}
+                  >
+                    <Text style={[styles.presetLabel, active && styles.presetLabelActive]}>
+                      {p.label}
+                    </Text>
+                    <Text style={[styles.presetTime, active && styles.presetTimeActive]}>
+                      {pad(p.hour)}:{pad(p.minute)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* 직접 설정 — 가운데 정렬 */}
+            <Text style={styles.timePickerLabel}>직접 설정</Text>
+            <View style={styles.timeRow}>
+              <View style={styles.timeUnit}>
+                <Pressable style={styles.timeBtn} onPress={() => changeHour(1)} hitSlop={8}>
+                  <MaterialCommunityIcons name="chevron-up" size={20} color={theme.gold} />
+                </Pressable>
+                <Text style={styles.timeValue}>{pad(notifHour)}</Text>
+                <Pressable style={styles.timeBtn} onPress={() => changeHour(-1)} hitSlop={8}>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color={theme.gold} />
+                </Pressable>
+              </View>
+              <Text style={styles.timeSep}>:</Text>
+              <View style={styles.timeUnit}>
+                <Pressable style={styles.timeBtn} onPress={() => changeMinute(5)} hitSlop={8}>
+                  <MaterialCommunityIcons name="chevron-up" size={20} color={theme.gold} />
+                </Pressable>
+                <Text style={styles.timeValue}>{pad(notifMinute)}</Text>
+                <Pressable style={styles.timeBtn} onPress={() => changeMinute(-5)} hitSlop={8}>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color={theme.gold} />
+                </Pressable>
+              </View>
             </View>
           </View>
         )}
@@ -784,27 +659,6 @@ const styles = StyleSheet.create({
   },
   timeSep: { fontSize: 28, fontWeight: '700', color: theme.gold, marginBottom: 4 },
 
-  // Reader settings
-  themeRow: { flexDirection: 'row', gap: 8, width: '100%' },
-  themeSwatch: {
-    flex: 1, height: 52, borderRadius: 10,
-    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
-  },
-  themeSwatchLabel: { fontSize: 12, fontWeight: '700' },
-  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  stepBtn: {
-    width: 32, height: 32, borderRadius: 8,
-    borderWidth: 1, borderColor: theme.goldBorder,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: theme.surface2,
-  },
-  stepValue: { fontSize: 16, fontWeight: '700', color: theme.gold, minWidth: 28, textAlign: 'center' },
-  fontRow: { flexDirection: 'row', gap: 8 },
-  fontBtn: {
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 10, borderWidth: 1, borderColor: theme.goldBorder,
-  },
-  fontBtnText: { fontSize: 13, fontWeight: '600' },
 
   planRow: {
     gap: 4,

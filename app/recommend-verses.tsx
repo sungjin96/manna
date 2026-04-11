@@ -14,7 +14,8 @@ import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { generateRecommendation, getPoolRecommendation, type RecommendVerse } from '../utils/ai-meditation';
-import { getAppUserId, checkAIEntitlement } from '../utils/subscriptions';
+import { getAppUserId, checkAIEntitlement, purchasePremium } from '../utils/subscriptions';
+import PaywallSheet from '../components/PaywallSheet';
 
 // ── 테마 프리셋 ───────────────────────────────────────────────────────────────
 
@@ -82,6 +83,8 @@ export default function RecommendVersesScreen() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<RecommendVerse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallLoading, setPaywallLoading] = useState(false);
 
   const activeTheme = selectedTheme ?? (customInput.trim() || null);
 
@@ -119,8 +122,8 @@ export default function RecommendVersesScreen() {
 
     const [userId, entitled] = await Promise.all([getAppUserId(), checkAIEntitlement()]);
     if (!entitled) {
-      setError('직접 입력 구절 추천은 Pro 전용 기능입니다.');
       setLoading(false);
+      setShowPaywall(true);
       return;
     }
 
@@ -133,6 +136,13 @@ export default function RecommendVersesScreen() {
       setResults(result.data);
     }
   }, [customInput, isPreset]);
+
+  async function handlePurchase() {
+    setPaywallLoading(true);
+    const result = await purchasePremium();
+    setPaywallLoading(false);
+    if (result.success) setShowPaywall(false);
+  }
 
   function navigateToVerse(ref: string) {
     const { bookId: bookName, chapter, verse } = parseVerseRef(ref);
@@ -156,12 +166,26 @@ export default function RecommendVersesScreen() {
         <View style={{ width: 38 }} />
       </View>
 
+      <PaywallSheet
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        onPurchase={handlePurchase}
+        loading={paywallLoading}
+      />
+
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]}
         keyboardShouldPersistTaps="handled"
       >
         {/* 직접 입력 */}
+        <View style={styles.inputLabel}>
+          <Text style={[styles.inputLabelText, { color: theme.textMuted }]}>직접 입력</Text>
+          <View style={styles.inputProBadge}>
+            <MaterialCommunityIcons name="crown" size={10} color={theme.gold} />
+            <Text style={[styles.inputProBadgeText, { color: theme.gold }]}>Pro</Text>
+          </View>
+        </View>
         <View style={styles.inputRow}>
           <TextInput
             style={[styles.input, { color: theme.text, borderColor: theme.border }]}
@@ -283,6 +307,15 @@ const styles = StyleSheet.create({
   scroll: { padding: 20, gap: 16 },
 
   // Input
+  inputLabel: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: -8 },
+  inputLabelText: { fontSize: 12, fontWeight: '600' },
+  inputProBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 6, paddingVertical: 2,
+    borderRadius: 5, borderWidth: 1,
+    borderColor: `${theme.gold}50`, backgroundColor: `${theme.gold}18`,
+  },
+  inputProBadgeText: { fontSize: 10, fontWeight: '700' },
   inputRow: { flexDirection: 'row', gap: 8 },
   input: {
     flex: 1,

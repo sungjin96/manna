@@ -4,9 +4,11 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Easing,
   FlatList,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -138,6 +140,37 @@ export default function ReadScreen() {
   const [aiPrompts, setAiPrompts] = useState<string[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [showAiSheet, setShowAiSheet] = useState(false);
+  const [aiSheetExpanded, setAiSheetExpanded] = useState(false);
+  // aiSheetPanY: useNativeDriver: false — _value 동기 읽기로 제스처 offset 계산
+  const aiSheetPanY = useRef(new Animated.Value(0)).current;
+  const aiSheetDragBase = useRef(0);
+  const closeAiSheet = useRef(() => {});
+  closeAiSheet.current = () => {
+    Animated.timing(aiSheetPanY, { toValue: 600, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: false })
+      .start(() => { setShowAiSheet(false); setAiSheetExpanded(false); });
+  };
+  const aiSheetPR = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 5,
+    onPanResponderGrant: () => {
+      aiSheetDragBase.current = (aiSheetPanY as any)._value ?? 0;
+    },
+    onPanResponderMove: (_, gs) => {
+      const newY = aiSheetDragBase.current + gs.dy;
+      if (newY > 0) aiSheetPanY.setValue(newY);
+    },
+    onPanResponderRelease: (_, gs) => {
+      const finalY = aiSheetDragBase.current + gs.dy;
+      if (finalY > 100 || gs.vy > 0.5) {
+        closeAiSheet.current();
+      } else if (gs.dy < -50) {
+        setAiSheetExpanded(true);
+        Animated.spring(aiSheetPanY, { toValue: 0, friction: 20, tension: 100, overshootClamping: true, useNativeDriver: false }).start();
+      } else {
+        Animated.spring(aiSheetPanY, { toValue: 0, friction: 20, tension: 100, overshootClamping: true, useNativeDriver: false }).start();
+      }
+    },
+  })).current;
   const [aiVerseRef, setAiVerseRef] = useState('');
   const [aiTab, setAiTab] = useState<'meditate' | 'explain' | 'prayer'>('meditate');
   const [aiSelectedVerses, setAiSelectedVerses] = useState<Array<{ verse: number; text: string }>>([]);
@@ -440,7 +473,11 @@ export default function ReadScreen() {
     setAiExplanation(null);
     setAiPrayer(null);
     setAiLoading(false);
+    setAiSheetExpanded(false);
+    aiSheetDragBase.current = 0;
+    aiSheetPanY.setValue(600);
     setShowAiSheet(true);
+    Animated.spring(aiSheetPanY, { toValue: 0, friction: 9, tension: 100, useNativeDriver: false }).start();
     // 오늘 남은 횟수 로드
     getDailyRefreshCount().then(c => setAiDailyRefreshCount(c));
   }
@@ -1239,11 +1276,16 @@ export default function ReadScreen() {
         </Modal>
 
         {/* AI 시트 (묵상 질문 / 구절 해설 / 기도문) */}
-        <Modal visible={showAiSheet} transparent animationType="slide">
+        <Modal visible={showAiSheet} transparent animationType="none">
           <View style={aiStyles.overlay}>
-            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowAiSheet(false)} />
-            <View style={[aiStyles.sheet, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-              <View style={aiStyles.handle}>
+            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => closeAiSheet.current()} />
+            <Animated.View style={[
+              aiStyles.sheet,
+              { backgroundColor: colors.surface, borderTopColor: colors.border },
+              { maxHeight: aiSheetExpanded ? '90%' : '62%' },
+              { transform: [{ translateY: aiSheetPanY }] },
+            ]}>
+              <View {...aiSheetPR.panHandlers} style={aiStyles.handle}>
                 <View style={[aiStyles.handleBar, { backgroundColor: colors.muted }]} />
               </View>
 
@@ -1465,7 +1507,7 @@ export default function ReadScreen() {
                   <Text style={[aiStyles.writeBtnText, { color: colors.bg }]}>묵상 기록하기</Text>
                 </Pressable>
               )}
-            </View>
+            </Animated.View>
           </View>
         </Modal>
         {/* Mini toast */}
@@ -1488,7 +1530,7 @@ const aiStyles = StyleSheet.create({
     paddingHorizontal: 24, paddingBottom: 40,
     borderTopWidth: 1,
   },
-  handle: { alignItems: 'center', paddingVertical: 12 },
+  handle: { alignItems: 'center', paddingVertical: 20 },
   handleBar: { width: 40, height: 4, borderRadius: 2 },
   // Tab bar
   tabs: {
