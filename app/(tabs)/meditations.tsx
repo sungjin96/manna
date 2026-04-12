@@ -23,6 +23,9 @@ import MannaAlert from '../../components/MannaAlert';
 
 const MEMO_COLOR = '#7AA3D4';
 type ViewMode = 'list' | 'calendar';
+type FilterType = 'all' | 'meditation' | 'memo';
+type FilterSort = 'newest' | 'oldest';
+type FilterQA = 'all' | 'complete' | 'incomplete';
 
 // ── 노트 타입 감지 ──────────────────────────────────────────────────────────
 function getNoteType(note: string): 'memo' | 'qa' | 'basic' {
@@ -219,6 +222,9 @@ export default function MeditationsScreen() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [filterSort, setFilterSort] = useState<FilterSort>('newest');
+  const [filterQA, setFilterQA] = useState<FilterQA>('all');
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<Meditation | null>(null);
   const [editNote, setEditNote] = useState('');
@@ -294,14 +300,46 @@ export default function MeditationsScreen() {
     load(query);
   }
 
+  // 필터 적용
+  const filteredItems = useMemo(() => {
+    let result = [...items];
+
+    if (filterType === 'memo') {
+      result = result.filter(m => getNoteType(m.note) === 'memo');
+    } else if (filterType === 'meditation') {
+      result = result.filter(m => getNoteType(m.note) !== 'memo');
+    }
+
+    if (filterType !== 'memo' && filterQA !== 'all') {
+      result = result.filter(m => {
+        const type = getNoteType(m.note);
+        if (type === 'basic') return filterQA === 'complete';
+        if (type === 'qa') {
+          try {
+            const parsed = JSON.parse(m.note);
+            const allAnswered = parsed.entries.every((e: { q: string; a: string }) => e.a?.trim().length > 0);
+            return filterQA === 'complete' ? allAnswered : !allAnswered;
+          } catch { return false; }
+        }
+        return true;
+      });
+    }
+
+    if (filterSort === 'oldest') {
+      result = result.reverse();
+    }
+
+    return result;
+  }, [items, filterType, filterSort, filterQA]);
+
   // 캘린더 모드에서 선택된 날의 기록
   const dayItems = useMemo(() => {
     if (!selectedDay) return [];
-    return items.filter(m => m.createdAt.slice(0, 10) === selectedDay);
-  }, [items, selectedDay]);
+    return filteredItems.filter(m => m.createdAt.slice(0, 10) === selectedDay);
+  }, [filteredItems, selectedDay]);
 
   // 리스트 모드에서 표시할 아이템
-  const listItems = viewMode === 'list' ? items : dayItems;
+  const listItems = viewMode === 'list' ? filteredItems : dayItems;
 
   if (loading) {
     return (
@@ -366,11 +404,62 @@ export default function MeditationsScreen() {
         </View>
       )}
 
+      {/* 필터 칩 row */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterRow}
+        contentContainerStyle={styles.filterRowContent}
+      >
+        {(['all', 'meditation', 'memo'] as FilterType[]).map(type => (
+          <Pressable
+            key={type}
+            style={[styles.filterChip, filterType === type && styles.filterChipActive]}
+            onPress={() => setFilterType(type)}
+          >
+            <Text style={[styles.filterChipText, filterType === type && styles.filterChipTextActive]}>
+              {type === 'all' ? '전체' : type === 'meditation' ? '묵상' : '메모'}
+            </Text>
+          </Pressable>
+        ))}
+
+        <View style={styles.filterSep} />
+
+        {(['newest', 'oldest'] as FilterSort[]).map(sort => (
+          <Pressable
+            key={sort}
+            style={[styles.filterChip, filterSort === sort && styles.filterChipActive]}
+            onPress={() => setFilterSort(sort)}
+          >
+            <Text style={[styles.filterChipText, filterSort === sort && styles.filterChipTextActive]}>
+              {sort === 'newest' ? '최신순' : '오래된순'}
+            </Text>
+          </Pressable>
+        ))}
+
+        {filterType !== 'memo' && (
+          <>
+            <View style={styles.filterSep} />
+            {(['all', 'complete', 'incomplete'] as FilterQA[]).map(qa => (
+              <Pressable
+                key={qa}
+                style={[styles.filterChip, filterQA === qa && styles.filterChipActive]}
+                onPress={() => setFilterQA(qa)}
+              >
+                <Text style={[styles.filterChipText, filterQA === qa && styles.filterChipTextActive]}>
+                  {qa === 'all' ? 'Q&A 전체' : qa === 'complete' ? '완성' : '미완성'}
+                </Text>
+              </Pressable>
+            ))}
+          </>
+        )}
+      </ScrollView>
+
       {/* 캘린더 뷰 */}
       {viewMode === 'calendar' && (
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <CalendarView
-            items={items}
+            items={filteredItems}
             onDaySelect={setSelectedDay}
             selectedDay={selectedDay}
           />
@@ -416,7 +505,7 @@ export default function MeditationsScreen() {
       {/* 리스트 뷰 */}
       {viewMode === 'list' && (
         <>
-          {items.length === 0 ? (
+          {filteredItems.length === 0 ? (
             <View style={styles.empty}>
               <MaterialCommunityIcons
                 name={query ? 'text-search' : 'notebook-outline'}
@@ -424,10 +513,10 @@ export default function MeditationsScreen() {
                 color={theme.textMuted}
               />
               <Text style={styles.emptyText}>
-                {query ? '검색 결과가 없어요' : '아직 기록이 없어요'}
+                {query ? '검색 결과가 없어요' : (filterType !== 'all' || filterQA !== 'all') ? '해당하는 기록이 없어요' : '아직 기록이 없어요'}
               </Text>
               <Text style={styles.emptyHint}>
-                {query ? '다른 단어로 검색해보세요' : '성경을 읽고 묵상·메모를 남겨보세요'}
+                {query ? '다른 단어로 검색해보세요' : (filterType !== 'all' || filterQA !== 'all') ? '필터를 바꿔보세요' : '성경을 읽고 묵상·메모를 남겨보세요'}
               </Text>
             </View>
           ) : (
@@ -697,8 +786,43 @@ const styles = StyleSheet.create({
     borderColor: theme.border,
   },
   cardMemo: {
-    borderLeftWidth: 3,
-    borderLeftColor: `${MEMO_COLOR}60`,
+    // 왼쪽 border 제거 — 배지 색상으로 충분히 구분됨
+  },
+  filterRow: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.border,
+  },
+  filterRowContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  filterChipActive: {
+    backgroundColor: theme.gold,
+    borderColor: theme.gold,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.textMuted,
+  },
+  filterChipTextActive: {
+    color: theme.bg,
+  },
+  filterSep: {
+    width: 1,
+    height: 20,
+    backgroundColor: theme.border,
+    marginHorizontal: 2,
   },
   cardTop: {
     flexDirection: 'row',

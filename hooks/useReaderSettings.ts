@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getSetting, setSetting } from '../db/settings';
 
-export type ReaderTheme = 'midnight' | 'daylight' | 'sepia' | 'forest' | 'rosegold' | 'greystone';
+export type ReaderTheme = 'midnight' | 'daylight' | 'sepia' | 'forest' | 'rosegold' | 'greystone' | 'charcoal' | 'slate';
 export type ReaderFont = 'default' | 'serif' | 'nanumMyeongjo' | 'nanumGothic' | 'nanumSquareRound';
 export type HorizontalMargin = 'narrow' | 'normal' | 'wide';
 
@@ -88,6 +88,26 @@ export const READER_THEMES: Record<ReaderTheme, ReaderColors> = {
     border: 'rgba(128,144,168,0.20)',
     headerBg: '#1C1D24',
   },
+  // 재 — 따뜻한 다크 차콜, 눈 피로 최소화
+  charcoal: {
+    bg: '#1E1D1C',
+    text: '#D8D4CC',
+    surface: '#262524',
+    gold: '#B8926A',
+    muted: 'rgba(216,212,204,0.35)',
+    border: 'rgba(184,146,106,0.20)',
+    headerBg: '#262524',
+  },
+  // 이슬 — 쿨 슬레이트, 눈 피로 최소화
+  slate: {
+    bg: '#1A1C23',
+    text: '#C8CDD8',
+    surface: '#222530',
+    gold: '#7A90B8',
+    muted: 'rgba(200,205,216,0.35)',
+    border: 'rgba(122,144,184,0.20)',
+    headerBg: '#222530',
+  },
 };
 
 // 테마 표시 이름 (UI용)
@@ -98,6 +118,8 @@ export const READER_THEME_LABELS: Record<ReaderTheme, string> = {
   forest: '광야',
   rosegold: '저녁',
   greystone: '실라',
+  charcoal: '재',
+  slate: '이슬',
 };
 
 export const MARGIN_MAP: Record<HorizontalMargin, number> = {

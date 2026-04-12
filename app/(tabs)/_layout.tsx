@@ -48,7 +48,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="meditations"
         options={{
-          title: '묵상',
+          title: '기록',
           tabBarIcon: ({ color, size }: IconProps) => (
             <MaterialCommunityIcons name="notebook-edit-outline" size={size} color={color} />
           ),

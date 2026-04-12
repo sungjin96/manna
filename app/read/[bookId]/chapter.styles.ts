@@ -152,8 +152,9 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 12,
     borderTopWidth: 1, gap: 8,
   },
-  selectionLabel: { flex: 1, fontSize: 13, fontWeight: '600' },
-  selectionActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  selectionLabel: { fontSize: 13, fontWeight: '600', flexShrink: 1, maxWidth: 120 },
+  selectionActionsScroll: { flex: 1 },
+  selectionActionsContent: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingLeft: 8 },
   selBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,

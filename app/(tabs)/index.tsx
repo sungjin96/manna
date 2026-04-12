@@ -503,6 +503,7 @@ export default function HomeScreen() {
               >
                 <MaterialCommunityIcons name="shuffle-variant" size={16} color={theme.gold} />
                 <Text style={styles.discoveryBtnText}>랜덤으로 읽기</Text>
+                <View style={{ width: 16 }} />
               </Pressable>
             </View>
           </View>

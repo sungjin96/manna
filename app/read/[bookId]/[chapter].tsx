@@ -12,7 +12,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Switch,
   Text,
@@ -54,6 +53,7 @@ import { styles, HEADER_H, PROGRESS_H } from './chapter.styles';
 import { BADGES, BOOK_BADGES } from '../../../app/(tabs)/achievements';
 import { useShowBadgeToast } from '../../../contexts/BadgeToastContext';
 import PaywallSheet from '../../../components/PaywallSheet';
+import VerseShareCard from '../../../components/VerseShareCard';
 
 // ── Rich text parser for AI explanation ────────────────────────────────────
 type RichSegment = { text: string; type: 'normal' | 'ref' | 'quote' };
@@ -122,6 +122,7 @@ export default function ReadScreen() {
   const [readVerses, setReadVerses] = useState<Set<number>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
+  const [verseShareData, setVerseShareData] = useState<{ verseStart: number; verseEnd: number; texts: { verse: number; text: string }[] } | null>(null);
   const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
   const [centerVerseIndex, setCenterVerseIndex] = useState<number | null>(null);
   const lastViewableItemsRef = useRef<Array<{ index: number | null }>>([]);
@@ -643,13 +644,11 @@ export default function ReadScreen() {
     cancelSelection();
   }
 
-  async function shareSelectedVerses() {
+  function shareSelectedVerses() {
     if (!selectionRange || !verses) return;
     const selected = verses.filter(v => v.verse >= selectionRange.start && v.verse <= selectionRange.end);
-    const ref = `${book?.name} ${chapter}:${selectionRange.start}${selectionRange.start !== selectionRange.end ? `–${selectionRange.end}` : ''}`;
-    const text = selected.map(v => `${v.verse} ${v.text}`).join('\n');
     cancelSelection();
-    await Share.share({ message: `${ref}\n\n${text}` });
+    setVerseShareData({ verseStart: selectionRange.start, verseEnd: selectionRange.end, texts: selected });
   }
 
   // alreadyDoneRef 동기화 (TTS 콜백 stale closure 방지)
@@ -1088,7 +1087,13 @@ export default function ReadScreen() {
         {selectionMode && selectionRange && (
           <View style={[styles.selectionBar, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: insets.bottom + 12 }]}>
             <Text style={[styles.selectionLabel, { color: colors.text }]} numberOfLines={1}>{verseLabel}</Text>
-            <View style={styles.selectionActions}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.selectionActionsScroll}
+              contentContainerStyle={styles.selectionActionsContent}
+              keyboardShouldPersistTaps="always"
+            >
               <Pressable style={[styles.selBtn, { backgroundColor: colors.gold }]} onPress={openVerseMeditation}>
                 <MaterialCommunityIcons name="notebook-edit-outline" size={15} color="#0B0A12" />
                 <Text style={[styles.selBtnText, { color: '#0B0A12' }]}>묵상</Text>
@@ -1117,10 +1122,10 @@ export default function ReadScreen() {
                 <MaterialCommunityIcons name="share-variant-outline" size={15} color={colors.text} />
                 <Text style={[styles.selBtnText, { color: colors.text }]}>공유</Text>
               </Pressable>
-              <Pressable style={styles.selBtnCancel} onPress={cancelSelection} hitSlop={8}>
-                <MaterialCommunityIcons name="close" size={18} color={colors.muted} />
-              </Pressable>
-            </View>
+            </ScrollView>
+            <Pressable style={styles.selBtnCancel} onPress={cancelSelection} hitSlop={8}>
+              <MaterialCommunityIcons name="close" size={18} color={colors.muted} />
+            </Pressable>
           </View>
         )}
 
@@ -1657,6 +1662,18 @@ export default function ReadScreen() {
             </Animated.View>
           </View>
         </Modal>
+        {/* Verse share card — off-screen, auto-captures and shares */}
+        {verseShareData && book && (
+          <VerseShareCard
+            bookName={book.name}
+            chapter={chapter}
+            verseStart={verseShareData.verseStart}
+            verseEnd={verseShareData.verseEnd}
+            verses={verseShareData.texts}
+            onDone={() => setVerseShareData(null)}
+          />
+        )}
+
         {/* Mini toast */}
         {toastMsg && (
           <Animated.View style={[toastStyles.wrap, { opacity: toastOpacity, bottom: insets.bottom + 60 }]}>
