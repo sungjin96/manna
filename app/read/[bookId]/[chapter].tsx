@@ -12,6 +12,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Switch,
   Text,
@@ -642,6 +643,15 @@ export default function ReadScreen() {
     cancelSelection();
   }
 
+  async function shareSelectedVerses() {
+    if (!selectionRange || !verses) return;
+    const selected = verses.filter(v => v.verse >= selectionRange.start && v.verse <= selectionRange.end);
+    const ref = `${book?.name} ${chapter}:${selectionRange.start}${selectionRange.start !== selectionRange.end ? `–${selectionRange.end}` : ''}`;
+    const text = selected.map(v => `${v.verse} ${v.text}`).join('\n');
+    cancelSelection();
+    await Share.share({ message: `${ref}\n\n${text}` });
+  }
+
   // alreadyDoneRef 동기화 (TTS 콜백 stale closure 방지)
   useEffect(() => { alreadyDoneRef.current = alreadyDone; }, [alreadyDone]);
 
@@ -1102,6 +1112,10 @@ export default function ReadScreen() {
               <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={copySelectedVerses}>
                 <MaterialCommunityIcons name="content-copy" size={15} color={colors.text} />
                 <Text style={[styles.selBtnText, { color: colors.text }]}>복사</Text>
+              </Pressable>
+              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={shareSelectedVerses}>
+                <MaterialCommunityIcons name="share-variant-outline" size={15} color={colors.text} />
+                <Text style={[styles.selBtnText, { color: colors.text }]}>공유</Text>
               </Pressable>
               <Pressable style={styles.selBtnCancel} onPress={cancelSelection} hitSlop={8}>
                 <MaterialCommunityIcons name="close" size={18} color={colors.muted} />

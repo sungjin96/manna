@@ -27,6 +27,17 @@ interface Props {
   verseEnd?: number;
 }
 
+/** memo JSON에서 텍스트 추출 */
+function parseMemoText(text: string): string | null {
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed?.type === 'memo' && typeof parsed.text === 'string') {
+      return parsed.text;
+    }
+  } catch {}
+  return null;
+}
+
 /** Q&A 형식 파싱: JSON 또는 "Q1. 질문\n답변" 텍스트 패턴 감지 */
 function parseQA(text: string): { q: string; a: string }[] | null {
   // 1) JSON 형식 (DB 저장 포맷)
@@ -119,10 +130,12 @@ export default function MeditationShareCard({ verseRef, noteText, date, isPro, b
 
 /** The actual card design that gets captured */
 function ShareCardDesign({ verseRef, noteText, date, isPro }: Props) {
-  const qaEntries = parseQA(noteText);
+  const memoText = parseMemoText(noteText);
+  const resolvedText = memoText ?? noteText;
+  const qaEntries = memoText !== null ? null : parseQA(noteText);
   const isQA = qaEntries !== null;
   const displayNote = !isQA
-    ? (noteText.length > 200 ? noteText.slice(0, 200) + '...' : noteText)
+    ? (resolvedText.length > 200 ? resolvedText.slice(0, 200) + '...' : resolvedText)
     : '';
 
   return (

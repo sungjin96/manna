@@ -273,6 +273,25 @@ const proStyles = StyleSheet.create({
   },
 });
 
+const sectionStyles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  line: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+});
+
 const toggleStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
@@ -423,10 +442,11 @@ export function TTSMiniPlayer({
             {/* Voice chip */}
             <Pressable
               onPress={() => isProUser ? togglePanel('voice') : onUpgrade()}
-              style={[
+              style={({ pressed }) => [
                 sheetStyles.ctrlChip,
                 { borderColor: activePanel === 'voice' ? colors.gold : colors.border },
                 activePanel === 'voice' && { backgroundColor: `${colors.gold}12` },
+                pressed && { opacity: 0.7 },
               ]}
             >
               <Text style={[sheetStyles.ctrlChipText, { color: activePanel === 'voice' ? colors.gold : colors.text }]}>
@@ -446,10 +466,11 @@ export function TTSMiniPlayer({
             {/* Speed chip */}
             <Pressable
               onPress={() => isProUser ? togglePanel('speed') : onUpgrade()}
-              style={[
+              style={({ pressed }) => [
                 sheetStyles.ctrlChip,
                 { borderColor: activePanel === 'speed' ? colors.gold : colors.border },
                 activePanel === 'speed' && { backgroundColor: `${colors.gold}12` },
+                pressed && { opacity: 0.7 },
               ]}
             >
               <Text style={[sheetStyles.ctrlChipText, { color: activePanel === 'speed' ? colors.gold : colors.text }]}>
@@ -469,7 +490,7 @@ export function TTSMiniPlayer({
             {/* Timer chip */}
             <Pressable
               onPress={() => isProUser ? togglePanel('timer') : onUpgrade()}
-              style={[
+              style={({ pressed }) => [
                 sheetStyles.ctrlChip,
                 {
                   borderColor: (timerRemaining !== null || activePanel === 'timer')
@@ -478,6 +499,7 @@ export function TTSMiniPlayer({
                 (timerRemaining !== null || activePanel === 'timer') && {
                   backgroundColor: `${colors.gold}12`,
                 },
+                pressed && { opacity: 0.7 },
               ]}
             >
               <MaterialCommunityIcons
@@ -607,6 +629,7 @@ export function TTSMiniPlayer({
           {/* Settings toggles */}
           <View style={[sheetStyles.divider, { backgroundColor: colors.border }]} />
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: paddingBottom + 8 }}>
+            {/* 무료 기능 */}
             <ToggleRow
               label="자동 완료 처리"
               desc="마지막 구절 읽으면 장 완료로 표시"
@@ -614,31 +637,6 @@ export function TTSMiniPlayer({
               onToggle={onToggleAutoComplete}
               colors={colors}
             />
-            {isProUser ? (
-              <ToggleRow
-                label="자동 다음 장 이동"
-                desc="끝나면 자동으로 다음 장으로 넘어감"
-                value={autoAdvanceEnabled}
-                onToggle={onToggleAutoAdvance}
-                colors={colors}
-              />
-            ) : (
-              <Pressable
-                onPress={onUpgrade}
-                style={[toggleStyles.row, { borderBottomColor: colors.border }]}
-              >
-                <View style={{ flex: 1, marginRight: 12 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                    <Text style={[toggleStyles.label, { color: colors.muted }]}>자동 다음 장 이동</Text>
-                    <View style={[proStyles.badge, { backgroundColor: `${colors.gold}18`, borderColor: `${colors.gold}50` }]}>
-                      <Text style={[proStyles.badgeText, { color: colors.gold }]}>Pro</Text>
-                    </View>
-                  </View>
-                  <Text style={[toggleStyles.desc, { color: colors.muted }]}>끝나면 자동으로 다음 장으로 넘어감</Text>
-                </View>
-                <MaterialCommunityIcons name="lock-outline" size={18} color={colors.muted} />
-              </Pressable>
-            )}
             <ToggleRow
               label="일시정지 버튼"
               desc="재생 중 일시정지 사용"
@@ -653,10 +651,56 @@ export function TTSMiniPlayer({
               onToggle={onToggleVerseRead}
               colors={colors}
             />
+
+            {/* Pro 기능 섹션 헤더 — Free 유저에게만 표시 */}
             {!isProUser && (
+              <View style={[sectionStyles.header]}>
+                <View style={[sectionStyles.line, { backgroundColor: colors.border }]} />
+                <Text style={[sectionStyles.label, { color: colors.gold }]}>Pro 기능</Text>
+                <View style={[sectionStyles.line, { backgroundColor: colors.border }]} />
+              </View>
+            )}
+
+            {/* 자동 다음 장 이동 */}
+            {isProUser ? (
+              <ToggleRow
+                label="자동 다음 장 이동"
+                desc="끝나면 자동으로 다음 장으로 넘어감"
+                value={autoAdvanceEnabled}
+                onToggle={onToggleAutoAdvance}
+                colors={colors}
+              />
+            ) : (
               <Pressable
                 onPress={onUpgrade}
-                style={[toggleStyles.row, { borderBottomColor: colors.border }]}
+                style={({ pressed }) => [toggleStyles.row, { borderBottomColor: colors.border }, pressed && { opacity: 0.7 }]}
+              >
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <Text style={[toggleStyles.label, { color: colors.muted }]}>자동 다음 장 이동</Text>
+                    <View style={[proStyles.badge, { backgroundColor: `${colors.gold}18`, borderColor: `${colors.gold}50` }]}>
+                      <Text style={[proStyles.badgeText, { color: colors.gold }]}>Pro</Text>
+                    </View>
+                  </View>
+                  <Text style={[toggleStyles.desc, { color: colors.muted }]}>끝나면 자동으로 다음 장으로 넘어감</Text>
+                </View>
+                <MaterialCommunityIcons name="lock-outline" size={18} color={colors.muted} />
+              </Pressable>
+            )}
+
+            {/* 백그라운드 재생 — Pro: 활성 중 표시 / Free: 잠금 */}
+            {isProUser ? (
+              <View style={[toggleStyles.row, { borderBottomColor: colors.border }]}>
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <Text style={[toggleStyles.label, { color: colors.text }]}>백그라운드 재생</Text>
+                  <Text style={[toggleStyles.desc, { color: colors.muted }]}>앱을 내려도 계속 재생됩니다</Text>
+                </View>
+                <MaterialCommunityIcons name="check-circle" size={18} color={colors.gold} />
+              </View>
+            ) : (
+              <Pressable
+                onPress={onUpgrade}
+                style={({ pressed }) => [toggleStyles.row, { borderBottomColor: colors.border }, pressed && { opacity: 0.7 }]}
               >
                 <View style={{ flex: 1, marginRight: 12 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>

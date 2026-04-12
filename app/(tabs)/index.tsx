@@ -469,16 +469,27 @@ export default function HomeScreen() {
         {!discoveryLoading && todayRecommendation && (
           <View style={styles.discoverySection}>
             <Text style={styles.discoverySectionLabel}>발견하기</Text>
-            <View style={styles.discoveryCard}>
+            <Pressable
+              style={({ pressed }) => [styles.discoveryCard, pressed && { opacity: 0.75 }]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                router.push(`/read/${todayRecommendation.bookId}/${todayRecommendation.chapter}`);
+              }}
+              accessibilityLabel="오늘의 추천 챕터 읽기"
+            >
               {(() => {
                 const recBook = BOOKS.find(b => b.id === todayRecommendation.bookId);
                 return (
-                  <Text style={styles.discoveryCardText}>
-                    오늘의 추천: {recBook?.name} {todayRecommendation.chapter}장
-                  </Text>
+                  <>
+                    <MaterialCommunityIcons name="star-outline" size={15} color={theme.gold} style={{ marginRight: 6 }} />
+                    <Text style={styles.discoveryCardText}>
+                      오늘의 추천: {recBook?.name} {todayRecommendation.chapter}장
+                    </Text>
+                    <MaterialCommunityIcons name="chevron-right" size={16} color={theme.gold} style={{ marginLeft: 'auto' }} />
+                  </>
                 );
               })()}
-            </View>
+            </Pressable>
             <View style={styles.discoveryButtons}>
               <Pressable
                 style={({ pressed }) => [styles.discoveryBtn, pressed && { opacity: 0.75 }]}
@@ -492,17 +503,6 @@ export default function HomeScreen() {
               >
                 <MaterialCommunityIcons name="shuffle-variant" size={16} color={theme.gold} />
                 <Text style={styles.discoveryBtnText}>랜덤으로 읽기</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [styles.discoveryBtn, pressed && { opacity: 0.75 }]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  router.push(`/read/${todayRecommendation.bookId}/${todayRecommendation.chapter}`);
-                }}
-                accessibilityLabel="오늘의 추천 챕터 읽기"
-              >
-                <MaterialCommunityIcons name="star-outline" size={16} color={theme.gold} />
-                <Text style={styles.discoveryBtnText}>오늘의 추천</Text>
               </Pressable>
             </View>
           </View>
@@ -1013,6 +1013,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.goldBorder,
     marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   discoveryCardText: {
     fontSize: 15,
