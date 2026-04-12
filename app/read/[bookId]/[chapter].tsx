@@ -1090,7 +1090,7 @@ export default function ReadScreen() {
             <View style={styles.selectionActions}>
               <Pressable style={[styles.selBtn, { backgroundColor: colors.gold, flex: 1 }]} onPress={openVerseMeditation}>
                 <MaterialCommunityIcons name="notebook-edit-outline" size={15} color="#0B0A12" />
-                <Text style={[styles.selBtnText, { color: '#0B0A12' }]}>묵상</Text>
+                <Text style={[styles.selBtnText, { color: '#0B0A12' }]}>기록</Text>
               </Pressable>
               <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border, flex: 1 }]} onPress={openAIMeditation}>
                 <MaterialCommunityIcons name="robot-outline" size={15} color={colors.gold} />

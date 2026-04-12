@@ -226,6 +226,8 @@ export default function MeditationsScreen() {
   const [filterSort, setFilterSort] = useState<FilterSort>('newest');
   const [filterQA, setFilterQA] = useState<FilterQA>('all');
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [showExtraFilters, setShowExtraFilters] = useState(false);
+  const [longPressTarget, setLongPressTarget] = useState<Meditation | null>(null);
   const [editTarget, setEditTarget] = useState<Meditation | null>(null);
   const [editNote, setEditNote] = useState('');
   const [editQaEntries, setEditQaEntries] = useState<{ q: string; a: string }[]>([]);
@@ -341,10 +343,41 @@ export default function MeditationsScreen() {
   // 리스트 모드에서 표시할 아이템
   const listItems = viewMode === 'list' ? filteredItems : dayItems;
 
+  // 기록 서머리
+  const summary = useMemo(() => {
+    const now = new Date();
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthItems = items.filter(m => m.createdAt.startsWith(thisMonth));
+    // 가장 많이 기록한 책
+    const bookCounts: Record<number, number> = {};
+    for (const m of items) {
+      bookCounts[m.bookId] = (bookCounts[m.bookId] ?? 0) + 1;
+    }
+    const topBookId = Object.entries(bookCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const topBook = topBookId ? BOOKS.find(b => b.id === Number(topBookId)) : null;
+    return { monthCount: monthItems.length, topBook: topBook?.name ?? null };
+  }, [items]);
+
+  // 캘린더 월별 통계
+  const calendarStats = useMemo(() => {
+    const meditationCount = items.filter(m => getNoteType(m.note) !== 'memo').length;
+    const memoCount = items.filter(m => getNoteType(m.note) === 'memo').length;
+    return { meditationCount, memoCount };
+  }, [items]);
+
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>불러오는 중...</Text>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={[styles.skeleton, { width: 60, height: 24 }]} />
+          <View style={[styles.skeleton, { width: 60, height: 32 }]} />
+        </View>
+        <View style={{ padding: 16, gap: 12 }}>
+          <View style={[styles.skeleton, { height: 44, borderRadius: 12 }]} />
+          <View style={[styles.skeleton, { height: 100, borderRadius: 14 }]} />
+          <View style={[styles.skeleton, { height: 100, borderRadius: 14 }]} />
+          <View style={[styles.skeleton, { height: 100, borderRadius: 14 }]} />
+        </View>
       </View>
     );
   }
@@ -383,6 +416,13 @@ export default function MeditationsScreen() {
         </View>
       </View>
 
+      {/* 기록 서머리 */}
+      <View style={styles.summaryRow}>
+        <Text style={styles.summaryText}>
+          이번 달 {summary.monthCount}개{summary.topBook ? ` · 최다 ${summary.topBook}` : ''}
+        </Text>
+      </View>
+
       {/* 검색바 — 리스트 모드만 */}
       {viewMode === 'list' && (
         <View style={styles.searchBar}>
@@ -404,56 +444,70 @@ export default function MeditationsScreen() {
         </View>
       )}
 
-      {/* 필터 칩 row */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterRow}
-        contentContainerStyle={styles.filterRowContent}
-      >
-        {(['all', 'meditation', 'memo'] as FilterType[]).map(type => (
+      {/* 필터 — 핵심 3개 + 확장 토글 */}
+      <View style={styles.filterRow}>
+        <View style={styles.filterRowContent}>
+          {(['all', 'meditation', 'memo'] as FilterType[]).map(type => (
+            <Pressable
+              key={type}
+              style={[styles.filterChip, filterType === type && styles.filterChipActive]}
+              onPress={() => setFilterType(type)}
+            >
+              <Text style={[styles.filterChipText, filterType === type && styles.filterChipTextActive]}>
+                {type === 'all' ? '전체' : type === 'meditation' ? '묵상' : '메모'}
+              </Text>
+            </Pressable>
+          ))}
+
+          <View style={{ flex: 1 }} />
+
           <Pressable
-            key={type}
-            style={[styles.filterChip, filterType === type && styles.filterChipActive]}
-            onPress={() => setFilterType(type)}
+            onPress={() => setShowExtraFilters(!showExtraFilters)}
+            hitSlop={8}
+            style={[styles.filterToggle, showExtraFilters && styles.filterToggleActive]}
           >
-            <Text style={[styles.filterChipText, filterType === type && styles.filterChipTextActive]}>
-              {type === 'all' ? '전체' : type === 'meditation' ? '묵상' : '메모'}
-            </Text>
+            <MaterialCommunityIcons
+              name="tune-variant"
+              size={18}
+              color={showExtraFilters ? theme.gold : theme.textMuted}
+            />
           </Pressable>
-        ))}
+        </View>
 
-        <View style={styles.filterSep} />
-
-        {(['newest', 'oldest'] as FilterSort[]).map(sort => (
-          <Pressable
-            key={sort}
-            style={[styles.filterChip, filterSort === sort && styles.filterChipActive]}
-            onPress={() => setFilterSort(sort)}
-          >
-            <Text style={[styles.filterChipText, filterSort === sort && styles.filterChipTextActive]}>
-              {sort === 'newest' ? '최신순' : '오래된순'}
-            </Text>
-          </Pressable>
-        ))}
-
-        {filterType !== 'memo' && (
-          <>
-            <View style={styles.filterSep} />
-            {(['all', 'complete', 'incomplete'] as FilterQA[]).map(qa => (
+        {/* 확장 필터 */}
+        {showExtraFilters && (
+          <View style={styles.extraFilters}>
+            {(['newest', 'oldest'] as FilterSort[]).map(sort => (
               <Pressable
-                key={qa}
-                style={[styles.filterChip, filterQA === qa && styles.filterChipActive]}
-                onPress={() => setFilterQA(qa)}
+                key={sort}
+                style={[styles.filterChip, filterSort === sort && styles.filterChipActive]}
+                onPress={() => setFilterSort(sort)}
               >
-                <Text style={[styles.filterChipText, filterQA === qa && styles.filterChipTextActive]}>
-                  {qa === 'all' ? 'Q&A 전체' : qa === 'complete' ? '완성' : '미완성'}
+                <Text style={[styles.filterChipText, filterSort === sort && styles.filterChipTextActive]}>
+                  {sort === 'newest' ? '최신순' : '오래된순'}
                 </Text>
               </Pressable>
             ))}
-          </>
+
+            {filterType !== 'memo' && (
+              <>
+                <View style={styles.filterSep} />
+                {(['all', 'complete', 'incomplete'] as FilterQA[]).map(qa => (
+                  <Pressable
+                    key={qa}
+                    style={[styles.filterChip, filterQA === qa && styles.filterChipActive]}
+                    onPress={() => setFilterQA(qa)}
+                  >
+                    <Text style={[styles.filterChipText, filterQA === qa && styles.filterChipTextActive]}>
+                      {qa === 'all' ? 'Q&A 전체' : qa === 'complete' ? '완성' : '미완성'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </>
+            )}
+          </View>
         )}
-      </ScrollView>
+      </View>
 
       {/* 캘린더 뷰 */}
       {viewMode === 'calendar' && (
@@ -481,8 +535,7 @@ export default function MeditationsScreen() {
                     item={item}
                     query=""
                     router={router}
-                    onEdit={openEdit}
-                    onDelete={setDeleteTarget}
+                    onLongPress={setLongPressTarget}
                   />
                 ))
               )}
@@ -490,6 +543,22 @@ export default function MeditationsScreen() {
           )}
           {!selectedDay && (
             <View style={styles.calendarHint}>
+              <View style={styles.calMonthStats}>
+                <View style={styles.calStatItem}>
+                  <Text style={styles.calStatValue}>{calendarStats.meditationCount}</Text>
+                  <Text style={styles.calStatLabel}>묵상</Text>
+                </View>
+                <View style={[styles.calStatDivider]} />
+                <View style={styles.calStatItem}>
+                  <Text style={[styles.calStatValue, { color: MEMO_COLOR }]}>{calendarStats.memoCount}</Text>
+                  <Text style={styles.calStatLabel}>메모</Text>
+                </View>
+                <View style={[styles.calStatDivider]} />
+                <View style={styles.calStatItem}>
+                  <Text style={styles.calStatValue}>{items.length}</Text>
+                  <Text style={styles.calStatLabel}>전체</Text>
+                </View>
+              </View>
               <Text style={styles.calendarHintText}>날짜를 탭하면 그날의 기록을 볼 수 있어요</Text>
               <View style={styles.legendRow}>
                 <View style={[styles.legendDot, { backgroundColor: theme.gold }]} />
@@ -530,8 +599,7 @@ export default function MeditationsScreen() {
                   item={item}
                   query={query}
                   router={router}
-                  onEdit={openEdit}
-                  onDelete={setDeleteTarget}
+                  onLongPress={setLongPressTarget}
                 />
               )}
             />
@@ -647,6 +715,57 @@ export default function MeditationsScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* 롱프레스 액션 메뉴 */}
+      <Modal visible={longPressTarget !== null} transparent animationType="fade">
+        <View style={styles.actionOverlay}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setLongPressTarget(null)} />
+          <View style={styles.actionSheet}>
+            <Pressable
+              style={styles.actionSheetBtn}
+              onPress={() => {
+                if (!longPressTarget) return;
+                const target = longPressTarget;
+                setLongPressTarget(null);
+                router.push(`/read/${target.bookId}/${target.chapter}${target.verseStart ? `?verse=${target.verseStart}` : ''}`);
+              }}
+            >
+              <MaterialCommunityIcons name="book-open-variant" size={20} color={theme.text} />
+              <Text style={styles.actionSheetText}>구절로 이동</Text>
+            </Pressable>
+            <Pressable
+              style={styles.actionSheetBtn}
+              onPress={() => {
+                if (!longPressTarget) return;
+                const target = longPressTarget;
+                setLongPressTarget(null);
+                openEdit(target);
+              }}
+            >
+              <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.text} />
+              <Text style={styles.actionSheetText}>수정</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.actionSheetBtn, styles.actionSheetBtnDanger]}
+              onPress={() => {
+                if (!longPressTarget) return;
+                const target = longPressTarget;
+                setLongPressTarget(null);
+                setDeleteTarget(target);
+              }}
+            >
+              <MaterialCommunityIcons name="trash-can-outline" size={20} color="#E07A7A" />
+              <Text style={[styles.actionSheetText, { color: '#E07A7A' }]}>삭제</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.actionSheetBtn, styles.actionSheetBtnCancel]}
+              onPress={() => setLongPressTarget(null)}
+            >
+              <Text style={[styles.actionSheetText, { color: theme.textMuted, textAlign: 'center' }]}>취소</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       {/* 삭제 확인 */}
       <MannaAlert
         visible={deleteTarget !== null}
@@ -667,14 +786,12 @@ function MeditationCard({
   item,
   query,
   router,
-  onEdit,
-  onDelete,
+  onLongPress,
 }: {
   item: Meditation;
   query: string;
   router: ReturnType<typeof useRouter>;
-  onEdit: (item: Meditation) => void;
-  onDelete: (item: Meditation) => void;
+  onLongPress: (item: Meditation) => void;
 }) {
   const noteType = getNoteType(item.note);
   const preview = renderNotePreview(item.note);
@@ -683,8 +800,13 @@ function MeditationCard({
 
   return (
     <Pressable
-      style={[styles.card, isMemo && styles.cardMemo]}
+      style={[
+        styles.card,
+        isMemo ? styles.cardMemoTint : styles.cardMeditationTint,
+      ]}
       onPress={() => router.push(`/read/${item.bookId}/${item.chapter}${item.verseStart ? `?verse=${item.verseStart}` : ''}`)}
+      onLongPress={() => onLongPress(item)}
+      delayLongPress={400}
     >
       <View style={styles.cardTop}>
         <View style={styles.cardTopLeft}>
@@ -708,23 +830,21 @@ function MeditationCard({
             : seg.part
         )}
       </Text>
-      <Pressable style={styles.cardActions} onPress={(e) => e.stopPropagation()}>
-        <MeditationShareCard
-          verseRef={bookChapterLabel(item.bookId, item.chapter, item.verseStart, item.verseEnd)}
-          noteText={item.note}
-          date={formatDate(item.createdAt)}
-          bookId={item.bookId}
-          chapter={item.chapter}
-          verseStart={item.verseStart}
-          verseEnd={item.verseEnd}
-        />
-        <Pressable style={styles.actionBtn} onPress={() => onEdit(item)} hitSlop={8}>
-          <MaterialCommunityIcons name="pencil-outline" size={18} color={theme.textMuted} />
+      {/* 공유 버튼만 유지, 수정/삭제는 롱프레스 */}
+      <View style={styles.cardActions}>
+        <Pressable onPress={(e) => e.stopPropagation()}>
+          <MeditationShareCard
+            verseRef={bookChapterLabel(item.bookId, item.chapter, item.verseStart, item.verseEnd)}
+            noteText={item.note}
+            date={formatDate(item.createdAt)}
+            bookId={item.bookId}
+            chapter={item.chapter}
+            verseStart={item.verseStart}
+            verseEnd={item.verseEnd}
+          />
         </Pressable>
-        <Pressable style={styles.actionBtn} onPress={() => onDelete(item)} hitSlop={8}>
-          <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.textMuted} />
-        </Pressable>
-      </Pressable>
+        <Text style={styles.cardLongPressHint}>길게 눌러 더보기</Text>
+      </View>
     </Pressable>
   );
 }
@@ -738,7 +858,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
     flexDirection: 'row',
@@ -764,8 +884,9 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    margin: 12,
+    marginHorizontal: 12,
     marginTop: 8,
+    marginBottom: 4,
     paddingHorizontal: 12,
     paddingVertical: 9,
     backgroundColor: theme.surface,
@@ -778,6 +899,24 @@ const styles = StyleSheet.create({
 
   list: { padding: 16, paddingTop: 4, gap: 12 },
 
+  // Skeleton
+  skeleton: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 6,
+  },
+
+  // Summary
+  summaryRow: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  summaryText: {
+    fontSize: 12,
+    color: theme.textMuted,
+    letterSpacing: 0.2,
+  },
+
   card: {
     backgroundColor: theme.surface,
     borderRadius: 14,
@@ -785,8 +924,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
   },
-  cardMemo: {
-    // 왼쪽 border 제거 — 배지 색상으로 충분히 구분됨
+  cardMemoTint: {
+    backgroundColor: `rgba(122,163,212,0.04)`,
+  },
+  cardMeditationTint: {
+    backgroundColor: `rgba(212,168,71,0.03)`,
+  },
+  cardLongPressHint: {
+    fontSize: 10,
+    color: theme.textMuted,
+    opacity: 0.5,
   },
   filterRow: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -796,8 +943,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 6,
+    paddingBottom: 10,
     gap: 8,
+  },
+  filterToggle: {
+    padding: 6,
+    borderRadius: 8,
+  },
+  filterToggleActive: {
+    backgroundColor: `${theme.gold}15`,
+  },
+  extraFilters: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    gap: 8,
+    flexWrap: 'wrap',
   },
   filterChip: {
     paddingHorizontal: 12,
@@ -842,11 +1005,47 @@ const styles = StyleSheet.create({
   cardActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 16,
+    justifyContent: 'space-between',
     marginTop: 12,
   },
-  actionBtn: { padding: 4 },
+
+  // 롱프레스 액션 메뉴
+  actionOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  actionSheet: {
+    backgroundColor: theme.surface,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 320,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+  },
+  actionSheetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.borderSubtle,
+  },
+  actionSheetBtnDanger: {},
+  actionSheetBtnCancel: {
+    justifyContent: 'center',
+    backgroundColor: theme.surface2,
+    borderBottomWidth: 0,
+  },
+  actionSheetText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.text,
+  },
 
   typeBadge: {
     flexDirection: 'row',
@@ -876,6 +1075,38 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 32,
     gap: 10,
+  },
+  calMonthStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    marginBottom: 16,
+    paddingVertical: 16,
+    backgroundColor: theme.surface,
+    borderRadius: 14,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  calStatItem: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  calStatValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: theme.gold,
+  },
+  calStatLabel: {
+    fontSize: 11,
+    color: theme.textMuted,
+    fontWeight: '600',
+  },
+  calStatDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: theme.borderSubtle,
   },
   calendarHintText: { fontSize: 13, color: theme.textMuted },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

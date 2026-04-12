@@ -1,7 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { BOOKS } from '../../constants/books';
 import { useReadingProgress } from '../../hooks/useReadingProgress';
 import { checkAIEntitlement, purchasePremium } from '../../utils/subscriptions';
@@ -10,32 +20,51 @@ import { getMeditationCount } from '../../db/meditations';
 import { BADGES, BOOK_BADGES, type Badge, type Tier } from './achievements';
 import StreakHeatmap from '../../components/StreakHeatmap';
 import PaywallSheet from '../../components/PaywallSheet';
+import BookGrid from '../../components/BookGrid';
+import ChapterSheet from '../../components/ChapterSheet';
 import { theme } from '../../constants/theme';
 
 const TIER_COLORS: Record<Tier, string> = {
   bronze: '#CD7F32', silver: '#A8B0BB', gold: '#D4A847', diamond: '#7EC8E3',
 };
 
-type AccordionItem =
-  | { type: 'section'; label: string }
-  | { type: 'header'; bookId: number }
-  | { type: 'chapter'; bookId: number; chapter: number };
+const TIER_ORDER: Tier[] = ['diamond', 'gold', 'silver', 'bronze'];
+const TIER_LABELS: Record<Tier, string> = {
+  bronze: 'BRONZE', silver: 'SILVER', gold: 'GOLD', diamond: 'DIAMOND',
+};
 
 export default function ProgressScreen() {
   const router = useRouter();
   const { completed, loading } = useReadingProgress();
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [isPro, setIsPro] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallLoading, setPaywallLoading] = useState(false);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [meditationCount, setMeditationCount] = useState(0);
+  const [showAllBadges, setShowAllBadges] = useState(false);
+  const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
 
+  // Animation
+  const progressAnim = useRef(new Animated.Value(0)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      checkAIEntitlement().then(setIsPro).catch(() => {});
+      getStats().then(setStats);
+      getMeditationCount().then(setMeditationCount);
+    }, [])
+  );
+
+  // Animate progress bar
   useEffect(() => {
-    checkAIEntitlement().then(setIsPro).catch(() => {});
-    getStats().then(setStats);
-    getMeditationCount().then(setMeditationCount);
-  }, []);
+    const pct = (completed.size / 1189) * 100;
+    Animated.timing(progressAnim, {
+      toValue: pct,
+      duration: 800,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [completed.size]);
 
   async function handlePurchase() {
     setPaywallLoading(true);
@@ -47,152 +76,228 @@ export default function ProgressScreen() {
     }
   }
 
-  const toggleBook = useCallback((bookId: number) => {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      if (next.has(bookId)) next.delete(bookId);
-      else next.add(bookId);
-      return next;
+  // Badge calculations
+  const allBadges = useMemo(() => [...BADGES, ...BOOK_BADGES], []);
+  const earnedBadges = useMemo(() => {
+    if (!stats) return [];
+    return allBadges.filter(b => b.check(stats, completed, meditationCount));
+  }, [stats, completed, meditationCount, allBadges]);
+
+  // Recent badges: sorted by tier (highest first), take 6
+  const recentBadges = useMemo(() => {
+    const sorted = [...earnedBadges].sort((a, b) => {
+      const tierIdx = (t: Tier) => TIER_ORDER.indexOf(t);
+      return tierIdx(a.tier) - tierIdx(b.tier);
     });
-  }, []);
+    return sorted.slice(0, 6);
+  }, [earnedBadges]);
 
-  const items = useMemo<AccordionItem[]>(() => {
-    const out: AccordionItem[] = [];
-    // 구약/신약 섹션 헤더 삽입
-    out.push({ type: 'section', label: '구약 (39권)' });
-    for (const book of BOOKS) {
-      if (book.id === 40) out.push({ type: 'section', label: '신약 (27권)' });
-      out.push({ type: 'header', bookId: book.id });
-      if (expanded.has(book.id)) {
-        for (let ch = 1; ch <= book.chapters; ch++) {
-          out.push({ type: 'chapter', bookId: book.id, chapter: ch });
-        }
-      }
-    }
-    return out;
-  }, [expanded]);
+  const progressBarWidth = progressAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
 
-  const renderItem = useCallback(
-    ({ item }: { item: AccordionItem }) => {
-      if (item.type === 'section') {
-        return (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>{item.label}</Text>
-          </View>
-        );
-      }
+  const totalDone = completed.size;
+  const completionPct = Math.round((totalDone / 1189) * 100 * 10) / 10;
 
-      if (item.type === 'header') {
-        const book = BOOKS[item.bookId - 1];
-        const doneCount = Array.from({ length: book.chapters }, (_, i) =>
-          completed.has(`${book.id}:${i + 1}`) ? 1 : 0
-        ).reduce((a: number, b: number) => a + b, 0);
-        const isOpen = expanded.has(book.id);
-        const pct = (doneCount / book.chapters) * 100;
-
-        return (
-          <Pressable style={styles.bookRow} onPress={() => toggleBook(book.id)}>
-            <View style={styles.bookInfo}>
-              <Text style={styles.bookName}>{book.name}</Text>
-              <Text style={styles.bookProgress}>
-                {doneCount}/{book.chapters}
-              </Text>
-            </View>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${pct}%` as any }]} />
-            </View>
-            <MaterialCommunityIcons
-              name={isOpen ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={theme.textMuted}
-            />
-          </Pressable>
-        );
-      }
-
-      const key = `${item.bookId}:${item.chapter}`;
-      const done = completed.has(key);
-      return (
-        <Pressable
-          style={styles.chapterRow}
-          onPress={() => router.push(`/read/${item.bookId}/${item.chapter}`)}
-        >
-          <Text style={[styles.chapterNum, done && styles.chapterDone]}>
-            {item.chapter}장
-          </Text>
-          {done && (
-            <MaterialCommunityIcons name="check-circle" size={16} color={theme.gold} />
-          )}
-        </Pressable>
-      );
-    },
-    [completed, expanded, toggleBook, router]
-  );
-
+  // Skeleton
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.loadingText}>불러오는 중...</Text>
+      <View style={styles.container}>
+        <View style={styles.headerArea}>
+          <View style={[styles.skeleton, { width: 100, height: 20 }]} />
+          <View style={[styles.skeleton, { width: 80, height: 14, marginTop: 6 }]} />
+          <View style={[styles.skeleton, { height: 6, borderRadius: 3, marginTop: 12 }]} />
+        </View>
+        <View style={{ padding: 20 }}>
+          <View style={[styles.skeleton, { height: 200, borderRadius: 12 }]} />
+        </View>
       </View>
     );
   }
 
-  const totalDone = completed.size;
-
-  // 최고 등급 뱃지 (헤더에 표시)
-  const tierOrder: Tier[] = ['diamond', 'gold', 'silver', 'bronze'];
-  const topBadge = stats ? (() => {
-    const earned = [...BADGES, ...BOOK_BADGES].filter(b => b.check(stats, completed, meditationCount));
-    for (const tier of tierOrder) {
-      const found = earned.find(b => b.tier === tier);
-      if (found) return found;
-    }
-    return null;
-  })() : null;
-
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>진행률</Text>
-          <Text style={styles.headerSub}>{totalDone} / 1189 챕터</Text>
-        </View>
-        {topBadge && (
-          <Pressable onPress={() => router.push('/(tabs)/achievements')} style={styles.headerBadge}>
-            <View style={[styles.headerBadgeIcon, { backgroundColor: `${TIER_COLORS[topBadge.tier]}15` }]}>
-              <MaterialCommunityIcons name={topBadge.icon} size={18} color={TIER_COLORS[topBadge.tier]} />
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Header: Progress summary ── */}
+        <View style={styles.headerArea}>
+          <Text style={styles.headerTitle}>나의 여정</Text>
+          <View style={styles.headerStats}>
+            <Text style={styles.headerCount}>{totalDone}</Text>
+            <Text style={styles.headerTotal}> / 1189</Text>
+          </View>
+          <View style={styles.progressRow}>
+            <View style={styles.progressBar}>
+              <Animated.View style={[styles.progressFill, { width: progressBarWidth }]} />
             </View>
-            <Text style={[styles.headerBadgeLabel, { color: TIER_COLORS[topBadge.tier] }]}>{topBadge.title}</Text>
-          </Pressable>
-        )}
-      </View>
-      <FlatList
-        data={items}
-        keyExtractor={item =>
-          item.type === 'section'
-            ? `s-${item.label}`
-            : item.type === 'header'
-            ? `h-${item.bookId}`
-            : `c-${item.bookId}-${item.chapter}`
-        }
-        renderItem={renderItem}
-        removeClippedSubviews
-        maxToRenderPerBatch={20}
-        windowSize={10}
-        ListHeaderComponent={
+            <Text style={styles.progressPct}>{completionPct}%</Text>
+          </View>
+        </View>
+
+        {/* ── 66-Book Grid ── */}
+        <View style={styles.section}>
+          <BookGrid completed={completed} onBookPress={setSelectedBookId} />
+        </View>
+
+        {/* ── Badges Section ── */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>BADGES</Text>
+            <Text style={styles.sectionCount}>{earnedBadges.length} / {allBadges.length}</Text>
+          </View>
+
+          {earnedBadges.length === 0 ? (
+            <View style={styles.emptyBadge}>
+              <MaterialCommunityIcons name="trophy-outline" size={28} color={theme.textMuted} />
+              <Text style={styles.emptyBadgeText}>첫 챕터를 읽고 첫 뱃지를 획득하세요</Text>
+            </View>
+          ) : (
+            <>
+              {/* Recent badges carousel */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.badgeCarousel}
+              >
+                {recentBadges.map(badge => (
+                  <View
+                    key={badge.id}
+                    style={[styles.badgeChip, { borderColor: `${TIER_COLORS[badge.tier]}44` }]}
+                  >
+                    <View style={[styles.badgeChipIcon, { backgroundColor: `${TIER_COLORS[badge.tier]}15` }]}>
+                      <MaterialCommunityIcons
+                        name={badge.icon}
+                        size={18}
+                        color={TIER_COLORS[badge.tier]}
+                      />
+                    </View>
+                    <Text style={[styles.badgeChipTitle, { color: TIER_COLORS[badge.tier] }]} numberOfLines={1}>
+                      {badge.title}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+
+              {/* Show all toggle */}
+              <Pressable
+                style={({ pressed }) => [styles.showAllBtn, pressed && { opacity: 0.7 }]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setShowAllBadges(!showAllBadges);
+                }}
+              >
+                <Text style={styles.showAllText}>
+                  {showAllBadges ? '접기' : '전체 보기'}
+                </Text>
+                <MaterialCommunityIcons
+                  name={showAllBadges ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={theme.gold}
+                />
+              </Pressable>
+
+              {/* Full badge grid (expanded) */}
+              {showAllBadges && (
+                <View style={styles.fullBadgeGrid}>
+                  {/* Achievement badges by tier */}
+                  {TIER_ORDER.slice().reverse().map(tier => {
+                    const tierBadges = BADGES.filter(b => b.tier === tier);
+                    if (tierBadges.length === 0) return null;
+                    const tierEarned = tierBadges.filter(b =>
+                      stats ? b.check(stats, completed, meditationCount) : false
+                    ).length;
+
+                    return (
+                      <View key={tier} style={styles.tierSection}>
+                        <View style={styles.tierHeader}>
+                          <View style={[styles.tierDot, { backgroundColor: TIER_COLORS[tier] }]} />
+                          <Text style={[styles.tierLabel, { color: TIER_COLORS[tier] }]}>
+                            {TIER_LABELS[tier]}
+                          </Text>
+                          <View style={styles.tierDivider} />
+                          <Text style={styles.tierCount}>{tierEarned}/{tierBadges.length}</Text>
+                        </View>
+                        <View style={styles.badgeRow}>
+                          {tierBadges.map(badge => {
+                            const earned = stats ? badge.check(stats, completed, meditationCount) : false;
+                            return (
+                              <View
+                                key={badge.id}
+                                style={[
+                                  styles.badgeMiniCard,
+                                  earned
+                                    ? { borderColor: TIER_COLORS[badge.tier], backgroundColor: `${TIER_COLORS[badge.tier]}10` }
+                                    : styles.badgeMiniCardLocked,
+                                ]}
+                              >
+                                <MaterialCommunityIcons
+                                  name={earned ? badge.icon : 'lock-outline'}
+                                  size={20}
+                                  color={earned ? TIER_COLORS[badge.tier] : 'rgba(255,255,255,0.15)'}
+                                />
+                                <Text
+                                  style={[
+                                    styles.badgeMiniTitle,
+                                    earned ? { color: TIER_COLORS[badge.tier] } : { color: 'rgba(255,255,255,0.2)' },
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {badge.title}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+
+                  {/* Book badges summary */}
+                  <View style={styles.tierSection}>
+                    <View style={styles.tierHeader}>
+                      <View style={[styles.tierDot, { backgroundColor: theme.gold }]} />
+                      <Text style={[styles.tierLabel, { color: theme.gold }]}>66권 완독</Text>
+                      <View style={styles.tierDivider} />
+                      <Text style={styles.tierCount}>
+                        {BOOK_BADGES.filter(b => stats ? b.check(stats, completed, meditationCount) : false).length}/{BOOK_BADGES.length}
+                      </Text>
+                    </View>
+                    <Text style={styles.bookBadgeHint}>
+                      위 타일 그리드에서 각 권의 진행도를 확인하세요
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+
+        {/* ── Heatmap ── */}
+        <View style={styles.section}>
           <Pressable
             style={styles.heatmapWrapper}
             onPress={() => isPro ? router.push('/reading-history') : setShowPaywall(true)}
           >
             <StreakHeatmap isPro={isPro} onUpgrade={() => setShowPaywall(true)} />
           </Pressable>
-        }
-      />
+        </View>
+      </ScrollView>
+
       <PaywallSheet
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
         onPurchase={handlePurchase}
         loading={paywallLoading}
+      />
+
+      <ChapterSheet
+        bookId={selectedBookId}
+        completed={completed}
+        onClose={() => setSelectedBookId(null)}
       />
     </View>
   );
@@ -200,22 +305,18 @@ export default function ProgressScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
-  heatmapWrapper: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 },
-  center: {
-    flex: 1,
-    backgroundColor: theme.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
+  scroll: { paddingBottom: 40 },
+
+  // Skeleton
+  skeleton: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 6,
   },
-  loadingText: { color: theme.textMuted, fontSize: 14 },
-  header: {
+
+  // Header
+  headerArea: {
     padding: 20,
     paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 24,
@@ -223,71 +324,192 @@ const styles = StyleSheet.create({
     color: theme.text,
     letterSpacing: 0.3,
   },
-  headerSub: { fontSize: 13, color: theme.textMuted, marginTop: 4 },
-  headerBadge: {
-    alignItems: 'center',
-    gap: 3,
+  headerStats: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 4,
   },
-  headerBadgeIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerCount: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: theme.gold,
+    letterSpacing: -1,
   },
-  headerBadgeLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+  headerTotal: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.textMuted,
   },
-  bookRow: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.borderSubtle,
+  progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    marginTop: 12,
   },
-  bookInfo: { flex: 1 },
-  bookName: { fontSize: 15, fontWeight: '600', color: theme.text },
-  bookProgress: { fontSize: 11, color: theme.textMuted, marginTop: 2 },
   progressBar: {
-    width: 72,
-    height: 3,
+    flex: 1,
+    height: 6,
     backgroundColor: theme.goldBg,
-    borderRadius: 2,
+    borderRadius: 3,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: theme.goldBorder,
   },
   progressFill: {
     height: '100%',
     backgroundColor: theme.gold,
-    borderRadius: 2,
+    borderRadius: 3,
   },
-  chapterRow: {
-    paddingHorizontal: 36,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
-  },
-  chapterNum: { fontSize: 14, color: theme.textSub },
-  chapterDone: { color: theme.gold, fontWeight: '600' },
-  sectionHeader: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(212,168,71,0.06)',
-    borderBottomWidth: 1,
-    borderBottomColor: theme.borderSubtle,
-  },
-  sectionLabel: {
-    fontSize: 12,
+  progressPct: {
+    fontSize: 13,
     fontWeight: '700',
     color: theme.gold,
-    letterSpacing: 0.5,
+    minWidth: 42,
+    textAlign: 'right',
+  },
+
+  // Sections
+  section: {
+    paddingHorizontal: 20,
+    marginTop: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.textMuted,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  sectionCount: {
+    fontSize: 12,
+    color: theme.textMuted,
+    fontWeight: '600',
+  },
+
+  // Empty badge state
+  emptyBadge: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    gap: 8,
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+  },
+  emptyBadgeText: {
+    fontSize: 13,
+    color: theme.textMuted,
+  },
+
+  // Badge carousel
+  badgeCarousel: {
+    gap: 8,
+    paddingRight: 20,
+  },
+  badgeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  badgeChipIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeChipTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    maxWidth: 80,
+  },
+
+  // Show all button
+  showAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  showAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.gold,
+  },
+
+  // Full badge grid
+  fullBadgeGrid: {
+    marginTop: 8,
+    gap: 20,
+  },
+  tierSection: {
+    gap: 8,
+  },
+  tierHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  tierDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  tierLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+  },
+  tierDivider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  tierCount: {
+    fontSize: 11,
+    color: theme.textMuted,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  badgeMiniCard: {
+    alignItems: 'center',
+    gap: 4,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    minWidth: 70,
+  },
+  badgeMiniCardLocked: {
+    borderColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  badgeMiniTitle: {
+    fontSize: 9,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  bookBadgeHint: {
+    fontSize: 12,
+    color: theme.textMuted,
+    fontStyle: 'italic',
+  },
+
+  // Heatmap
+  heatmapWrapper: {
+    paddingTop: 4,
   },
 });

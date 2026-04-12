@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Dimensions,
   Easing,
   Modal,
   Pressable,
@@ -23,9 +24,15 @@ import { getChaptersForDay, PlanChapter, READING_PLANS, PlanId } from '../../con
 import { BOOKS } from '../../constants/books';
 import { theme } from '../../constants/theme';
 import { scheduleReadingReminder } from '../../utils/notifications';
-import WeeklyReportCard from '../../components/WeeklyReportCard';
+import { BADGES, BOOK_BADGES, type Badge, type Tier } from './achievements';
+import { getAllMeditations } from '../../db/meditations';
+import ProgressRing from '../../components/ProgressRing';
+import BadgeSelectSheet, { getSelectedBadgeId } from '../../components/BadgeSelectSheet';
 
 const XP_PER_LEVEL = 1200;
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// ── Helpers ───────────────────────────────────────────────────────────
 
 function nextAfter(bookId: number, chapter: number): { bookId: number; chapter: number } {
   const book = BOOKS.find(b => b.id === bookId);
@@ -35,11 +42,41 @@ function nextAfter(bookId: number, chapter: number): { bookId: number; chapter: 
   return nextBook ? { bookId: nextBook.id, chapter: 1 } : { bookId: 1, chapter: 1 };
 }
 
+function greetingText(): string {
+  const h = new Date().getHours();
+  if (h < 6) return '새벽을 깨우며';
+  if (h < 12) return '좋은 아침';
+  if (h < 18) return '좋은 오후';
+  if (h < 22) return '오늘 하루 마무리';
+  return '늦은 밤에도';
+}
+
 function todayLabel(): string {
   const d = new Date();
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
+
+const TIER_ORDER: Tier[] = ['diamond', 'gold', 'silver', 'bronze'];
+
+function getTopBadge(
+  earnedBadges: Badge[],
+  selectedId: string | null,
+): Badge | null {
+  if (earnedBadges.length === 0) return null;
+  if (selectedId) {
+    const found = earnedBadges.find(b => b.id === selectedId);
+    if (found) return found;
+  }
+  // 자동: 최고 티어 중 첫 번째
+  for (const tier of TIER_ORDER) {
+    const match = earnedBadges.find(b => b.tier === tier);
+    if (match) return match;
+  }
+  return earnedBadges[0];
+}
+
+// ── Onboarding ────────────────────────────────────────────────────────
 
 const ONBOARDING_PAGES = [
   {
@@ -74,104 +111,80 @@ const ONBOARDING_PAGES = [
   },
 ];
 
-// ── Book mini-map ──────────────────────────────────────────────────────────
-function BookMap({ completed }: { completed: Set<string> }) {
-  return (
-    <View style={mapStyles.container}>
-      <Text style={mapStyles.label}>66권 진행 현황</Text>
-      <View style={mapStyles.grid}>
-        {BOOKS.map(book => {
-          let readCount = 0;
-          for (let ch = 1; ch <= book.chapters; ch++) {
-            if (completed.has(`${book.id}:${ch}`)) readCount++;
-          }
-          const isDone = readCount === book.chapters;
-          const isPartial = readCount > 0 && !isDone;
-          return (
-            <View
-              key={book.id}
-              style={[
-                mapStyles.sq,
-                isDone && mapStyles.sqDone,
-                isPartial && mapStyles.sqPartial,
-              ]}
-            />
-          );
-        })}
-      </View>
-    </View>
-  );
+// ── Weekly dots ───────────────────────────────────────────────────────
+
+function getWeekDays(): { label: string; dateStr: string; isToday: boolean }[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dow = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  const todayStr = fmt(today);
+  const labels = ['월', '화', '수', '목', '금', '토', '일'];
+  return labels.map((label, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return { label, dateStr: fmt(d), isToday: fmt(d) === todayStr };
+  });
 }
 
-const mapStyles = StyleSheet.create({
-  container: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 10,
-    color: theme.textMuted,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 3,
-  },
-  sq: {
-    width: 13,
-    height: 13,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
-  },
-  sqDone: {
-    backgroundColor: theme.gold,
-    borderColor: theme.gold,
-  },
-  sqPartial: {
-    backgroundColor: 'rgba(212,168,71,0.35)',
-    borderColor: 'rgba(212,168,71,0.25)',
-  },
-});
+function fmt(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
-// ── Home screen ────────────────────────────────────────────────────────────
+// ── Home screen ──────────────────────────────────────────────────────
+
 export default function HomeScreen() {
   const router = useRouter();
   const { stats, loading, refresh } = useStreak();
+
+  // Data state
   const [nextChapter, setNextChapter] = useState<{ bookId: number; chapter: number }>({ bookId: 1, chapter: 1 });
-  const [lastOpenedChapter, setLastOpenedChapter] = useState<{ bookId: number; chapter: number } | null | undefined>(undefined); // undefined = 로딩 중
+  const [lastOpenedChapter, setLastOpenedChapter] = useState<{ bookId: number; chapter: number } | null | undefined>(undefined);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
-  const [discoveryLoading, setDiscoveryLoading] = useState(true);
   const [todayRecommendation, setTodayRecommendation] = useState<{ bookId: number; chapter: number } | null>(null);
-  const [lastRandomChapter, setLastRandomChapter] = useState<{ bookId: number; chapter: number } | undefined>(undefined);
+  const [todayPlanChapters, setTodayPlanChapters] = useState<PlanChapter[]>([]);
+  const [activePlanName, setActivePlanName] = useState<string | null>(null);
+  const [weeklyData, setWeeklyData] = useState<Map<string, number>>(new Map());
+  const [dataReady, setDataReady] = useState(false);
+
+  // Badge state
+  const [meditationCount, setMeditationCount] = useState(0);
+  const [selectedBadgeId, setSelectedBadgeIdState] = useState<string | null>(null);
+  const [showBadgeSheet, setShowBadgeSheet] = useState(false);
+
+  // Onboarding
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingPage, setOnboardingPage] = useState(0);
   const [onboardingPlan, setOnboardingPlan] = useState<PlanId | null>(null);
-  const [todayPlanChapters, setTodayPlanChapters] = useState<PlanChapter[]>([]);
-  const [activePlanName, setActivePlanName] = useState<string | null>(null);
 
-  // Animated values
+  // Level-up detection
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const prevLevelRef = useRef<number | null>(null);
+
+  // Animations
   const xpAnim = useRef(new Animated.Value(0)).current;
-  const streakScale = useRef(new Animated.Value(0.7)).current;
-  const streakOpacity = useRef(new Animated.Value(0)).current;
-  const flamePulse = useRef(new Animated.Value(1)).current;
-  const mapOpacity = useRef(new Animated.Value(0)).current;
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const streakScale = useRef(new Animated.Value(0.8)).current;
+  const levelUpGlow = useRef(new Animated.Value(0)).current;
   const fabBounce = useRef(new Animated.Value(0)).current;
   const fabScale = useRef(new Animated.Value(1)).current;
+
+  // ── Data loading ──
+
   useFocusEffect(
     useCallback(() => {
       refresh();
-      setDiscoveryLoading(true);
       Promise.all([
         getLastReadPosition(),
         getAllCompletedChapters(),
         getActivePlan(),
         getLastOpenedPosition(),
-      ]).then(([pos, comp, plan, lastOpened]) => {
-        // 이어읽기: last_opened 우선, fallback → last_read+nextAfter → 창세기 1장
+        getAllMeditations(),
+        getSelectedBadgeId(),
+        import('../../db/readings').then(m => m.getWeeklyReadings()),
+      ]).then(([pos, comp, plan, lastOpened, meditations, badgeId, weekly]) => {
+        // 이어읽기 로직
         if (lastOpened) {
           setNextChapter(lastOpened);
           setLastOpenedChapter(lastOpened);
@@ -182,10 +195,13 @@ export default function HomeScreen() {
           setNextChapter({ bookId: 1, chapter: 1 });
           setLastOpenedChapter(null);
         }
+
         setCompleted(comp);
-        // 발견하기 추천
         setTodayRecommendation(getTodayRecommendation(comp));
-        setDiscoveryLoading(false);
+        setMeditationCount(meditations.length);
+        setSelectedBadgeIdState(badgeId);
+        setWeeklyData(weekly);
+
         if (plan?.planId && plan?.startDate) {
           const chapters = getChaptersForDay(plan.planId as PlanId, plan.startDate);
           setTodayPlanChapters(chapters.filter(ch => !comp.has(`${ch.bookId}:${ch.chapter}`)));
@@ -195,43 +211,27 @@ export default function HomeScreen() {
           setTodayPlanChapters([]);
           setActivePlanName(null);
         }
+
+        setDataReady(true);
       }).catch(() => {
-        setDiscoveryLoading(false);
         setLastOpenedChapter(null);
+        setDataReady(true);
       });
     }, [refresh])
   );
 
-  // Animate streak hero on mount
+  // ── Animations ──
+
   useEffect(() => {
-    Animated.parallel([
-      Animated.spring(streakScale, {
-        toValue: 1,
-        friction: 4,
-        tension: 80,
-        useNativeDriver: true,
-      }),
-      Animated.timing(streakOpacity, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Flame pulse loop (only when streak > 0)
-    if (stats.currentStreak > 0) {
-      const pulse = Animated.loop(
-        Animated.sequence([
-          Animated.timing(flamePulse, { toValue: 1.12, duration: 800, useNativeDriver: true }),
-          Animated.timing(flamePulse, { toValue: 1, duration: 800, useNativeDriver: true }),
-        ])
-      );
-      pulse.start();
-      return () => pulse.stop();
+    if (dataReady) {
+      Animated.parallel([
+        Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.spring(streakScale, { toValue: 1, friction: 5, tension: 80, useNativeDriver: true }),
+      ]).start();
     }
-  }, [stats.currentStreak]);
+  }, [dataReady]);
 
-  // FAB 아이들 바운스 — 3초 딜레이 후 반복 (Animated.loop + delay 3000ms 안정 동작 확인)
+  // FAB idle bounce
   useFocusEffect(
     useCallback(() => {
       const bounce = Animated.loop(
@@ -244,32 +244,38 @@ export default function HomeScreen() {
         ])
       );
       bounce.start();
-      return () => {
-        bounce.stop();
-        fabBounce.setValue(0);
-      };
+      return () => { bounce.stop(); fabBounce.setValue(0); };
     }, [fabBounce])
   );
 
-  // Animate XP bar and map whenever stats change
   useEffect(() => {
+    if (!stats) return;
     const xp = stats.totalChapters * 45;
+    const currentLevel = Math.floor(xp / XP_PER_LEVEL) + 1;
     const xpInLevel = xp % XP_PER_LEVEL;
     const targetPct = Math.round((xpInLevel / XP_PER_LEVEL) * 100);
 
-    Animated.parallel([
-      Animated.timing(xpAnim, {
-        toValue: targetPct,
-        duration: 800,
-        useNativeDriver: false, // width animation can't use native driver
-      }),
-      Animated.timing(mapOpacity, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [stats.totalChapters]);
+    Animated.timing(xpAnim, {
+      toValue: targetPct,
+      duration: 800,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+
+    // 레벨업 감지
+    if (prevLevelRef.current !== null && currentLevel > prevLevelRef.current) {
+      setShowLevelUp(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Animated.sequence([
+        Animated.timing(levelUpGlow, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.delay(1200),
+        Animated.timing(levelUpGlow, { toValue: 0, duration: 400, useNativeDriver: true }),
+      ]).start(() => setShowLevelUp(false));
+    }
+    prevLevelRef.current = currentLevel;
+  }, [stats?.totalChapters]);
+
+  // ── Onboarding ──
 
   useEffect(() => {
     getSetting('onboarding_complete', '0').then(val => {
@@ -289,7 +295,7 @@ export default function HomeScreen() {
     setShowOnboarding(false);
   }
 
-  function nextPage() {
+  function nextOnboardingPage() {
     if (onboardingPage < ONBOARDING_PAGES.length - 1) {
       setOnboardingPage(p => p + 1);
     } else {
@@ -304,38 +310,75 @@ export default function HomeScreen() {
         await setSetting('notification_enabled', '1');
         await scheduleReadingReminder(8, 0);
       }
-    } catch {
-      // permission denied or error — continue silently
-    }
+    } catch {}
     completeOnboarding();
   }
 
-  const { bookId, chapter } = nextChapter;
-  const book = BOOKS.find(b => b.id === bookId);
+  // ── Derived values ──
 
-  // FAB 서브텍스트: 로딩 중 → null, last_opened 있으면 "이어읽기", 없으면 "오늘 읽기"
-  const fabSubText: string | null = lastOpenedChapter === undefined
-    ? null
-    : lastOpenedChapter
-      ? `${book?.name ?? ''} ${chapter}장 이어읽기`
-      : '오늘 읽기';
-
-  function streakSubtitle(): string {
-    if (stats.currentStreak === 0) return '오늘부터 시작해보세요';
-    if (stats.currentStreak === 1) return '첫 번째 날! 내일도 만나요';
-    if (stats.currentStreak < 7) return `${stats.currentStreak}일 연속 중이에요`;
-    if (stats.currentStreak < 30) return `대단해요. ${stats.currentStreak}일 연속 읽고 있어요`;
-    return `${stats.currentStreak}일. 놀랍습니다.`;
-  }
-
-  const xp = stats.totalChapters * 45;
+  const xp = (stats?.totalChapters ?? 0) * 45;
   const level = Math.floor(xp / XP_PER_LEVEL) + 1;
   const xpInLevel = xp % XP_PER_LEVEL;
   const levelTitles = ['', '구도자', '순례자', '제자', '선지자', '사도', '장로'];
   const levelTitle = levelTitles[Math.min(level, levelTitles.length - 1)];
+  const completionPct = Math.round(((stats?.totalChapters ?? 0) / 1189) * 100);
 
-  const page = ONBOARDING_PAGES[onboardingPage];
-  const isLastPage = onboardingPage === ONBOARDING_PAGES.length - 1;
+  const earnedBadges = stats
+    ? [...BADGES, ...BOOK_BADGES].filter(b => b.check(stats, completed, meditationCount))
+    : [];
+  const topBadge = getTopBadge(earnedBadges, selectedBadgeId);
+
+  // 미션 카드 우선순위: 계획 > 이어읽기 > 추천
+  const missionInfo = (() => {
+    if (activePlanName && todayPlanChapters.length > 0) {
+      const ch = todayPlanChapters[0];
+      const b = BOOKS.find(bb => bb.id === ch.bookId);
+      return {
+        title: `${b?.name} ${ch.chapter}장`,
+        subtitle: `${activePlanName} · 남은 ${todayPlanChapters.length}챕터`,
+        route: `/read/${ch.bookId}/${ch.chapter}` as const,
+        type: 'plan' as const,
+      };
+    }
+    if (activePlanName && todayPlanChapters.length === 0) {
+      // 오늘 계획 완료
+      const { bookId, chapter } = nextChapter;
+      const b = BOOKS.find(bb => bb.id === bookId);
+      return {
+        title: '오늘 미션 완료',
+        subtitle: b ? `${b.name} ${chapter}장 이어읽기` : '자유 읽기',
+        route: `/read/${bookId}/${chapter}` as const,
+        type: 'done' as const,
+      };
+    }
+    // 이어읽기
+    const { bookId, chapter } = nextChapter;
+    const b = BOOKS.find(bb => bb.id === bookId);
+    if (lastOpenedChapter) {
+      return {
+        title: `${b?.name} ${chapter}장`,
+        subtitle: '이어읽기',
+        route: `/read/${bookId}/${chapter}` as const,
+        type: 'continue' as const,
+      };
+    }
+    // 추천
+    if (todayRecommendation) {
+      const rb = BOOKS.find(bb => bb.id === todayRecommendation.bookId);
+      return {
+        title: `${rb?.name} ${todayRecommendation.chapter}장`,
+        subtitle: '오늘의 추천',
+        route: `/read/${todayRecommendation.bookId}/${todayRecommendation.chapter}` as const,
+        type: 'recommend' as const,
+      };
+    }
+    return {
+      title: `${b?.name ?? '창세기'} ${chapter}장`,
+      subtitle: '오늘 읽기',
+      route: `/read/${bookId}/${chapter}` as const,
+      type: 'default' as const,
+    };
+  })();
 
   const xpBarWidth = xpAnim.interpolate({
     inputRange: [0, 100],
@@ -343,182 +386,239 @@ export default function HomeScreen() {
     extrapolate: 'clamp',
   });
 
-  if (loading) return null;
+  const weekDays = getWeekDays();
+
+  const page = ONBOARDING_PAGES[onboardingPage];
+  const isLastPage = onboardingPage === ONBOARDING_PAGES.length - 1;
+
+  // ── Skeleton loading ──
+
+  if (loading || !dataReady) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.scroll}>
+          {/* Header skeleton */}
+          <View style={styles.header}>
+            <View style={[styles.skeleton, { width: 60, height: 14 }]} />
+            <View style={[styles.skeleton, { width: 32, height: 32, borderRadius: 8 }]} />
+          </View>
+          {/* Greeting skeleton */}
+          <View style={[styles.skeleton, { width: 160, height: 14, marginBottom: 24 }]} />
+          {/* Character zone skeleton */}
+          <View style={styles.characterZone}>
+            <View style={[styles.skeleton, { width: 50, height: 50, borderRadius: 25 }]} />
+            <View style={[styles.skeleton, { width: 120, height: 120, borderRadius: 60 }]} />
+            <View style={[styles.skeleton, { width: 50, height: 50, borderRadius: 25 }]} />
+          </View>
+          {/* XP skeleton */}
+          <View style={[styles.skeleton, { height: 6, borderRadius: 3, marginTop: 16, marginBottom: 32 }]} />
+          {/* Mission skeleton */}
+          <View style={[styles.skeleton, { height: 72, borderRadius: 16 }]} />
+        </View>
+      </View>
+    );
+  }
+
+  // ── Render ──
 
   return (
     <View style={styles.container}>
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
+        style={{ opacity: fadeIn }}
       >
-        {/* Header */}
+        {/* ── Header ── */}
         <View style={styles.header}>
           <Text style={styles.wordmark}>MANNA</Text>
-          <Pressable onPress={() => router.push('/(tabs)/search')} hitSlop={12} style={styles.searchBtn}>
+          <Pressable
+            onPress={() => router.push('/(tabs)/search')}
+            hitSlop={12}
+            style={styles.searchBtn}
+            accessibilityLabel="검색"
+            accessibilityRole="button"
+          >
             <MaterialCommunityIcons name="magnify" size={22} color={theme.textMuted} />
           </Pressable>
         </View>
 
-        {/* Streak hero */}
-        <Animated.View style={[styles.streakSection, { opacity: streakOpacity, transform: [{ scale: streakScale }] }]}>
-          <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
-            <MaterialCommunityIcons name="fire" size={56} color={theme.gold} />
-          </Animated.View>
-          <Text style={styles.streakCount}>{stats.currentStreak}</Text>
-          <Text style={styles.streakLabel}>일 연속 읽기</Text>
-          <Text style={styles.streakSub}>{streakSubtitle()}</Text>
-        </Animated.View>
+        {/* ── Greeting ── */}
+        <Text style={styles.greeting}>
+          {todayLabel()} · {greetingText()}
+        </Text>
 
-        {/* XP bar */}
+        {/* ── Character Zone ── */}
+        <View style={styles.characterZone}>
+          {/* Level-up glow overlay */}
+          {showLevelUp && (
+            <Animated.View
+              style={[styles.levelUpOverlay, { opacity: levelUpGlow }]}
+              pointerEvents="none"
+            >
+              <Text style={styles.levelUpText}>LEVEL UP</Text>
+            </Animated.View>
+          )}
+          {/* Streak (left) */}
+          <Animated.View style={[styles.statPod, { transform: [{ scale: streakScale }] }]}>
+            <MaterialCommunityIcons name="fire" size={22} color={theme.gold} />
+            <Text style={styles.statPodValue}>{stats?.currentStreak ?? 0}</Text>
+            <Text style={styles.statPodLabel}>연속</Text>
+          </Animated.View>
+
+          {/* Progress Ring (center) */}
+          <ProgressRing
+            percentage={completionPct}
+            size={Math.min(130, SCREEN_HEIGHT * 0.16)}
+            strokeWidth={6}
+            badge={topBadge ? { icon: topBadge.icon, tier: topBadge.tier, title: topBadge.title } : null}
+            onPress={() => setShowBadgeSheet(true)}
+          />
+
+          {/* Level (right) */}
+          <View style={styles.statPod}>
+            <Text style={styles.levelBadge}>Lv.{level}</Text>
+            <Text style={styles.statPodLabel}>{levelTitle}</Text>
+          </View>
+        </View>
+
+        {/* ── XP Bar ── */}
         <View style={styles.xpSection}>
           <View style={styles.xpMeta}>
-            <Text style={styles.xpLevel}>Lv.{level} {levelTitle}</Text>
-            <Text style={styles.xpValue}>{xpInLevel} / {XP_PER_LEVEL} XP</Text>
+            <Text style={styles.xpLabel}>{xpInLevel} / {XP_PER_LEVEL} XP</Text>
           </View>
           <View style={styles.xpBar}>
             <Animated.View style={[styles.xpFill, { width: xpBarWidth }]} />
-            <Animated.View style={[styles.xpDot, { left: xpBarWidth }]} />
           </View>
         </View>
 
-        {/* Inline stat line */}
-        <View style={styles.statLine}>
-          <MaterialCommunityIcons name="book-open-variant" size={13} color={theme.textMuted} />
-          <Text style={styles.statLineText}>
-            {stats.totalChapters}챕터 읽음
-          </Text>
-          <Text style={styles.statLineDot}>·</Text>
-          <Text style={styles.statLineText}>
-            전체의 {Math.round((stats.totalChapters / 1189) * 100)}%
-          </Text>
-          {stats.longestStreak > 0 && (
-            <>
-              <Text style={styles.statLineDot}>·</Text>
-              <MaterialCommunityIcons name="trophy-outline" size={13} color={theme.textMuted} />
-              <Text style={styles.statLineText}>최장 {stats.longestStreak}일</Text>
-            </>
+        {/* ── Today's Plan / Quick Stats ── */}
+        {activePlanName && todayPlanChapters.length > 0 ? (
+          <View style={styles.todayPlan}>
+            <Text style={styles.sectionLabel}>{activePlanName}</Text>
+            {todayPlanChapters.map((ch, i) => {
+              const b = BOOKS.find(bb => bb.id === ch.bookId);
+              return (
+                <Pressable
+                  key={i}
+                  style={({ pressed }) => [styles.planItem, pressed && { opacity: 0.7 }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push(`/read/${ch.bookId}/${ch.chapter}`);
+                  }}
+                >
+                  <MaterialCommunityIcons name="book-open-variant" size={16} color={theme.textSub} />
+                  <Text style={styles.planItemText}>{b?.name} {ch.chapter}장</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={14} color={theme.textMuted} />
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : activePlanName && todayPlanChapters.length === 0 ? (
+          <View style={styles.todayPlan}>
+            <Text style={styles.sectionLabel}>{activePlanName}</Text>
+            <View style={styles.planDoneRow}>
+              <MaterialCommunityIcons name="check-circle" size={16} color={theme.gold} />
+              <Text style={styles.planDoneText}>오늘 계획을 모두 완료했습니다</Text>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Quick stats row */}
+        <View style={styles.quickStats}>
+          <View style={styles.quickStatItem}>
+            <Text style={styles.quickStatValue}>{stats?.totalChapters ?? 0}</Text>
+            <Text style={styles.quickStatLabel}>챕터</Text>
+          </View>
+          <View style={styles.quickStatDivider} />
+          <View style={styles.quickStatItem}>
+            <Text style={styles.quickStatValue}>{earnedBadges.length}</Text>
+            <Text style={styles.quickStatLabel}>뱃지</Text>
+          </View>
+          <View style={styles.quickStatDivider} />
+          <View style={styles.quickStatItem}>
+            <Text style={styles.quickStatValue}>{Math.round(completionPct)}%</Text>
+            <Text style={styles.quickStatLabel}>완독률</Text>
+          </View>
+        </View>
+
+        {/* ── Weekly Dots ── */}
+        <Text style={[styles.sectionLabel, { marginTop: 20 }]}>이번 주</Text>
+        <View style={styles.weekRow}>
+          {weekDays.map(day => {
+            const count = weeklyData.get(day.dateStr) ?? 0;
+            return (
+              <View key={day.dateStr} style={styles.weekDayCol} accessibilityLabel={`${day.label} ${count > 0 ? '읽음' : '안읽음'}`}>
+                <View
+                  style={[
+                    styles.weekDot,
+                    count > 0 && styles.weekDotActive,
+                    day.isToday && styles.weekDotToday,
+                  ]}
+                />
+                <Text style={[
+                  styles.weekDayLabel,
+                  day.isToday && { color: theme.gold },
+                ]}>
+                  {day.label}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* ── Explore Pills ── */}
+        <Text style={[styles.sectionLabel, { marginTop: 28 }]}>EXPLORE</Text>
+        <View style={styles.pillRow}>
+          <Pressable
+            style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
+            onPress={() => router.push('/recommend-verses')}
+            accessibilityLabel="테마별 구절 추천"
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons name="compass-rose" size={16} color={theme.gold} />
+            <Text style={styles.pillText}>테마 구절</Text>
+          </Pressable>
+
+          {todayRecommendation && (
+            <Pressable
+              style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                router.push(`/read/${todayRecommendation.bookId}/${todayRecommendation.chapter}`);
+              }}
+              accessibilityLabel="오늘의 추천 챕터"
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons name="star-outline" size={16} color={theme.gold} />
+              <Text style={styles.pillText}>오늘 추천</Text>
+            </Pressable>
           )}
+
+          <Pressable
+            style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
+            onPress={() => {
+              const next = getRandomChapter();
+              Haptics.selectionAsync();
+              router.push(`/read/${next.bookId}/${next.chapter}`);
+            }}
+            accessibilityLabel="랜덤 챕터 읽기"
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons name="shuffle-variant" size={16} color={theme.gold} />
+            <Text style={styles.pillText}>랜덤</Text>
+          </Pressable>
         </View>
 
-        {/* 주간 리포트 카드 */}
-        <View style={styles.weeklyReportWrapper}>
-          <WeeklyReportCard />
-        </View>
-
-        {/* 66-book mini-map */}
-        <Animated.View style={{ opacity: mapOpacity }}>
-          <BookMap completed={completed} />
-        </Animated.View>
-
-        {/* 오늘의 계획 */}
-        {activePlanName !== null && (
-          <View style={styles.planSection}>
-            <Text style={styles.planSectionLabel}>{activePlanName} — 오늘의 계획</Text>
-            {todayPlanChapters.length > 0 ? (
-              <View style={styles.planChapters}>
-                {todayPlanChapters.map((ch, i) => {
-                  const b = BOOKS.find(bb => bb.id === ch.bookId);
-                  return (
-                    <Pressable
-                      key={i}
-                      style={({ pressed }) => [styles.planChip, pressed && styles.planChipPressed]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        router.push(`/read/${ch.bookId}/${ch.chapter}`);
-                      }}
-                    >
-                      <Text style={styles.planChipText}>{b?.name} {ch.chapter}장</Text>
-                      <MaterialCommunityIcons name="chevron-right" size={14} color={theme.gold} />
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ) : (
-              <View style={styles.planDoneRow}>
-                <MaterialCommunityIcons name="check-circle" size={16} color={theme.gold} />
-                <Text style={styles.planDoneText}>오늘 계획을 모두 완료했습니다!</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Empty state — first-time user (테마 추천보다 먼저) */}
-        {stats.totalChapters === 0 && !showOnboarding && (
+        {/* Empty state — 첫 사용자 */}
+        {(stats?.totalChapters ?? 0) === 0 && !showOnboarding && (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>오늘 창세기 1장부터 시작해볼까요?</Text>
             <Text style={styles.emptyBody}>매일 한 챕터씩 읽으면 3년 안에 성경 전체를 완독할 수 있어요.</Text>
           </View>
         )}
+      </Animated.ScrollView>
 
-        {/* 테마별 구절 추천 — 스크롤 끝 탐색 진입점 */}
-        <Pressable
-          style={({ pressed }) => [styles.recommendCard, pressed && { opacity: 0.85 }]}
-          onPress={() => router.push('/recommend-verses')}
-        >
-          <View style={styles.recommendLeft}>
-            <MaterialCommunityIcons name="compass-rose" size={22} color={theme.gold} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.recommendTitle}>테마별 구절 추천</Text>
-              <Text style={styles.recommendSub}>오늘 마음 상태에 맞는 말씀 찾기</Text>
-            </View>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
-        </Pressable>
-
-        {/* 발견하기 섹션 */}
-        {!discoveryLoading && todayRecommendation && (
-          <View style={styles.discoverySection}>
-            <Text style={styles.discoverySectionLabel}>발견하기</Text>
-            <Pressable
-              style={({ pressed }) => [styles.discoveryCard, pressed && { opacity: 0.75 }]}
-              onPress={() => {
-                Haptics.selectionAsync();
-                router.push(`/read/${todayRecommendation.bookId}/${todayRecommendation.chapter}`);
-              }}
-              accessibilityLabel="오늘의 추천 챕터 읽기"
-            >
-              {(() => {
-                const recBook = BOOKS.find(b => b.id === todayRecommendation.bookId);
-                return (
-                  <>
-                    <MaterialCommunityIcons name="star-outline" size={15} color={theme.gold} style={{ marginRight: 6 }} />
-                    <Text style={styles.discoveryCardText}>
-                      오늘의 추천: {recBook?.name} {todayRecommendation.chapter}장
-                    </Text>
-                    <MaterialCommunityIcons name="chevron-right" size={16} color={theme.gold} style={{ marginLeft: 'auto' }} />
-                  </>
-                );
-              })()}
-            </Pressable>
-            <View style={styles.discoveryButtons}>
-              <Pressable
-                style={({ pressed }) => [styles.discoveryBtn, pressed && { opacity: 0.75 }]}
-                onPress={() => {
-                  const next = getRandomChapter(lastRandomChapter);
-                  setLastRandomChapter(next);
-                  Haptics.selectionAsync();
-                  router.push(`/read/${next.bookId}/${next.chapter}`);
-                }}
-                accessibilityLabel="랜덤 챕터 읽기"
-              >
-                <MaterialCommunityIcons name="shuffle-variant" size={16} color={theme.gold} />
-                <Text style={styles.discoveryBtnText}>랜덤으로 읽기</Text>
-                <View style={{ width: 16 }} />
-              </Pressable>
-            </View>
-          </View>
-        )}
-        {discoveryLoading && (
-          <View style={styles.discoverySection}>
-            <Text style={styles.discoverySectionLabel}>발견하기</Text>
-            <View style={[styles.discoverySkeleton, { marginBottom: 8 }]} />
-            <View style={styles.discoverySkeleton} />
-          </View>
-        )}
-
-      </ScrollView>
-
-      {/* Floating CTA — 항상 보이는 "오늘 읽기" 버튼, 부드러운 바운스 */}
+      {/* ── Floating CTA ── */}
       <Animated.View style={[styles.fabWrap, { transform: [{ scale: fabScale }, { translateY: fabBounce }] }]}>
         <Pressable
           style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
@@ -529,15 +629,15 @@ export default function HomeScreen() {
               Animated.timing(fabScale, { toValue: 1.04, duration: 100, useNativeDriver: true }),
               Animated.timing(fabScale, { toValue: 1, duration: 60, useNativeDriver: true }),
             ]).start(() => {
-              router.push(`/read/${bookId}/${chapter}`);
+              router.push(missionInfo.route);
             });
           }}
+          accessibilityLabel={`${missionInfo.title} 읽기 시작`}
+          accessibilityRole="button"
         >
           <View style={styles.fabLeft}>
-            <Text style={styles.fabTitle}>{book?.name} {chapter}장</Text>
-            {fabSubText !== null && (
-              <Text style={styles.fabSub}>{fabSubText}</Text>
-            )}
+            <Text style={styles.fabTitle}>{missionInfo.title}</Text>
+            <Text style={styles.fabSub}>{missionInfo.subtitle}</Text>
           </View>
           <View style={styles.fabArrow}>
             <MaterialCommunityIcons name="chevron-right" size={20} color={theme.bg} />
@@ -545,7 +645,19 @@ export default function HomeScreen() {
         </Pressable>
       </Animated.View>
 
-      {/* Onboarding modal */}
+      {/* ── Badge Select Sheet ── */}
+      <BadgeSelectSheet
+        visible={showBadgeSheet}
+        onClose={() => setShowBadgeSheet(false)}
+        onSelect={(badge) => {
+          setSelectedBadgeIdState(badge?.id ?? null);
+        }}
+        stats={stats}
+        completed={completed}
+        meditationCount={meditationCount}
+      />
+
+      {/* ── Onboarding Modal ── */}
       <Modal visible={showOnboarding} transparent animationType="fade">
         <View style={styles.onboardingOverlay}>
           <View style={styles.onboardingCard}>
@@ -553,7 +665,6 @@ export default function HomeScreen() {
             <Text style={styles.onboardingTitle}>{page.title}</Text>
             <Text style={styles.onboardingBody}>{page.body}</Text>
 
-            {/* Plan selection page */}
             {page.type === 'plan' && (
               <ScrollView
                 style={styles.onboardingPlanList}
@@ -590,10 +701,7 @@ export default function HomeScreen() {
 
             <View style={styles.dots}>
               {ONBOARDING_PAGES.map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.dot, i === onboardingPage && styles.dotActive]}
-                />
+                <View key={i} style={[styles.dot, i === onboardingPage && styles.dotActive]} />
               ))}
             </View>
 
@@ -612,7 +720,7 @@ export default function HomeScreen() {
             ) : (
               <Pressable
                 style={({ pressed }) => [styles.onboardingBtn, pressed && styles.onboardingBtnPressed]}
-                onPress={nextPage}
+                onPress={nextOnboardingPage}
               >
                 <Text style={styles.onboardingBtnText}>
                   {isLastPage ? '시작하기' : '다음'}
@@ -626,6 +734,8 @@ export default function HomeScreen() {
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -634,14 +744,21 @@ const styles = StyleSheet.create({
   scroll: {
     padding: 24,
     paddingTop: 60,
-    paddingBottom: 90, // FAB 높이 확보
+    paddingBottom: 100,
   },
 
+  // Skeleton
+  skeleton: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 6,
+  },
+
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 4,
   },
   wordmark: {
     fontSize: 13,
@@ -655,131 +772,256 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface,
   },
 
-  streakSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  streakCount: {
-    fontSize: 80,
-    fontWeight: '900',
-    color: theme.gold,
-    lineHeight: 88,
-    letterSpacing: -4,
-  },
-  streakLabel: {
-    fontSize: 15,
-    color: theme.textSub,
-    marginTop: 2,
-    letterSpacing: 0.5,
-  },
-  streakSub: {
-    fontSize: 12,
+  // Greeting
+  greeting: {
+    fontSize: 13,
     color: theme.textMuted,
-    marginTop: 6,
+    marginBottom: 24,
     letterSpacing: 0.2,
   },
 
+  // Character Zone
+  characterZone: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    marginBottom: 8,
+  },
+  statPod: {
+    alignItems: 'center',
+    gap: 4,
+    minWidth: 50,
+  },
+  statPodValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: theme.gold,
+    letterSpacing: -1,
+  },
+  statPodLabel: {
+    fontSize: 10,
+    color: theme.textMuted,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  levelBadge: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.gold,
+    letterSpacing: 0.3,
+  },
+
+  // Level-up
+  levelUpOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(212,168,71,0.08)',
+    borderRadius: 20,
+    zIndex: 10,
+  },
+  levelUpText: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: theme.gold,
+    letterSpacing: 4,
+    textShadowColor: theme.gold,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
+  },
+
+  // XP
   xpSection: {
-    marginBottom: 20,
-    gap: 8,
+    marginTop: 12,
+    marginBottom: 28,
+    gap: 6,
   },
   xpMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  xpLevel: {
-    fontSize: 11,
-    color: theme.gold,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-  },
-  xpValue: {
+  xpLabel: {
     fontSize: 11,
     color: theme.textMuted,
+    letterSpacing: 0.3,
   },
   xpBar: {
-    height: 6,
+    height: 4,
     backgroundColor: theme.goldBg,
-    borderRadius: 3,
-    overflow: 'visible',
-    borderWidth: 1,
-    borderColor: theme.goldBorder,
-    position: 'relative',
+    borderRadius: 2,
+    overflow: 'hidden',
   },
   xpFill: {
     height: '100%',
     backgroundColor: theme.gold,
-    borderRadius: 3,
-    shadowColor: theme.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 6,
-  },
-  xpDot: {
-    position: 'absolute',
-    top: -3,
-    marginLeft: -6,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: theme.gold,
-    borderWidth: 2,
-    borderColor: theme.bg,
-    shadowColor: theme.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
+    borderRadius: 2,
   },
 
-  weeklyReportWrapper: {
-    marginHorizontal: 4,
-    marginBottom: 20,
-  },
-  statLine: {
+  // Section labels
+  sectionLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginBottom: 16,
-    paddingHorizontal: 2,
+    gap: 6,
+    marginBottom: 10,
   },
-  statLineText: {
-    fontSize: 12,
-    color: theme.textMuted,
-  },
-  statLineDot: {
-    fontSize: 12,
-    color: theme.borderSubtle,
-    marginHorizontal: 2,
-  },
-
-  planSection: {
-    marginBottom: 20,
-    gap: 10,
-  },
-  planSectionLabel: {
+  sectionLabel: {
     fontSize: 10,
+    fontWeight: '600',
     color: theme.textMuted,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
+    marginBottom: 10,
   },
-  planChapters: {
-    gap: 8,
+
+  // Mission Card
+  missionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+    gap: 12,
+    // Subtle glow
+    shadowColor: theme.gold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  planChip: {
+  missionCardPressed: {
+    backgroundColor: theme.surface2,
+  },
+  missionLeft: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.goldBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  missionContent: {
+    flex: 1,
+    gap: 2,
+  },
+  missionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: theme.text,
+    letterSpacing: -0.3,
+  },
+  missionSub: {
+    fontSize: 13,
+    color: theme.textMuted,
+    fontWeight: '500',
+  },
+  missionArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.goldBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Extra plan chapters
+  extraChapters: {
+    marginTop: 8,
+    gap: 6,
+  },
+  extraChip: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+  },
+  extraChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.textSub,
+  },
+
+  // Weekly dots
+  weekRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+  },
+  weekDayCol: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  weekDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.borderSubtle,
+  },
+  weekDotActive: {
+    backgroundColor: theme.gold,
+  },
+  weekDotToday: {
+    borderWidth: 2,
+    borderColor: theme.gold,
+    backgroundColor: 'transparent',
+  },
+  weekDayLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.textMuted,
+  },
+
+  // Explore pills
+  pillRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: theme.surface,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+    minHeight: 40,
+    paddingHorizontal: 10,
+  },
+  pillPressed: {
+    backgroundColor: theme.surface2,
+  },
+  pillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.gold,
+  },
+
+  // Today's plan
+  todayPlan: {
+    marginBottom: 16,
+    gap: 8,
+  },
+  planItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     paddingVertical: 12,
+    paddingHorizontal: 14,
     backgroundColor: theme.surface,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.goldBorder,
   },
-  planChipPressed: {
-    backgroundColor: theme.surface2,
-  },
-  planChipText: {
+  planItemText: {
+    flex: 1,
     fontSize: 14,
     fontWeight: '600',
     color: theme.text,
@@ -788,7 +1030,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 4,
+    paddingVertical: 8,
   },
   planDoneText: {
     fontSize: 14,
@@ -796,7 +1038,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Floating action button
+  // Quick stats
+  quickStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+    paddingVertical: 16,
+    marginBottom: 4,
+  },
+  quickStatItem: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  quickStatValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: theme.text,
+  },
+  quickStatLabel: {
+    fontSize: 10,
+    color: theme.textMuted,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  quickStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: theme.borderSubtle,
+  },
+
+  // FAB
   fabWrap: {
     position: 'absolute',
     bottom: 16,
@@ -845,39 +1117,11 @@ const styles = StyleSheet.create({
   },
 
   // Empty state
-  recommendCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.surface,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: theme.goldBorder,
-    marginTop: 8,
-  },
-  recommendLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  recommendTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.text,
-  },
-  recommendSub: {
-    fontSize: 12,
-    color: theme.textMuted,
-    marginTop: 2,
-  },
   emptyCard: {
     backgroundColor: theme.surface,
     borderRadius: 16,
     padding: 20,
-    marginBottom: 16,
+    marginTop: 24,
     borderWidth: 1,
     borderColor: theme.goldBorder,
     gap: 6,
@@ -995,58 +1239,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.textMuted,
     marginTop: 1,
-  },
-  discoverySection: {
-    marginTop: 20,
-    marginBottom: 24,
-  },
-  discoverySectionLabel: {
-    fontSize: 11,
-    color: theme.textMuted,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  discoveryCard: {
-    backgroundColor: theme.surface,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: theme.goldBorder,
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  discoveryCardText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: theme.gold,
-  },
-  discoveryButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  discoveryBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: theme.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: theme.goldBorder,
-    minHeight: 44,
-    paddingHorizontal: 12,
-  },
-  discoveryBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.gold,
-  },
-  discoverySkeleton: {
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
   },
 });
