@@ -113,8 +113,8 @@ describe('generateMeditationPrompts — 네트워크 에러', () => {
 // ── aiErrorMessage ───────────────────────────────────────────────────────────
 
 describe('aiErrorMessage', () => {
-  test('no_subscription 메시지 포함 "프리미엄"', () => {
-    expect(aiErrorMessage('no_subscription')).toContain('프리미엄');
+  test('no_subscription 메시지 포함 "Pro"', () => {
+    expect(aiErrorMessage('no_subscription')).toContain('Pro');
   });
 
   test('network_error 메시지 포함 "오프라인"', () => {

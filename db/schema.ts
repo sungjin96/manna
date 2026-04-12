@@ -203,4 +203,12 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       PRAGMA user_version = 7;
     `);
   }
+
+  // v7 → v8: last_opened_position KV (이어읽기)
+  if (user_version < 8) {
+    await db.execAsync(`
+      INSERT OR IGNORE INTO app_settings (key, value) VALUES ('last_opened_position', '');
+      PRAGMA user_version = 8;
+    `);
+  }
 }

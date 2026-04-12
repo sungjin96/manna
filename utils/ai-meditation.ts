@@ -101,18 +101,18 @@ export async function generateMeditationPrompts(
   }
 }
 
-export function aiErrorMessage(error: AIMeditationError): string {
+export function aiErrorMessage(error: AIMeditationError, dailyLimit?: number): string {
   switch (error) {
     case 'no_subscription':
-      return 'AI 묵상은 프리미엄 구독자 전용입니다.';
+      return 'AI 기능은 Pro 구독자 전용입니다.';
     case 'free_limit_reached':
-      return '오늘 무료 AI 사용 횟수(3회)를 모두 사용했습니다. 내일 다시 시도해주세요.';
+      return `오늘 무료 AI 사용 횟수(${dailyLimit ?? 3}회)를 모두 사용했습니다. 내일 다시 사용할 수 있어요.`;
     case 'network_error':
       return '오프라인 상태입니다. 직접 기록해보세요.';
     case 'api_error':
       return '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
     case 'parse_error':
-      return '응답 처리 중 오류가 발생했습니다.';
+      return '응답 처리 중 오류가 발생했습니다. 다시 시도해주세요.';
   }
 }
 

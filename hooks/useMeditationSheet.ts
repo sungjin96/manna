@@ -1,13 +1,14 @@
 import { useRef, useState } from 'react';
 import { Animated, Keyboard, PanResponder } from 'react-native';
 
-export type MeditationMode = 'basic' | 'qa';
+export type MeditationMode = 'basic' | 'qa' | 'memo';
 export interface QAEntry { q: string; a: string; }
 
 export function useMeditationSheet(onNavigateNext: () => void) {
   const [showMeditation, setShowMeditation] = useState(false);
   const [meditationVerse, setMeditationVerse] = useState<{ start: number; end: number } | null>(null);
   const [note, setNote] = useState('');
+  const [memoText, setMemoText] = useState('');
   const [meditationMode, setMeditationMode] = useState<MeditationMode>('basic');
   const [qaEntries, setQaEntries] = useState<QAEntry[]>([{ q: '', a: '' }]);
 
@@ -32,6 +33,7 @@ export function useMeditationSheet(onNavigateNext: () => void) {
     ]).start(() => {
       setShowMeditation(false);
       setNote('');
+      setMemoText('');
       setMeditationVerse(null);
       setMeditationMode('basic');
       setQaEntries([{ q: '', a: '' }]);
@@ -74,6 +76,8 @@ export function useMeditationSheet(onNavigateNext: () => void) {
     setMeditationVerse,
     note,
     setNote,
+    memoText,
+    setMemoText,
     meditationMode,
     setMeditationMode,
     qaEntries,

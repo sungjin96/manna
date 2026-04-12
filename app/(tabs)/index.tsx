@@ -16,7 +16,8 @@ import * as Notifications from 'expo-notifications';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useStreak } from '../../hooks/useStreak';
 import { getLastReadPosition, getAllCompletedChapters } from '../../db/readings';
-import { getSetting, setSetting } from '../../db/settings';
+import { getSetting, setSetting, getLastOpenedPosition } from '../../db/settings';
+import { getTodayRecommendation, getRandomChapter } from '../../constants/discovery';
 import { getActivePlan, setActivePlan, todayISO } from '../../db/reading_plans';
 import { getChaptersForDay, PlanChapter, READING_PLANS, PlanId } from '../../constants/reading-plans';
 import { BOOKS } from '../../constants/books';
@@ -141,7 +142,11 @@ export default function HomeScreen() {
   const router = useRouter();
   const { stats, loading, refresh } = useStreak();
   const [nextChapter, setNextChapter] = useState<{ bookId: number; chapter: number }>({ bookId: 1, chapter: 1 });
+  const [lastOpenedChapter, setLastOpenedChapter] = useState<{ bookId: number; chapter: number } | null | undefined>(undefined); // undefined = 로딩 중
   const [completed, setCompleted] = useState<Set<string>>(new Set());
+  const [discoveryLoading, setDiscoveryLoading] = useState(true);
+  const [todayRecommendation, setTodayRecommendation] = useState<{ bookId: number; chapter: number } | null>(null);
+  const [lastRandomChapter, setLastRandomChapter] = useState<{ bookId: number; chapter: number } | undefined>(undefined);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingPage, setOnboardingPage] = useState(0);
   const [onboardingPlan, setOnboardingPlan] = useState<PlanId | null>(null);
@@ -159,13 +164,28 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       refresh();
+      setDiscoveryLoading(true);
       Promise.all([
         getLastReadPosition(),
         getAllCompletedChapters(),
         getActivePlan(),
-      ]).then(([pos, comp, plan]) => {
-        setNextChapter(pos ? nextAfter(pos.bookId, pos.chapter) : { bookId: 1, chapter: 1 });
+        getLastOpenedPosition(),
+      ]).then(([pos, comp, plan, lastOpened]) => {
+        // 이어읽기: last_opened 우선, fallback → last_read+nextAfter → 창세기 1장
+        if (lastOpened) {
+          setNextChapter(lastOpened);
+          setLastOpenedChapter(lastOpened);
+        } else if (pos) {
+          setNextChapter(nextAfter(pos.bookId, pos.chapter));
+          setLastOpenedChapter(null);
+        } else {
+          setNextChapter({ bookId: 1, chapter: 1 });
+          setLastOpenedChapter(null);
+        }
         setCompleted(comp);
+        // 발견하기 추천
+        setTodayRecommendation(getTodayRecommendation(comp));
+        setDiscoveryLoading(false);
         if (plan?.planId && plan?.startDate) {
           const chapters = getChaptersForDay(plan.planId as PlanId, plan.startDate);
           setTodayPlanChapters(chapters.filter(ch => !comp.has(`${ch.bookId}:${ch.chapter}`)));
@@ -175,6 +195,9 @@ export default function HomeScreen() {
           setTodayPlanChapters([]);
           setActivePlanName(null);
         }
+      }).catch(() => {
+        setDiscoveryLoading(false);
+        setLastOpenedChapter(null);
       });
     }, [refresh])
   );
@@ -289,6 +312,13 @@ export default function HomeScreen() {
 
   const { bookId, chapter } = nextChapter;
   const book = BOOKS.find(b => b.id === bookId);
+
+  // FAB 서브텍스트: 로딩 중 → null, last_opened 있으면 "이어읽기", 없으면 "오늘 읽기"
+  const fabSubText: string | null = lastOpenedChapter === undefined
+    ? null
+    : lastOpenedChapter
+      ? `${book?.name ?? ''} ${chapter}장 이어읽기`
+      : '오늘 읽기';
 
   function streakSubtitle(): string {
     if (stats.currentStreak === 0) return '오늘부터 시작해보세요';
@@ -435,6 +465,56 @@ export default function HomeScreen() {
           <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
         </Pressable>
 
+        {/* 발견하기 섹션 */}
+        {!discoveryLoading && todayRecommendation && (
+          <View style={styles.discoverySection}>
+            <Text style={styles.discoverySectionLabel}>발견하기</Text>
+            <View style={styles.discoveryCard}>
+              {(() => {
+                const recBook = BOOKS.find(b => b.id === todayRecommendation.bookId);
+                return (
+                  <Text style={styles.discoveryCardText}>
+                    오늘의 추천: {recBook?.name} {todayRecommendation.chapter}장
+                  </Text>
+                );
+              })()}
+            </View>
+            <View style={styles.discoveryButtons}>
+              <Pressable
+                style={({ pressed }) => [styles.discoveryBtn, pressed && { opacity: 0.75 }]}
+                onPress={() => {
+                  const next = getRandomChapter(lastRandomChapter);
+                  setLastRandomChapter(next);
+                  Haptics.selectionAsync();
+                  router.push(`/read/${next.bookId}/${next.chapter}`);
+                }}
+                accessibilityLabel="랜덤 챕터 읽기"
+              >
+                <MaterialCommunityIcons name="shuffle-variant" size={16} color={theme.gold} />
+                <Text style={styles.discoveryBtnText}>랜덤으로 읽기</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.discoveryBtn, pressed && { opacity: 0.75 }]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  router.push(`/read/${todayRecommendation.bookId}/${todayRecommendation.chapter}`);
+                }}
+                accessibilityLabel="오늘의 추천 챕터 읽기"
+              >
+                <MaterialCommunityIcons name="star-outline" size={16} color={theme.gold} />
+                <Text style={styles.discoveryBtnText}>오늘의 추천</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+        {discoveryLoading && (
+          <View style={styles.discoverySection}>
+            <Text style={styles.discoverySectionLabel}>발견하기</Text>
+            <View style={[styles.discoverySkeleton, { marginBottom: 8 }]} />
+            <View style={styles.discoverySkeleton} />
+          </View>
+        )}
+
       </ScrollView>
 
       {/* Floating CTA — 항상 보이는 "오늘 읽기" 버튼, 부드러운 바운스 */}
@@ -454,7 +534,9 @@ export default function HomeScreen() {
         >
           <View style={styles.fabLeft}>
             <Text style={styles.fabTitle}>{book?.name} {chapter}장</Text>
-            <Text style={styles.fabSub}>오늘 읽기</Text>
+            {fabSubText !== null && (
+              <Text style={styles.fabSub}>{fabSubText}</Text>
+            )}
           </View>
           <View style={styles.fabArrow}>
             <MaterialCommunityIcons name="chevron-right" size={20} color={theme.bg} />
@@ -912,5 +994,55 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.textMuted,
     marginTop: 1,
+  },
+  discoverySection: {
+    marginBottom: 24,
+  },
+  discoverySectionLabel: {
+    fontSize: 11,
+    color: theme.textMuted,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  discoveryCard: {
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+    marginBottom: 10,
+  },
+  discoveryCardText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.gold,
+  },
+  discoveryButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  discoveryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: theme.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  discoveryBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.gold,
+  },
+  discoverySkeleton: {
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
 });

@@ -41,11 +41,11 @@ import {
 } from '../../../db/readings';
 import { getStats } from '../../../db/stats';
 import { saveMeditation, getMeditationsForChapter, getMeditationCount, type Meditation } from '../../../db/meditations';
-import { getSetting, setSetting } from '../../../db/settings';
+import { getSetting, setSetting, setLastOpenedPosition } from '../../../db/settings';
 import { getAICache, setAICache, getAITypeCache, setAITypeCache, clearAITypeCache, getDailyRefreshCount, incrementDailyRefresh, getDailyAILimit } from '../../../db/ai_cache';
 import {
   generateMeditationPrompts, generateExplanation, generatePrayer,
-  aiErrorMessage, type ExplanationResult,
+  aiErrorMessage, type ExplanationResult, type AIMeditationError,
 } from '../../../utils/ai-meditation';
 import { getAppUserId, checkAIEntitlement, purchasePremium } from '../../../utils/subscriptions';
 import { BOOKS } from '../../../constants/books';
@@ -138,6 +138,7 @@ export default function ReadScreen() {
     },
   }]);
   const [aiPrompts, setAiPrompts] = useState<string[] | null>(null);
+  const [aiMeditateError, setAiMeditateError] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [showAiSheet, setShowAiSheet] = useState(false);
   const [aiSheetExpanded, setAiSheetExpanded] = useState(false);
@@ -256,11 +257,14 @@ export default function ReadScreen() {
   const {
     showMeditation, meditationVerse, setMeditationVerse,
     note, setNote,
+    memoText, setMemoText,
     meditationMode, setMeditationMode,
     qaEntries, setQaEntries,
     meditationSheetY, meditationBgOpacity, meditationPR,
     openMeditationSheet, closeMeditationSheet,
   } = useMeditationSheet(navigateNext);
+
+  const [memoSaveError, setMemoSaveError] = useState<string | null>(null);
 
   const {
     showSettings,
@@ -285,6 +289,11 @@ export default function ReadScreen() {
       }
     });
   }, []);
+
+  // ── 이어읽기: 챕터 열릴 때마다 위치 저장 (fire-and-forget) ─────────────────
+  useEffect(() => {
+    setLastOpenedPosition(bookId, chapter);
+  }, [bookId, chapter]);
 
   // ── Initial data load ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -522,7 +531,7 @@ export default function ReadScreen() {
       // 캐시 미스 → 일일 한도 확인
       const currentCount = await getDailyRefreshCount();
       if (currentCount >= dailyLimit) {
-        setAiPrompts([`오늘 AI 조회 횟수(${dailyLimit}회)를 모두 사용했습니다. 내일 다시 시도해주세요.`]);
+        setAiMeditateError('free_limit_reached');
         return;
       }
 
@@ -532,6 +541,7 @@ export default function ReadScreen() {
         if (entitled) setIsProUser(true);
       }
 
+      setAiMeditateError(null);
       setAiLoading(true);
       const result = await generateMeditationPrompts(aiSelectedVerses, aiVerseRef, appUserId);
       if (result.data) {
@@ -540,7 +550,11 @@ export default function ReadScreen() {
         const newCount = await incrementDailyRefresh();
         setAiDailyRefreshCount(newCount);
       } else {
-        setAiPrompts([aiErrorMessage(result.error!)]);
+        if (result.error === 'no_subscription') {
+          setShowPaywall(true);
+        } else {
+          setAiMeditateError(result.error ?? 'api_error');
+        }
       }
       setAiLoading(false);
     }
@@ -555,7 +569,7 @@ export default function ReadScreen() {
       // 캐시 미스 → 일일 한도 확인
       const currentCount = await getDailyRefreshCount();
       if (currentCount >= dailyLimit) {
-        setAiExplainError(`오늘 AI 조회 횟수(${dailyLimit}회)를 모두 사용했습니다.`);
+        setAiExplainError('free_limit_reached');
         return;
       }
 
@@ -569,7 +583,11 @@ export default function ReadScreen() {
         const newCount = await incrementDailyRefresh();
         setAiDailyRefreshCount(newCount);
       } else {
-        setAiExplainError(result.error ?? 'unknown_error');
+        if (result.error === 'no_subscription') {
+          setShowPaywall(true);
+        } else {
+          setAiExplainError(result.error ?? 'api_error');
+        }
       }
     }
 
@@ -581,7 +599,7 @@ export default function ReadScreen() {
       // 캐시 미스 → 일일 한도 확인
       const currentCount = await getDailyRefreshCount();
       if (currentCount >= dailyLimit) {
-        setAiPrayerError(`오늘 AI 조회 횟수(${dailyLimit}회)를 모두 사용했습니다.`);
+        setAiPrayerError('free_limit_reached');
         return;
       }
 
@@ -595,7 +613,11 @@ export default function ReadScreen() {
         const newCount = await incrementDailyRefresh();
         setAiDailyRefreshCount(newCount);
       } else {
-        setAiPrayerError(result.error ?? 'unknown_error');
+        if (result.error === 'no_subscription') {
+          setShowPaywall(true);
+        } else {
+          setAiPrayerError(result.error ?? 'api_error');
+        }
       }
     }
   }
@@ -747,6 +769,20 @@ export default function ReadScreen() {
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showToast('저장에 실패했습니다');
+    }
+  }
+
+  async function handleSaveMemo() {
+    if (!memoText.trim()) return;
+    try {
+      await saveMeditation(bookId, chapter, memoText.trim(), meditationVerse?.start, meditationVerse?.end);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      getMeditationsForChapter(bookId, chapter).then(setChapterMeditations);
+      closeMeditationSheet();
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setMemoSaveError('저장 실패. 다시 시도해주세요.');
+      setTimeout(() => setMemoSaveError(null), 3000);
     }
   }
 
@@ -1083,14 +1119,31 @@ export default function ReadScreen() {
               <View {...meditationPR.panHandlers} style={styles.handleArea}>
                 <View style={[styles.modalHandle, { backgroundColor: colors.muted }]} />
               </View>
-              {/* 헤더: 제목 + 절 참조를 한 줄에 */}
+              {/* 헤더: 절 참조 */}
               <View style={meditStyles.sheetHeader}>
-                <Text style={[meditStyles.sheetTitle, { color: colors.text }]}>묵상</Text>
                 <Text style={[meditStyles.sheetRef, { color: colors.gold }]}>
                   {meditationVerse
                     ? `${book?.name} ${chapter}:${meditationVerse.start}${meditationVerse.start !== meditationVerse.end ? `–${meditationVerse.end}` : ''}`
                     : `${book?.name} ${chapter}장`}
                 </Text>
+              </View>
+
+              {/* 탭: 묵상하기 | 빠른 메모 */}
+              <View style={[meditStyles.modeTabBar, { borderBottomColor: colors.border }]}>
+                <Pressable
+                  style={[meditStyles.modeTab, meditationMode !== 'memo' && meditStyles.modeTabActive]}
+                  onPress={() => setMeditationMode(meditationMode === 'qa' ? 'qa' : 'basic')}
+                  hitSlop={8}
+                >
+                  <Text style={[meditStyles.modeTabText, { color: meditationMode !== 'memo' ? colors.gold : colors.muted }]}>묵상하기</Text>
+                </Pressable>
+                <Pressable
+                  style={[meditStyles.modeTab, meditationMode === 'memo' && meditStyles.modeTabActive]}
+                  onPress={() => setMeditationMode('memo')}
+                  hitSlop={8}
+                >
+                  <Text style={[meditStyles.modeTabText, { color: meditationMode === 'memo' ? colors.gold : colors.muted }]}>빠른 메모</Text>
+                </Pressable>
               </View>
 
               {meditationMode === 'qa' ? (
@@ -1193,21 +1246,55 @@ export default function ReadScreen() {
                 </>
               )}
 
+              {meditationMode === 'memo' && (
+                /* 빠른 메모 모드 */
+                <>
+                  <TextInput
+                    style={[meditStyles.basicInput, { color: colors.text, borderColor: `${colors.border}60` }]}
+                    placeholder="짧게 메모를 남겨보세요..."
+                    placeholderTextColor={colors.muted}
+                    multiline maxLength={500}
+                    value={memoText} onChangeText={setMemoText} autoFocus
+                  />
+                  <View style={meditStyles.basicFooter}>
+                    <Text style={[meditStyles.charCount, { color: colors.muted }]}>{memoText.length}/500</Text>
+                  </View>
+                  {memoSaveError && (
+                    <Text style={[meditStyles.memoErrorText, { color: colors.muted }]}>
+                      {memoSaveError}
+                    </Text>
+                  )}
+                </>
+              )}
+
               <View style={styles.modalActions}>
                 <Pressable style={[styles.skipBtn, { borderColor: colors.border }]} onPress={() => closeMeditationSheet(() => { if (!meditationVerse) navigateNext(); })}>
                   <Text style={[styles.skipBtnText, { color: colors.muted }]}>건너뛰기</Text>
                 </Pressable>
-                <Pressable
-                  style={[
-                    styles.saveBtn, { backgroundColor: colors.gold },
-                    meditationMode === 'basic' && !note.trim() && styles.saveBtnDisabled,
-                    meditationMode === 'qa' && !qaEntries.some(e => e.q.trim() || e.a.trim()) && styles.saveBtnDisabled,
-                  ]}
-                  onPress={handleSaveMeditation}
-                  disabled={meditationMode === 'basic' ? !note.trim() : !qaEntries.some(e => e.q.trim() || e.a.trim())}
-                >
-                  <Text style={[styles.saveBtnText, { color: '#0B0A12' }]}>저장</Text>
-                </Pressable>
+                {meditationMode === 'memo' ? (
+                  <Pressable
+                    style={[
+                      styles.saveBtn, { backgroundColor: colors.gold },
+                      !memoText.trim() && styles.saveBtnDisabled,
+                    ]}
+                    onPress={handleSaveMemo}
+                    disabled={!memoText.trim()}
+                  >
+                    <Text style={[styles.saveBtnText, { color: '#0B0A12' }]}>저장</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={[
+                      styles.saveBtn, { backgroundColor: colors.gold },
+                      meditationMode === 'basic' && !note.trim() && styles.saveBtnDisabled,
+                      meditationMode === 'qa' && !qaEntries.some(e => e.q.trim() || e.a.trim()) && styles.saveBtnDisabled,
+                    ]}
+                    onPress={handleSaveMeditation}
+                    disabled={meditationMode === 'basic' ? !note.trim() : !qaEntries.some(e => e.q.trim() || e.a.trim())}
+                  >
+                    <Text style={[styles.saveBtnText, { color: '#0B0A12' }]}>저장</Text>
+                  </Pressable>
+                )}
               </View>
             </Animated.View>
           </KeyboardAvoidingView>
@@ -1334,6 +1421,22 @@ export default function ReadScreen() {
                       </View>
                     ))}
                   </View>
+                ) : aiMeditateError ? (
+                  <View style={aiStyles.loading}>
+                    <Text style={[aiStyles.loadingText, { color: colors.muted, textAlign: 'center' }]}>
+                      {aiErrorMessage(aiMeditateError as AIMeditationError, getDailyAILimit(isProUser))}
+                    </Text>
+                    {aiMeditateError === 'free_limit_reached' && !isProUser && (
+                      <Pressable onPress={() => setShowPaywall(true)} hitSlop={8} style={{ marginTop: 10 }}>
+                        <Text style={[aiStyles.loadingText, { color: colors.gold, textAlign: 'center' }]}>Pro로 더 사용하기</Text>
+                      </Pressable>
+                    )}
+                    {aiMeditateError !== 'free_limit_reached' && (
+                      <Pressable onPress={() => { setAiMeditateError(null); handleAiTabChange('meditate'); }} hitSlop={8} style={{ marginTop: 8 }}>
+                        <Text style={[aiStyles.loadingText, { color: colors.gold, textAlign: 'center' }]}>다시 시도</Text>
+                      </Pressable>
+                    )}
+                  </View>
                 ) : (
                   <View style={aiStyles.loading}>
                     <Pressable onPress={() => handleAiTabChange('meditate')} hitSlop={12}>
@@ -1380,10 +1483,19 @@ export default function ReadScreen() {
                   <View style={aiStyles.loading}>
                     {aiExplainError ? (
                       <>
-                        <Text style={[aiStyles.loadingText, { color: '#FF6B6B' }]}>오류: {aiExplainError}</Text>
-                        <Pressable onPress={() => { setAiExplainError(null); handleAiTabChange('explain'); }} hitSlop={8}>
-                          <Text style={[aiStyles.loadingText, { color: colors.gold, marginTop: 8 }]}>다시 시도</Text>
-                        </Pressable>
+                        <Text style={[aiStyles.loadingText, { color: colors.muted, textAlign: 'center' }]}>
+                          {aiErrorMessage(aiExplainError as AIMeditationError, getDailyAILimit(isProUser))}
+                        </Text>
+                        {aiExplainError === 'free_limit_reached' && !isProUser && (
+                          <Pressable onPress={() => setShowPaywall(true)} hitSlop={8} style={{ marginTop: 10 }}>
+                            <Text style={[aiStyles.loadingText, { color: colors.gold, textAlign: 'center' }]}>Pro로 더 사용하기</Text>
+                          </Pressable>
+                        )}
+                        {aiExplainError !== 'free_limit_reached' && (
+                          <Pressable onPress={() => { setAiExplainError(null); handleAiTabChange('explain'); }} hitSlop={8} style={{ marginTop: 8 }}>
+                            <Text style={[aiStyles.loadingText, { color: colors.gold, textAlign: 'center' }]}>다시 시도</Text>
+                          </Pressable>
+                        )}
                       </>
                     ) : (
                       <Pressable onPress={() => handleAiTabChange('explain')} hitSlop={12}>
@@ -1410,10 +1522,19 @@ export default function ReadScreen() {
                   <View style={aiStyles.loading}>
                     {aiPrayerError ? (
                       <>
-                        <Text style={[aiStyles.loadingText, { color: '#FF6B6B' }]}>오류: {aiPrayerError}</Text>
-                        <Pressable onPress={() => { setAiPrayerError(null); handleAiTabChange('prayer'); }} hitSlop={8}>
-                          <Text style={[aiStyles.loadingText, { color: colors.gold, marginTop: 8 }]}>다시 시도</Text>
-                        </Pressable>
+                        <Text style={[aiStyles.loadingText, { color: colors.muted, textAlign: 'center' }]}>
+                          {aiErrorMessage(aiPrayerError as AIMeditationError, getDailyAILimit(isProUser))}
+                        </Text>
+                        {aiPrayerError === 'free_limit_reached' && !isProUser && (
+                          <Pressable onPress={() => setShowPaywall(true)} hitSlop={8} style={{ marginTop: 10 }}>
+                            <Text style={[aiStyles.loadingText, { color: colors.gold, textAlign: 'center' }]}>Pro로 더 사용하기</Text>
+                          </Pressable>
+                        )}
+                        {aiPrayerError !== 'free_limit_reached' && (
+                          <Pressable onPress={() => { setAiPrayerError(null); handleAiTabChange('prayer'); }} hitSlop={8} style={{ marginTop: 8 }}>
+                            <Text style={[aiStyles.loadingText, { color: colors.gold, textAlign: 'center' }]}>다시 시도</Text>
+                          </Pressable>
+                        )}
                       </>
                     ) : (
                       <Pressable onPress={() => handleAiTabChange('prayer')} hitSlop={12}>
@@ -1630,6 +1751,33 @@ const meditStyles = StyleSheet.create({
   // ── 모드 전환 링크 (공통) ────────────────────────────
   switchLink: { alignSelf: 'flex-start', marginBottom: 6 },
   switchLinkText: { fontSize: 12 },
+
+  // ── 탭 바 (묵상하기 | 빠른 메모) ────────────────────────
+  modeTabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: 16,
+  },
+  modeTab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  modeTabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#D4A847',
+  },
+  modeTabText: { fontSize: 14, fontWeight: '600' },
+
+  // ── 빠른 메모 에러 텍스트 ────────────────────────────
+  memoErrorText: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 4,
+  },
 
   // ── 하단 내비 ─────────────────────────────────────────
   bottomNav: {
