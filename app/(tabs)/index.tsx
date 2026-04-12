@@ -996,6 +996,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   discoverySection: {
+    marginTop: 20,
     marginBottom: 24,
   },
   discoverySectionLabel: {

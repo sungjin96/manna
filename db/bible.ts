@@ -66,6 +66,11 @@ export function parseReference(query: string): BookReference | null {
   if (!bookId) return null;
 
   // rest should be like: "3", "3:16", "3장", "3장 16절", "3장16절"
+  // If rest is empty (only book name entered), default to chapter 1
+  if (!rest) {
+    const book = BOOKS.find(b => b.id === bookId)!;
+    return { bookId, bookName: book.name, chapter: 1 };
+  }
   const match = rest.match(/^(\d+)(?:장)?(?:\s*[:\s]?\s*(\d+)절?)?$/);
   if (!match) return null;
 

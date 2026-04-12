@@ -775,7 +775,8 @@ export default function ReadScreen() {
   async function handleSaveMemo() {
     if (!memoText.trim()) return;
     try {
-      await saveMeditation(bookId, chapter, memoText.trim(), meditationVerse?.start, meditationVerse?.end);
+      const memoNote = JSON.stringify({ type: 'memo', text: memoText.trim() });
+      await saveMeditation(bookId, chapter, memoNote, meditationVerse?.start, meditationVerse?.end);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       getMeditationsForChapter(bookId, chapter).then(setChapterMeditations);
       closeMeditationSheet();
@@ -825,7 +826,10 @@ export default function ReadScreen() {
     const inSelection = selectionMode && selectionRange
       && item.verse >= selectionRange.start && item.verse <= selectionRange.end;
     const isTTSActive = isTTS && ttsVerse === item.verse;
-    const hasMeditation = showMeditationMarkers && getVerseMeditations(item.verse).length > 0;
+    const verseMeditations = showMeditationMarkers ? getVerseMeditations(item.verse) : [];
+    const hasMeditationDot = verseMeditations.some(m => { try { return JSON.parse(m.note)?.type !== 'memo'; } catch { return true; } });
+    const hasMemoDot = verseMeditations.some(m => { try { return JSON.parse(m.note)?.type === 'memo'; } catch { return false; } });
+    const hasMeditation = verseMeditations.length > 0;
     const isHighlighted = highlightVerse === item.verse;
     const isFocused = settings.focusMode && isProUser
       ? centerVerseIndex === index
@@ -861,12 +865,13 @@ export default function ReadScreen() {
               <Pressable
                 hitSlop={8}
                 onPress={() => {
-                  const items = getVerseMeditations(item.verse);
                   setMeditationPopupVerse(item.verse);
-                  setMeditationPopupItems(items);
+                  setMeditationPopupItems(verseMeditations);
                 }}
+                style={{ flexDirection: 'row', gap: 3, marginTop: 2 }}
               >
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.gold, marginTop: 2 }} />
+                {hasMeditationDot && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.gold }} />}
+                {hasMemoDot && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#7AA3D4' }} />}
               </Pressable>
             )}
           </View>
@@ -1226,27 +1231,7 @@ export default function ReadScreen() {
                     <Text style={[meditStyles.switchLinkText, { color: colors.muted }]}>← 자유롭게 쓰기</Text>
                   </Pressable>
                 </ScrollView>
-              ) : (
-                /* 기본 모드 */
-                <>
-                  <TextInput
-                    style={[meditStyles.basicInput, { color: colors.text, borderColor: `${colors.border}60` }]}
-                    placeholder="오늘 읽은 말씀에서 받은 것..."
-                    placeholderTextColor={colors.muted}
-                    multiline maxLength={500}
-                    value={note} onChangeText={setNote} autoFocus
-                  />
-                  <View style={meditStyles.basicFooter}>
-                    <Text style={[meditStyles.charCount, { color: colors.muted }]}>{note.length}/500</Text>
-                    {/* 기본 → Q&A 전환 링크 */}
-                    <Pressable onPress={() => setMeditationMode('qa')} hitSlop={8}>
-                      <Text style={[meditStyles.switchLinkText, { color: colors.muted }]}>Q&A 형식으로 →</Text>
-                    </Pressable>
-                  </View>
-                </>
-              )}
-
-              {meditationMode === 'memo' && (
+              ) : meditationMode === 'memo' ? (
                 /* 빠른 메모 모드 */
                 <>
                   <TextInput
@@ -1264,6 +1249,24 @@ export default function ReadScreen() {
                       {memoSaveError}
                     </Text>
                   )}
+                </>
+              ) : (
+                /* 기본 모드 */
+                <>
+                  <TextInput
+                    style={[meditStyles.basicInput, { color: colors.text, borderColor: `${colors.border}60` }]}
+                    placeholder="오늘 읽은 말씀에서 받은 것..."
+                    placeholderTextColor={colors.muted}
+                    multiline maxLength={500}
+                    value={note} onChangeText={setNote} autoFocus
+                  />
+                  <View style={meditStyles.basicFooter}>
+                    <Text style={[meditStyles.charCount, { color: colors.muted }]}>{note.length}/500</Text>
+                    {/* 기본 → Q&A 전환 링크 */}
+                    <Pressable onPress={() => setMeditationMode('qa')} hitSlop={8}>
+                      <Text style={[meditStyles.switchLinkText, { color: colors.muted }]}>Q&A 형식으로 →</Text>
+                    </Pressable>
+                  </View>
                 </>
               )}
 
@@ -1328,7 +1331,7 @@ export default function ReadScreen() {
           <View style={[meditPopupStyles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={meditPopupStyles.header}>
               <Text style={[meditPopupStyles.headerTitle, { color: colors.text }]}>
-                {book?.name} {chapter}:{meditationPopupVerse}절 묵상
+                {book?.name} {chapter}:{meditationPopupVerse}절 기록
               </Text>
               <Pressable onPress={() => setMeditationPopupVerse(null)} hitSlop={12}>
                 <MaterialCommunityIcons name="close" size={18} color={colors.muted} />
@@ -1337,19 +1340,30 @@ export default function ReadScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               {meditationPopupItems.map((m, i) => {
                 let displayNote = m.note;
+                let entryType: 'meditation' | 'memo' | 'qa' = 'meditation';
                 try {
                   const parsed = JSON.parse(m.note);
                   if (parsed?.type === 'qa' && Array.isArray(parsed.entries)) {
                     displayNote = parsed.entries.map((e: { q: string; a: string }) => `Q: ${e.q}\nA: ${e.a}`).join('\n\n');
+                    entryType = 'qa';
+                  } else if (parsed?.type === 'memo' && typeof parsed.text === 'string') {
+                    displayNote = parsed.text;
+                    entryType = 'memo';
                   }
                 } catch {}
                 const ref = m.verseStart
                   ? `${book?.name} ${chapter}:${m.verseStart}${m.verseStart !== m.verseEnd ? `–${m.verseEnd}` : ''}`
                   : `${book?.name} ${chapter}장`;
+                const typeLabel = entryType === 'memo' ? '메모' : '묵상';
+                const typeColor = entryType === 'memo' ? '#7AA3D4' : colors.gold;
                 return (
                   <View key={i} style={[meditPopupStyles.entry, { borderColor: colors.border }]}>
                     <View style={meditPopupStyles.entryMeta}>
-                      <Text style={[meditPopupStyles.entryRef, { color: colors.gold }]}>{ref}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: typeColor }} />
+                        <Text style={[meditPopupStyles.entryRef, { color: typeColor }]}>{ref}</Text>
+                        <Text style={[meditPopupStyles.entryDate, { color: colors.muted }]}>{typeLabel}</Text>
+                      </View>
                       <Text style={[meditPopupStyles.entryDate, { color: colors.muted }]}>{formatDate(m.createdAt)}</Text>
                     </View>
                     <Text style={[meditPopupStyles.entryNote, { color: colors.text }]}>{displayNote}</Text>

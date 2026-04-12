@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getStats, UserStats } from '../db/stats';
 
 export function useStreak() {
@@ -10,10 +10,10 @@ export function useStreak() {
   });
   const [loading, setLoading] = useState(true);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const s = await getStats();
     setStats(s);
-  };
+  }, []);
 
   useEffect(() => {
     getStats()
