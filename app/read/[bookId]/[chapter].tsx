@@ -1086,24 +1086,18 @@ export default function ReadScreen() {
         {/* Selection bar */}
         {selectionMode && selectionRange && (
           <View style={[styles.selectionBar, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: insets.bottom + 12 }]}>
-            <Text style={[styles.selectionLabel, { color: colors.text }]} numberOfLines={1}>{verseLabel}</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.selectionActionsScroll}
-              contentContainerStyle={styles.selectionActionsContent}
-              keyboardShouldPersistTaps="always"
-            >
-              <Pressable style={[styles.selBtn, { backgroundColor: colors.gold }]} onPress={openVerseMeditation}>
+            <Text style={[styles.selectionLabel, { color: colors.muted }]} numberOfLines={1}>{verseLabel}</Text>
+            <View style={styles.selectionActions}>
+              <Pressable style={[styles.selBtn, { backgroundColor: colors.gold, flex: 1 }]} onPress={openVerseMeditation}>
                 <MaterialCommunityIcons name="notebook-edit-outline" size={15} color="#0B0A12" />
                 <Text style={[styles.selBtnText, { color: '#0B0A12' }]}>묵상</Text>
               </Pressable>
-              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={openAIMeditation}>
+              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border, flex: 1 }]} onPress={openAIMeditation}>
                 <MaterialCommunityIcons name="robot-outline" size={15} color={colors.gold} />
                 <Text style={[styles.selBtnText, { color: colors.gold }]}>AI</Text>
               </Pressable>
               <Pressable
-                style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]}
+                style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border, flex: 1 }]}
                 onPress={() => {
                   if (!selectionRange) return;
                   const verseNum = selectionRange.start;
@@ -1114,18 +1108,18 @@ export default function ReadScreen() {
                 <MaterialCommunityIcons name="play-circle-outline" size={15} color={colors.text} />
                 <Text style={[styles.selBtnText, { color: colors.text }]}>TTS</Text>
               </Pressable>
-              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={copySelectedVerses}>
+              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border, flex: 1 }]} onPress={copySelectedVerses}>
                 <MaterialCommunityIcons name="content-copy" size={15} color={colors.text} />
                 <Text style={[styles.selBtnText, { color: colors.text }]}>복사</Text>
               </Pressable>
-              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={shareSelectedVerses}>
+              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border, flex: 1 }]} onPress={shareSelectedVerses}>
                 <MaterialCommunityIcons name="share-variant-outline" size={15} color={colors.text} />
                 <Text style={[styles.selBtnText, { color: colors.text }]}>공유</Text>
               </Pressable>
-            </ScrollView>
-            <Pressable style={styles.selBtnCancel} onPress={cancelSelection} hitSlop={8}>
-              <MaterialCommunityIcons name="close" size={18} color={colors.muted} />
-            </Pressable>
+              <Pressable style={styles.selBtnCancel} onPress={cancelSelection} hitSlop={8}>
+                <MaterialCommunityIcons name="close" size={18} color={colors.muted} />
+              </Pressable>
+            </View>
           </View>
         )}
 

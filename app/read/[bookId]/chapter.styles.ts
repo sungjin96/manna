@@ -148,19 +148,23 @@ export const styles = StyleSheet.create({
   // ── Selection bar ─────────────────────────────────────────────────────────
   selectionBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 12,
+    flexDirection: 'column',
+    paddingHorizontal: 16, paddingTop: 10,
     borderTopWidth: 1, gap: 8,
   },
-  selectionLabel: { fontSize: 13, fontWeight: '600', flexShrink: 1, maxWidth: 120 },
-  selectionActionsScroll: { flex: 1 },
-  selectionActionsContent: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingLeft: 8 },
-  selBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
+  selectionLabel: {
+    fontSize: 12, fontWeight: '600',
+    textAlign: 'center', letterSpacing: 0.3,
   },
-  selBtnText: { fontSize: 13, fontWeight: '600' },
-  selBtnCancel: { padding: 4 },
+  selectionActions: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+  },
+  selBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    paddingVertical: 8, borderRadius: 10,
+  },
+  selBtnText: { fontSize: 12, fontWeight: '600' },
+  selBtnCancel: { padding: 6 },
 
   // ── Modal shared ──────────────────────────────────────────────────────────
   backdrop: {
