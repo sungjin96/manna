@@ -23,7 +23,7 @@ import MannaAlert from '../../components/MannaAlert';
 
 const MEMO_COLOR = '#7AA3D4';
 type ViewMode = 'list' | 'calendar';
-type FilterType = 'all' | 'meditation' | 'memo';
+type FilterType = 'all' | 'meditation' | 'qa' | 'memo';
 type FilterSort = 'newest' | 'oldest';
 type FilterQA = 'all' | 'complete' | 'incomplete';
 
@@ -85,6 +85,11 @@ function toDateKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+// ISO 문자열을 로컬 타임존 기준 날짜 키로 변환 (UTC .slice(0,10) 사용 금지)
+function toLocalDateKey(iso: string): string {
+  return toDateKey(new Date(iso));
+}
+
 function buildCalendarCells(month: Date): Array<{ date: Date | null; key: string | null }> {
   const y = month.getFullYear(), m = month.getMonth();
   const firstDow = (new Date(y, m, 1).getDay() + 6) % 7; // Mon=0, Sun=6
@@ -116,7 +121,7 @@ function CalendarView({
   const meditationsByDate = useMemo(() => {
     const map: Record<string, { hasMeditation: boolean; hasMemo: boolean }> = {};
     for (const item of items) {
-      const key = item.createdAt.slice(0, 10);
+      const key = toLocalDateKey(item.createdAt);
       if (!map[key]) map[key] = { hasMeditation: false, hasMemo: false };
       if (getNoteType(item.note) === 'memo') {
         map[key].hasMemo = true;
@@ -309,7 +314,9 @@ export default function MeditationsScreen() {
     if (filterType === 'memo') {
       result = result.filter(m => getNoteType(m.note) === 'memo');
     } else if (filterType === 'meditation') {
-      result = result.filter(m => getNoteType(m.note) !== 'memo');
+      result = result.filter(m => getNoteType(m.note) === 'basic');
+    } else if (filterType === 'qa') {
+      result = result.filter(m => getNoteType(m.note) === 'qa');
     }
 
     if (filterType !== 'memo' && filterQA !== 'all') {
@@ -337,7 +344,7 @@ export default function MeditationsScreen() {
   // 캘린더 모드에서 선택된 날의 기록
   const dayItems = useMemo(() => {
     if (!selectedDay) return [];
-    return filteredItems.filter(m => m.createdAt.slice(0, 10) === selectedDay);
+    return filteredItems.filter(m => toLocalDateKey(m.createdAt) === selectedDay);
   }, [filteredItems, selectedDay]);
 
   // 리스트 모드에서 표시할 아이템
@@ -347,7 +354,7 @@ export default function MeditationsScreen() {
   const summary = useMemo(() => {
     const now = new Date();
     const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const monthItems = items.filter(m => m.createdAt.startsWith(thisMonth));
+    const monthItems = items.filter(m => toLocalDateKey(m.createdAt).startsWith(thisMonth));
     // 가장 많이 기록한 책
     const bookCounts: Record<number, number> = {};
     for (const m of items) {
@@ -447,14 +454,14 @@ export default function MeditationsScreen() {
       {/* 필터 — 핵심 3개 + 확장 토글 */}
       <View style={styles.filterRow}>
         <View style={styles.filterRowContent}>
-          {(['all', 'meditation', 'memo'] as FilterType[]).map(type => (
+          {(['all', 'meditation', 'qa', 'memo'] as FilterType[]).map(type => (
             <Pressable
               key={type}
               style={[styles.filterChip, filterType === type && styles.filterChipActive]}
               onPress={() => setFilterType(type)}
             >
               <Text style={[styles.filterChipText, filterType === type && styles.filterChipTextActive]}>
-                {type === 'all' ? '전체' : type === 'meditation' ? '묵상' : '메모'}
+                {type === 'all' ? '전체' : type === 'meditation' ? '묵상' : type === 'qa' ? 'Q&A' : '메모'}
               </Text>
             </Pressable>
           ))}
@@ -471,6 +478,9 @@ export default function MeditationsScreen() {
               size={18}
               color={showExtraFilters ? theme.gold : theme.textMuted}
             />
+            {(filterSort !== 'newest' || filterQA !== 'all') && !showExtraFilters && (
+              <View style={styles.filterBadge} />
+            )}
           </Pressable>
         </View>
 
@@ -781,6 +791,45 @@ export default function MeditationsScreen() {
   );
 }
 
+// ── Q&A 구조적 렌더링 ──────────────────────────────────────────────────────
+function QaCardBody({ note, query }: { note: string; query: string }) {
+  try {
+    const parsed = JSON.parse(note);
+    if (parsed?.type === 'qa' && Array.isArray(parsed.entries)) {
+      return (
+        <View style={styles.qaBody}>
+          {parsed.entries.map((entry: { q: string; a: string }, i: number) => {
+            if (!entry.q && !entry.a) return null;
+            const qSegs = highlight(entry.q, query);
+            const aSegs = highlight(entry.a, query);
+            return (
+              <View key={i} style={i > 0 ? styles.qaPairSep : undefined}>
+                {entry.q ? (
+                  <Text style={styles.qaQuestion}>
+                    {qSegs.map((seg, j) =>
+                      seg.match ? <Text key={j} style={styles.cardNoteHighlight}>{seg.part}</Text> : seg.part
+                    )}
+                  </Text>
+                ) : null}
+                {entry.a ? (
+                  <Text style={styles.qaAnswer}>
+                    {aSegs.map((seg, j) =>
+                      seg.match ? <Text key={j} style={styles.cardNoteHighlight}>{seg.part}</Text> : seg.part
+                    )}
+                  </Text>
+                ) : (
+                  <Text style={styles.qaAnswerEmpty}>답변을 입력하지 않았어요</Text>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      );
+    }
+  } catch {}
+  return null;
+}
+
 // ── 카드 컴포넌트 ───────────────────────────────────────────────────────────
 function MeditationCard({
   item,
@@ -794,9 +843,10 @@ function MeditationCard({
   onLongPress: (item: Meditation) => void;
 }) {
   const noteType = getNoteType(item.note);
-  const preview = renderNotePreview(item.note);
-  const segments = highlight(preview, query);
   const isMemo = noteType === 'memo';
+  const isQa = noteType === 'qa';
+  const preview = isQa ? '' : renderNotePreview(item.note);
+  const segments = highlight(preview, query);
 
   return (
     <Pressable
@@ -816,20 +866,26 @@ function MeditationCard({
           ]}>
             <View style={[styles.typeBadgeDot, { backgroundColor: isMemo ? MEMO_COLOR : theme.gold }]} />
             <Text style={[styles.typeBadgeText, { color: isMemo ? MEMO_COLOR : theme.gold }]}>
-              {isMemo ? '메모' : noteType === 'qa' ? 'Q&A' : '묵상'}
+              {isMemo ? '메모' : isQa ? 'Q&A' : '묵상'}
             </Text>
           </View>
           <Text style={styles.cardRef}>{bookChapterLabel(item.bookId, item.chapter, item.verseStart, item.verseEnd)}</Text>
         </View>
         <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
       </View>
-      <Text style={styles.cardNote} numberOfLines={4}>
-        {segments.map((seg, i) =>
-          seg.match
-            ? <Text key={i} style={styles.cardNoteHighlight}>{seg.part}</Text>
-            : seg.part
-        )}
-      </Text>
+
+      {isQa ? (
+        <QaCardBody note={item.note} query={query} />
+      ) : (
+        <Text style={styles.cardNote}>
+          {segments.map((seg, i) =>
+            seg.match
+              ? <Text key={i} style={styles.cardNoteHighlight}>{seg.part}</Text>
+              : seg.part
+          )}
+        </Text>
+      )}
+
       {/* 공유 버튼만 유지, 수정/삭제는 롱프레스 */}
       <View style={styles.cardActions}>
         <Pressable onPress={(e) => e.stopPropagation()}>
@@ -950,6 +1006,7 @@ const styles = StyleSheet.create({
   filterToggle: {
     padding: 6,
     borderRadius: 8,
+    position: 'relative',
   },
   filterToggleActive: {
     backgroundColor: `${theme.gold}15`,
@@ -1002,6 +1059,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     backgroundColor: `${theme.gold}22`,
   },
+
+  // Q&A 구조적 렌더링
+  qaBody: { gap: 10 },
+  qaPairSep: { marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.08)' },
+  qaQuestion: { fontSize: 14, fontWeight: '700', color: theme.text, lineHeight: 20, marginBottom: 4 },
+  qaAnswer: { fontSize: 14, lineHeight: 21, color: theme.textSub, paddingLeft: 12 },
+  qaAnswerEmpty: { fontSize: 13, lineHeight: 20, color: theme.textMuted, paddingLeft: 12, fontStyle: 'italic' },
+
+  // 활성 필터 뱃지
+  filterBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: theme.gold,
+  },
+
   cardActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1083,6 +1159,7 @@ const styles = StyleSheet.create({
     gap: 20,
     marginBottom: 16,
     paddingVertical: 16,
+    paddingHorizontal: 24,
     backgroundColor: theme.surface,
     borderRadius: 14,
     marginHorizontal: 16,

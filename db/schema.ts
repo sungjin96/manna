@@ -211,4 +211,57 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       PRAGMA user_version = 8;
     `);
   }
+
+  // v8 → v9: 구절 오타 수정 시스템 + 기존 corrections 일괄 적용
+  if (user_version < 9) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS applied_corrections (
+        book_id  INTEGER NOT NULL,
+        chapter  INTEGER NOT NULL,
+        verse    INTEGER NOT NULL,
+        date     TEXT    NOT NULL,
+        PRIMARY KEY (book_id, chapter, verse, date)
+      );
+      PRAGMA user_version = 9;
+    `);
+  }
+
+  // corrections.json에서 미적용 건 반영 (매 실행마다)
+  await applyCorrections(db);
+}
+
+async function applyCorrections(db: SQLite.SQLiteDatabase): Promise<void> {
+  let corrections: Array<{
+    book_id: number; chapter: number; verse: number;
+    old: string; new: string; date: string;
+  }>;
+  try {
+    corrections = require('../assets/corrections.json');
+  } catch {
+    return;
+  }
+  if (!corrections.length) return;
+
+  for (const c of corrections) {
+    const already = await db.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM applied_corrections WHERE book_id=? AND chapter=? AND verse=? AND date=?',
+      [c.book_id, c.chapter, c.verse, c.date]
+    );
+    if ((already?.count ?? 0) > 0) continue;
+
+    await db.runAsync(
+      'UPDATE bible SET text = REPLACE(text, ?, ?) WHERE book_id = ? AND chapter = ? AND verse = ?',
+      [c.old, c.new, c.book_id, c.chapter, c.verse]
+    );
+
+    // FTS 동기화
+    try {
+      await db.execAsync(`INSERT INTO bible_fts(bible_fts) VALUES('rebuild')`);
+    } catch {}
+
+    await db.runAsync(
+      'INSERT OR IGNORE INTO applied_corrections (book_id, chapter, verse, date) VALUES (?, ?, ?, ?)',
+      [c.book_id, c.chapter, c.verse, c.date]
+    );
+  }
 }

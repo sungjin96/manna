@@ -493,9 +493,15 @@ export default function ReadScreen() {
     getDailyRefreshCount().then(c => setAiDailyRefreshCount(c));
   }
 
-  // 묵상 시트 안에서 AI 질문 생성 (Pro 전용)
+  // 묵상 시트 안에서 AI 질문 생성 (무료: 일일 한도 내 사용 가능)
   async function generateInModal() {
     if (!verses || verses.length === 0) return;
+    const dailyLimit = getDailyAILimit(isProUser);
+    const currentCount = await getDailyRefreshCount();
+    if (currentCount >= dailyLimit) {
+      setShowPaywall(true);
+      return;
+    }
     const start = meditationVerse?.start ?? verses[0].verse;
     const end = meditationVerse?.end ?? verses[verses.length - 1].verse;
     const selected = verses.filter(v => v.verse >= start && v.verse <= end);
@@ -515,11 +521,12 @@ export default function ReadScreen() {
     if (result.data) {
       await setAICache(bookId, chapter, result.data.prompts, start, end);
       setQaEntries(result.data.prompts.map(q => ({ q, a: '' })));
+      const newCount = await incrementDailyRefresh();
+      setAiDailyRefreshCount(newCount);
     }
   }
 
   async function handleAiTabChange(tab: 'meditate' | 'explain' | 'prayer') {
-    setAiTab(tab);
     const dailyLimit = getDailyAILimit(isProUser);
     const appUserId = await getAppUserId();
 
@@ -1220,21 +1227,20 @@ export default function ReadScreen() {
                     {/* AI 생성 — 오른쪽 끝, 흐르듯 배치 */}
                     <Pressable
                       style={[meditStyles.aiInlineBtn, { opacity: aiLoading ? 0.5 : 1 }]}
-                      onPress={isProUser ? generateInModal : () => setShowPaywall(true)}
+                      onPress={generateInModal}
                       disabled={aiLoading}
                       hitSlop={8}
                     >
                       {aiLoading
                         ? <ActivityIndicator size={12} color={colors.gold} />
                         : <MaterialCommunityIcons
-                            name={isProUser ? 'auto-fix' : 'lock-outline'}
+                            name="auto-fix"
                             size={14}
-                            color={isProUser ? colors.gold : colors.muted}
+                            color={colors.gold}
                           />
                       }
-                      <Text style={[meditStyles.aiInlineText, { color: isProUser ? colors.gold : colors.muted }]}>
+                      <Text style={[meditStyles.aiInlineText, { color: colors.gold }]}>
                         {aiLoading ? '생성 중' : 'AI 질문'}
-                        {!isProUser && ' 🔒'}
                       </Text>
                     </Pressable>
                   </View>
@@ -1411,7 +1417,7 @@ export default function ReadScreen() {
                   <Pressable
                     key={tab.key}
                     style={[aiStyles.tab, aiTab === tab.key && { borderBottomColor: colors.gold, borderBottomWidth: 2 }]}
-                    onPress={() => handleAiTabChange(tab.key)}
+                    onPress={() => setAiTab(tab.key)}
                   >
                     <MaterialCommunityIcons
                       name={tab.icon}
@@ -1639,13 +1645,12 @@ export default function ReadScreen() {
                   onPress={() => {
                     setShowAiSheet(false);
                     setMeditationVerse(aiVerseRange.current ?? null);
-                    if (isProUser && aiPrompts.length > 0) {
+                    if (aiPrompts && aiPrompts.length > 0) {
                       setMeditationMode('qa');
                       setQaEntries(aiPrompts.map(q => ({ q, a: '' })));
                       setNote('');
                     } else {
                       setMeditationMode('basic');
-                      setNote(`[AI 질문] ${aiPrompts[0]}\n\n`);
                     }
                     openMeditationSheet();
                   }}
