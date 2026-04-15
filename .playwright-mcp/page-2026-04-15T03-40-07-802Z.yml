@@ -1,0 +1,217 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - generic:
+      - img
+      - progressbar
+      - generic: Google Play Console 로드 중
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "Google Play Console 로고" [ref=e7] [cursor=pointer]:
+          - /url: /console/u/0/developers/6742527097914769594/app-list
+          - button "Google Play Console 로고" [ref=e8]
+        - generic [ref=e9]:
+          - button "읽지 않은 알림 알림 센터 열기" [ref=e173]:
+            - img [ref=e19]: notifications_unread
+            - generic [ref=e21]: 읽지 않은 알림
+          - button "개발자 계정 전환" [ref=e26] [cursor=pointer]:
+            - img "개발자 계정 전환" [ref=e28]
+    - navigation [ref=e34]:
+      - list [ref=e35]:
+        - listitem "홈" [ref=e38]:
+          - button "홈" [ref=e39] [cursor=pointer]:
+            - img [ref=e42]: features
+            - generic [ref=e43]: 홈
+        - listitem "정책 상태" [ref=e46]:
+          - button "정책 상태" [ref=e47] [cursor=pointer]:
+            - img [ref=e50]: android_security_privacy_safe
+            - generic [ref=e51]: 정책 상태
+        - listitem "사용자 및 권한" [ref=e54]:
+          - button "사용자 및 권한" [ref=e55] [cursor=pointer]:
+            - img [ref=e58]: user_attributes
+            - generic [ref=e59]: 사용자 및 권한
+        - listitem "주문 관리" [ref=e62]:
+          - button "주문 관리" [ref=e63] [cursor=pointer]:
+            - img [ref=e66]: credit_card
+            - generic [ref=e67]: 주문 관리
+        - listitem "보고서 다운로드" [ref=e70]:
+          - button "보고서 다운로드" [ref=e71] [cursor=pointer]:
+            - img [ref=e73]: arrow_right
+            - img [ref=e76]: download
+            - generic [ref=e77]: 보고서 다운로드
+        - listitem "개발자 계정" [ref=e80]:
+          - button "개발자 계정" [ref=e81] [cursor=pointer]:
+            - img [ref=e84]: badge
+            - generic [ref=e85]: 개발자 계정
+        - listitem "활동 로그" [ref=e88]:
+          - button "활동 로그" [ref=e89] [cursor=pointer]:
+            - img [ref=e92]: description
+            - generic [ref=e93]: 활동 로그
+        - listitem "설정" [ref=e96]:
+          - button "설정" [ref=e97] [cursor=pointer]:
+            - img [ref=e100]: settings
+            - generic [ref=e101]: 설정
+        - listitem "도움말" [ref=e104]:
+          - button "도움말" [ref=e105] [cursor=pointer]:
+            - img [ref=e108]: contact_support
+            - generic [ref=e109]: 도움말
+        - listitem "Android 개발자 인증" [ref=e112]:
+          - button "Android 개발자 인증" [ref=e113] [cursor=pointer]:
+            - img [ref=e116]: app_promotion
+            - generic [ref=e117]: Android 개발자 인증
+    - generic [ref=e119]:
+      - generic [ref=e126]:
+        - generic [ref=e132]:
+          - img [ref=e134]
+          - generic [ref=e135]:
+            - heading "sungjin5891" [level=1] [ref=e141]
+            - generic [ref=e148]:
+              - generic [ref=e149]: 개인 계정
+              - img [ref=e151]: brightness_1
+              - generic [ref=e152]: "계정 ID: 6742527097914769594"
+        - generic [ref=e180]:
+          - heading "Android 개발자 인증 요구사항을 충족할 수 있도록 자동으로 앱 등록을 시도했습니다. 아래에서 등록하지 못한 앱을 확인하세요." [level=3] [ref=e189]
+          - generic [ref=e191]:
+            - text: Android 개발자 인증 요구사항을 충족할 수 있도록
+            - link "패키지 이름 등록 요건 규칙에 대해 자세히 알아보기(새 탭에서 열림)" [ref=e192] [cursor=pointer]:
+              - /url: https://support.google.com/googleplay/android-developer/answer/16762143#eligibility
+              - text: 패키지 이름 등록 요건 규칙
+            - text: 에 따라 자동으로 앱 등록을 시도했습니다. 아래에서 각 앱의 패키지 이름 상태를 확인하세요. 등록되지 않은 경우 Android 개발자 인증 페이지에서 등록할 수 있습니다. 등록되지 않은 앱으로 목록을 필터링하면 됩니다.
+            - text: 2026년 9월부터 등록되지 않은 앱은 일부 국가의 인증된 Android 기기에 설치할 수 없게 됩니다.
+          - generic [ref=e194]:
+            - button "등록되지 않은 앱 보기" [ref=e195]:
+              - img [ref=e199]: filter_list
+              - generic [ref=e200]: 등록되지 않은 앱 보기
+            - button "Android 개발자 인증으로 이동" [ref=e201]:
+              - generic [ref=e204]: Android 개발자 인증으로 이동
+        - generic [ref=e209]:
+          - generic [ref=e211]:
+            - heading "고정된 앱" [level=2] [ref=e215]
+            - button "'고정된 앱' 팁:" [ref=e218] [cursor=pointer]:
+              - img [ref=e219]: help
+          - generic [ref=e222]: 앱을 여기에 고정하면 앱에 빠르게 액세스하고 주요 측정항목을 확인할 수 있습니다.
+        - generic [ref=e224]:
+          - generic [ref=e228]:
+            - heading "앱 2개" [level=2] [ref=e233]
+            - link "앱 만들기" [ref=e239] [cursor=pointer]:
+              - /url: /console/u/0/developers/6742527097914769594/create-new-app
+              - generic [ref=e242]: 앱 만들기
+          - generic [ref=e243]:
+            - generic [ref=e244]:
+              - generic [ref=e247]:
+                - generic [ref=e248]: 필터링 기준
+                - button "필터링 기준 전체" [ref=e251] [cursor=pointer]:
+                  - generic [ref=e254]: 전체
+                  - img [ref=e256]: arrow_drop_down
+              - search "앱 또는 패키지 이름으로 검색" [ref=e261]:
+                - generic [ref=e263]:
+                  - generic:
+                    - img: search
+                  - generic: 앱 또는 패키지 이름으로 검색
+                  - textbox "앱 또는 패키지 이름으로 검색" [ref=e264]
+            - generic [ref=e269]:
+              - grid "모든 앱" [ref=e274]:
+                - row "앱 설치한 사용자 수 앱 상태 업데이트 상태 최근 업데이트 날짜" [ref=e275]:
+                  - columnheader "앱" [ref=e276] [cursor=pointer]
+                  - columnheader "설치한 사용자 수" [ref=e277] [cursor=pointer]:
+                    - text: 설치한 사용자 수
+                    - img [ref=e279]: help_outline
+                  - columnheader "앱 상태" [ref=e280] [cursor=pointer]
+                  - columnheader "업데이트 상태" [ref=e281] [cursor=pointer]
+                  - columnheader "최근 업데이트 날짜" [ref=e282] [cursor=pointer]
+                  - cell [ref=e283]
+                  - cell [ref=e284]
+                  - cell [ref=e285]
+                - row "만나 - 매일의 양식 만나 - 매일의 양식 com.jsj.manna Android Developer Console에 등록된 'com.jsj.manna'에 대한 도움말 0 비공개 테스트 2026년 4월 11일 만나 - 매일의 양식 고정 만나 - 매일의 양식 보기" [ref=e286]:
+                  - gridcell "만나 - 매일의 양식 만나 - 매일의 양식 com.jsj.manna Android Developer Console에 등록된 'com.jsj.manna'에 대한 도움말" [ref=e287]:
+                    - generic [ref=e291]:
+                      - img "만나 - 매일의 양식" [ref=e293]
+                      - generic [ref=e294]:
+                        - generic [ref=e297]: 만나 - 매일의 양식
+                        - generic [ref=e300]:
+                          - generic [ref=e301]: com.jsj.manna
+                          - button "Android Developer Console에 등록된 'com.jsj.manna'에 대한 도움말" [ref=e302] [cursor=pointer]:
+                            - img [ref=e304]: check_circle
+                  - gridcell "0" [ref=e305]:
+                    - generic [ref=e309]: "0"
+                  - gridcell "비공개 테스트" [ref=e310]:
+                    - generic [ref=e314]: 비공개 테스트
+                  - gridcell [ref=e315]
+                  - gridcell "2026년 4월 11일" [ref=e316]:
+                    - generic [ref=e317]: 2026년 4월 11일
+                  - gridcell [ref=e318]
+                  - gridcell "만나 - 매일의 양식 고정" [ref=e319]:
+                    - button "만나 - 매일의 양식 고정" [ref=e322] [cursor=pointer]:
+                      - img [ref=e326]: keep
+                  - gridcell "만나 - 매일의 양식 보기" [ref=e327]:
+                    - link "만나 - 매일의 양식 보기" [ref=e329] [cursor=pointer]:
+                      - /url: /console/u/0/developers/6742527097914769594/app/4972541981107957862/app-dashboard
+                      - img [ref=e332]: arrow_right_alt
+                - row "맵 메이트 - MapMate com.mapmate Android Developer Console에 등록되지 않은 'com.mapmate'에 대한 도움말 0 임시 내부 테스트 2025년 1월 6일 맵 메이트 - MapMate 고정 맵 메이트 - MapMate 보기" [ref=e333]:
+                  - gridcell "맵 메이트 - MapMate com.mapmate Android Developer Console에 등록되지 않은 'com.mapmate'에 대한 도움말" [ref=e334]:
+                    - generic [ref=e338]:
+                      - img [ref=e340]
+                      - generic [ref=e341]:
+                        - generic [ref=e344]: 맵 메이트 - MapMate
+                        - generic [ref=e347]:
+                          - generic [ref=e348]: com.mapmate
+                          - button "Android Developer Console에 등록되지 않은 'com.mapmate'에 대한 도움말" [ref=e349] [cursor=pointer]:
+                            - img [ref=e351]: do_not_disturb_on
+                  - gridcell "0" [ref=e352]:
+                    - generic [ref=e356]: "0"
+                  - gridcell "임시 내부 테스트" [ref=e357]:
+                    - generic [ref=e359]:
+                      - generic [ref=e361]: 임시
+                      - generic [ref=e362]: 내부 테스트
+                  - gridcell [ref=e363]
+                  - gridcell "2025년 1월 6일" [ref=e364]:
+                    - generic [ref=e365]: 2025년 1월 6일
+                  - gridcell [ref=e366]
+                  - gridcell "맵 메이트 - MapMate 고정" [ref=e367]:
+                    - button "맵 메이트 - MapMate 고정" [ref=e370] [cursor=pointer]:
+                      - img [ref=e374]: keep
+                  - gridcell "맵 메이트 - MapMate 보기" [ref=e375]:
+                    - link "맵 메이트 - MapMate 보기" [ref=e377] [cursor=pointer]:
+                      - /url: /console/u/0/developers/6742527097914769594/app/4972104923761815994/app-dashboard
+                      - img [ref=e380]: arrow_right_alt
+              - generic [ref=e385]:
+                - generic [ref=e386]:
+                  - generic [ref=e387]: "표시할 행 수:"
+                  - 'button "표시할 행 수: 10 선택됨" [ref=e390] [cursor=pointer]':
+                    - generic [ref=e391]: "10"
+                    - img [ref=e393]: arrow_drop_down
+                - generic [ref=e394]:
+                  - generic [ref=e396]: 총 2개 중 1~2개
+                  - generic [ref=e397]:
+                    - button "첫 페이지로 이동" [disabled] [ref=e398]:
+                      - generic:
+                        - generic:
+                          - img: first_page
+                    - button "이전 페이지로 이동" [disabled] [ref=e399]:
+                      - generic:
+                        - generic:
+                          - img: chevron_left
+                    - button "다음 페이지로 이동" [disabled] [ref=e400]:
+                      - generic:
+                        - generic:
+                          - img: chevron_right
+                    - button "마지막 페이지로 이동" [disabled] [ref=e401]:
+                      - generic:
+                        - generic:
+                          - img: last_page
+      - generic [ref=e163]:
+        - generic [ref=e164]:
+          - link "제품 업데이트" [ref=e165] [cursor=pointer]:
+            - /url: https://play.google.com/console/about/whats-new/
+          - link "상태 대시보드" [ref=e166] [cursor=pointer]:
+            - /url: https://status.play.google.com/
+          - link "도움말" [ref=e167] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/help-and-support
+        - generic [ref=e168]:
+          - generic [ref=e169]: © 2026 Google
+          - link "개인 정보 보호" [ref=e170] [cursor=pointer]:
+            - /url: https://www.google.com/policies/privacy/
+          - link "개발자 배포 계약" [ref=e171] [cursor=pointer]:
+            - /url: https://play.google.com/about/developer-distribution-agreement.html
+          - link "서비스 약관" [ref=e172] [cursor=pointer]:
+            - /url: https://play.google.com/about/console/terms-of-service/

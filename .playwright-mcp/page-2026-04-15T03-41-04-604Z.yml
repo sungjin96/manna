@@ -1,0 +1,121 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - generic:
+      - img
+      - progressbar
+      - generic: Google Play Console 로드 중
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "Google Play Console 로고" [ref=e7] [cursor=pointer]:
+          - /url: /console/u/0/developers/6742527097914769594/app-list
+          - button "Google Play Console 로고" [ref=e8]
+        - generic [ref=e9]:
+          - button "알림 알림 센터 열기" [ref=e395]:
+            - img [ref=e49]: notifications
+            - generic [ref=e51]: 알림
+          - generic [ref=e10]:
+            - button "만나 - 매일의 양식" [ref=e403] [cursor=pointer]:
+              - generic [ref=e407]:
+                - img [ref=e409]
+                - generic [ref=e413]: 만나 - 매일의 양식
+            - button "개발자 계정 전환" [ref=e14] [cursor=pointer]:
+              - img "개발자 계정 전환" [ref=e16]
+    - navigation [ref=e53]:
+      - link "모든 앱" [ref=e415] [cursor=pointer]:
+        - /url: /console/u/0/developers/6742527097914769594/app-list
+        - img [ref=e417]: keyboard_backspace
+        - generic [ref=e418]: 모든 앱
+      - list [ref=e54]:
+        - listitem "대시보드" [ref=e421]:
+          - button "대시보드" [ref=e422] [cursor=pointer]:
+            - img [ref=e425]: dashboard
+            - generic [ref=e426]: 대시보드
+        - listitem "통계" [ref=e429]:
+          - button "통계" [ref=e430] [cursor=pointer]:
+            - img [ref=e433]: bar_chart
+            - generic [ref=e434]: 통계
+        - listitem "게시 개요" [ref=e437]:
+          - button "게시 개요" [ref=e438] [cursor=pointer]:
+            - img [ref=e441]: overview
+            - generic [ref=e442]: 게시 개요
+        - listitem "테스트 및 출시" [ref=e445]:
+          - button "테스트 및 출시" [ref=e446] [cursor=pointer]:
+            - img [ref=e449]: rocket_launch
+            - generic [ref=e450]: 테스트 및 출시
+        - listitem "모니터링 및 개선" [ref=e453]:
+          - button "모니터링 및 개선" [ref=e454] [cursor=pointer]:
+            - img [ref=e457]: vital_signs
+            - generic [ref=e458]: 모니터링 및 개선
+        - listitem "사용자 늘리기" [ref=e461]:
+          - button "사용자 늘리기" [ref=e462] [cursor=pointer]:
+            - img [ref=e465]: finance_mode
+            - generic [ref=e466]: 사용자 늘리기
+        - listitem "Play를 통한 수익 창출" [ref=e469]:
+          - button "Play를 통한 수익 창출" [ref=e470] [cursor=pointer]:
+            - img [ref=e473]: sell
+            - generic [ref=e474]: Play를 통한 수익 창출
+    - generic [ref=e22]:
+      - generic [ref=e477]:
+        - generic [ref=e484]:
+          - heading "대시보드" [level=1] [ref=e490]
+          - generic [ref=e495]:
+            - text: 앱 게시를 준비하세요.
+            - button "대시보드에 관한 세부정보 더보기" [ref=e496] [cursor=pointer]: 더보기
+        - generic [ref=e501]:
+          - img "만나 - 매일의 양식" [ref=e503]
+          - generic [ref=e504]:
+            - generic [ref=e505]:
+              - heading "만나 - 매일의 양식" [level=2] [ref=e510]
+              - link "출시 개요 보기" [ref=e515] [cursor=pointer]:
+                - /url: /console/u/0/developers/6742527097914769594/app/4972541981107957862/releases/overview
+                - generic [ref=e518]: 출시 개요 보기
+            - generic [ref=e520]: com.jsj.manna
+        - generic [ref=e524]:
+          - generic [ref=e527]:
+            - heading "프로덕션" [level=3] [ref=e536]
+            - generic [ref=e538]: 비활성
+          - button "테스트 트랙 표시" [ref=e546]:
+            - generic [ref=e549]: 테스트 트랙 표시
+            - img [ref=e551]: expand_more
+        - generic [ref=e554]:
+          - heading "프로덕션" [level=2] [ref=e563]
+          - generic [ref=e567]:
+            - generic [ref=e569]:
+              - img [ref=e571]
+              - generic [ref=e572]:
+                - generic [ref=e575]:
+                  - heading "프로덕션 액세스 신청" [level=3] [ref=e581]
+                  - generic [ref=e584]:
+                    - text: 프로덕션 트랙을 통해 Google Play에서 수십억 명의 사용자에게 앱을 제공할 수 있습니다. 프로덕션 액세스 권한을 신청하려면 먼저 기준을 충족하는 비공개 테스트를 진행해야 합니다. 신청 시 비공개 테스트에 관한 몇 가지 질문에 답변해야 합니다.
+                    - link "질문 미리보기" [ref=e585] [cursor=pointer]:
+                      - /url: https://support.google.com/googleplay/android-developer/answer/14151465#production
+                - generic [ref=e589]:
+                  - generic [ref=e591]:
+                    - img [ref=e595]: check
+                    - generic [ref=e597]: 비공개 테스트 버전 게시
+                  - generic [ref=e604]:
+                    - text: 12명 이상의 테스터가 비공개 테스트 참여를 선택
+                    - emphasis [ref=e606]: 현재 참여를 선택한 테스터 0명
+                  - generic [ref=e612] [cursor=pointer]: 12명 이상의 테스터를 대상으로 14일 이상 비공개 테스트 실행
+            - generic [ref=e614]:
+              - button "프로덕션 신청" [disabled] [ref=e615]:
+                - generic [ref=e618]: 프로덕션 신청
+              - button "Production Access 자세히 알아보기(새 탭에서 열림)" [ref=e619]:
+                - generic [ref=e622]: 자세히 알아보기
+      - generic [ref=e30]:
+        - generic [ref=e623]:
+          - link "제품 업데이트" [ref=e624] [cursor=pointer]:
+            - /url: https://play.google.com/console/about/whats-new/
+          - link "상태 대시보드" [ref=e625] [cursor=pointer]:
+            - /url: https://status.play.google.com/
+          - link "도움말" [ref=e626] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/help-and-support?app=4972541981107957862
+        - generic [ref=e627]:
+          - generic [ref=e628]: © 2026 Google
+          - link "개인 정보 보호" [ref=e629] [cursor=pointer]:
+            - /url: https://www.google.com/policies/privacy/
+          - link "개발자 배포 계약" [ref=e630] [cursor=pointer]:
+            - /url: https://play.google.com/about/developer-distribution-agreement.html
+          - link "서비스 약관" [ref=e631] [cursor=pointer]:
+            - /url: https://play.google.com/about/console/terms-of-service/

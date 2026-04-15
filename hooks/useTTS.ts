@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import * as Speech from 'expo-speech';
 import { getSetting, setSetting } from '../db/settings';
 
@@ -151,6 +152,17 @@ export function useTTS(
     }
   }, []);
 
+  // Stop TTS when app goes to background (free users only)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'background' && !isProUserRef.current) {
+        Speech.pause();
+        setIsPaused(true);
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
   // Cleanup on unmount — clear intervals but keep _globalTimerEndMs
   // so timer carries over to the next chapter on auto-advance
   useEffect(() => {
@@ -227,7 +239,7 @@ export function useTTS(
       await new Promise<void>(resolve => {
         const opts: Speech.SpeechOptions = {
           rate: TTS_RATES[ttsRateIdxRef.current],
-          useApplicationAudioSession: isProUserRef.current,
+          useApplicationAudioSession: true,
           onDone: resolve,
           onStopped: resolve,
           onError: () => resolve(),

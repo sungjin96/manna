@@ -1,0 +1,6 @@
+[   24000ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://nid.naver.com/nidlogin.login?url=https%3A%2F%2Fmybox.naver.com&realname=Y:0
+[   35341ms] Uncaught ReferenceError: jindo is not defined
+    at _setElement (https://ssl.pstatic.net/pwe/js/release/deskhome_menu_ns_202312.js:0:2411)
+    at initialize (https://ssl.pstatic.net/pwe/js/release/deskhome_menu_ns_202312.js:0:554)
+    at onLoad (https://mybox.pstatic.net/main/_next/static/chunks/app/main/web/layout-7a119c9b98f85161.js:0:9174)
+    at <anonymous> (https://mybox.pstatic.net/main/_next/static/chunks/app/main/web/layout-7a119c9b98f85161.js:0:11833)

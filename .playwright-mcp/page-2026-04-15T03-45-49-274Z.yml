@@ -1,0 +1,157 @@
+- generic [ref=e1]:
+  - generic:
+    - generic:
+      - img
+      - progressbar
+      - generic: Google Play Console 로드 중
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "Google Play Console 로고" [ref=e7] [cursor=pointer]:
+          - /url: /console/u/0/developers/6742527097914769594/app-list
+          - button "Google Play Console 로고" [ref=e8]
+        - generic [ref=e9]:
+          - button "알림 알림 센터 열기" [ref=e45]:
+            - img [ref=e49]: notifications
+            - generic [ref=e51]: 알림
+          - generic [ref=e10]:
+            - button "만나 - 매일의 양식" [ref=e59] [cursor=pointer]:
+              - generic [ref=e63]:
+                - img [ref=e65]
+                - generic [ref=e69]: 만나 - 매일의 양식
+            - button "개발자 계정 전환" [ref=e14] [cursor=pointer]:
+              - img "개발자 계정 전환" [ref=e16]
+    - navigation [ref=e72]:
+      - link "모든 앱" [ref=e73] [cursor=pointer]:
+        - /url: /console/u/0/developers/6742527097914769594/app-list
+        - img [ref=e75]: keyboard_backspace
+        - generic [ref=e76]: 모든 앱
+      - list [ref=e77]:
+        - listitem "대시보드" [ref=e80]:
+          - button "대시보드" [ref=e81] [cursor=pointer]:
+            - img [ref=e84]: dashboard
+            - generic [ref=e85]: 대시보드
+        - listitem "통계" [ref=e88]:
+          - button "통계" [ref=e89] [cursor=pointer]:
+            - img [ref=e92]: bar_chart
+            - generic [ref=e93]: 통계
+        - listitem "게시 개요" [ref=e96]:
+          - button "게시 개요" [ref=e97] [cursor=pointer]:
+            - img [ref=e100]: overview
+            - generic [ref=e101]: 게시 개요
+        - listitem "테스트 및 출시" [ref=e104]:
+          - button "테스트 및 출시" [ref=e105] [cursor=pointer]:
+            - img [ref=e108]: rocket_launch
+            - generic [ref=e109]: 테스트 및 출시
+        - listitem "모니터링 및 개선" [ref=e112]:
+          - button "모니터링 및 개선" [ref=e113] [cursor=pointer]:
+            - img [ref=e116]: vital_signs
+            - generic [ref=e117]: 모니터링 및 개선
+        - listitem "사용자 늘리기" [ref=e120]:
+          - button "사용자 늘리기" [ref=e121] [cursor=pointer]:
+            - img [ref=e124]: finance_mode
+            - generic [ref=e125]: 사용자 늘리기
+        - listitem "Play를 통한 수익 창출" [ref=e128]:
+          - button "Play를 통한 수익 창출" [ref=e129] [cursor=pointer]:
+            - img [ref=e132]: sell
+            - generic [ref=e133]: Play를 통한 수익 창출
+          - list [ref=e292]:
+            - generic [ref=e294]:
+              - listitem "제품" [ref=e296]:
+                - button "제품" [active] [ref=e297] [cursor=pointer]:
+                  - generic [ref=e298]: 제품
+                  - img [ref=e300]: expand_less
+                - list [ref=e456]:
+                  - generic [ref=e458]:
+                    - listitem "앱 가격" [ref=e460]:
+                      - button "앱 가격" [ref=e461] [cursor=pointer]:
+                        - generic [ref=e462]: 앱 가격
+                    - listitem "일회성 제품" [ref=e464]:
+                      - button "일회성 제품" [ref=e465] [cursor=pointer]:
+                        - generic [ref=e466]: 일회성 제품
+                    - listitem "정기 결제" [ref=e468]:
+                      - button "정기 결제" [ref=e469] [cursor=pointer]:
+                        - generic [ref=e470]: 정기 결제
+              - listitem "가격 실험" [ref=e302]:
+                - button "가격 실험" [ref=e303] [cursor=pointer]:
+                  - generic [ref=e304]: 가격 실험
+              - listitem "구매 추천" [ref=e306]:
+                - button "구매 추천" [ref=e307] [cursor=pointer]:
+                  - generic [ref=e308]: 구매 추천
+              - listitem "프로모션 코드" [ref=e310]:
+                - button "프로모션 코드" [ref=e311] [cursor=pointer]:
+                  - generic [ref=e312]: 프로모션 코드
+              - listitem "재무 보고서" [ref=e314]:
+                - button "재무 보고서" [ref=e315] [cursor=pointer]:
+                  - generic [ref=e316]: 재무 보고서
+                  - img [ref=e318]: expand_more
+              - listitem "수익 창출 설정" [ref=e320]:
+                - button "수익 창출 설정" [ref=e321] [cursor=pointer]:
+                  - generic [ref=e322]: 수익 창출 설정
+    - generic [ref=e22]:
+      - generic [ref=e325]:
+        - heading "Play를 통한 수익 창출" [level=1] [ref=e338]
+        - generic [ref=e345]:
+          - generic [ref=e346]: 대시보드에서 앱 설정을 완료하세요
+          - generic [ref=e349]: 앱 설정을 완료한 후 여기로 돌아와 앱으로 수익을 창출하는 방법을 살펴보세요.
+          - link "대시보드로 이동" [ref=e353] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/app/4972541981107957862/app-dashboard
+            - generic [ref=e356]: 대시보드로 이동
+            - img [ref=e359]: arrow_right_alt
+        - generic [ref=e367]:
+          - generic [ref=e371]:
+            - generic [ref=e374]:
+              - img [ref=e378]: play_prism
+              - heading "Play 아카데미에서 학습하기" [level=2] [ref=e380]
+            - link "Play 아카데미 홈페이지로 이동(새 탭에서 열기)" [ref=e383] [cursor=pointer]:
+              - /url: https://playacademy.withgoogle.com/
+              - img [ref=e387]: arrow_right_alt
+          - generic [ref=e388]:
+            - generic [ref=e390]:
+              - img [ref=e391]
+              - generic [ref=e393]:
+                - generic [ref=e394]:
+                  - heading "앱 수익 창출 방식 설정 및 관리" [level=3] [ref=e403]
+                  - generic [ref=e404]: Play에서 앱으로 수익을 창출하는 다양한 방법에 대해 알아보세요.
+                - link "시작하기(새 탭에서 열기)" [ref=e409] [cursor=pointer]:
+                  - /url: https://playacademy.exceedlms.com/student/path/6407-set-up-and-manage-monetization-options
+                  - generic [ref=e412]: 시작하기
+                  - img [ref=e415]: open_in_new
+            - generic [ref=e417]:
+              - img [ref=e418]
+              - generic [ref=e420]:
+                - generic [ref=e421]:
+                  - heading "정기 결제를 통해 앱 비즈니스 성장시키기" [level=3] [ref=e430]
+                  - generic [ref=e431]: 콘텐츠나 기능에 대한 이용 권한을 반복적으로 판매하여 정기적인 앱의 수익원을 만드는 방법을 알아보세요.
+                - link "시작하기(새 탭에서 열기)" [ref=e436] [cursor=pointer]:
+                  - /url: https://playacademy.exceedlms.com/student/collection/261491/path/345796
+                  - generic [ref=e439]: 시작하기
+                  - img [ref=e442]: open_in_new
+        - generic [ref=e444]:
+          - generic [ref=e445]: 이 개요가 유용했나요?
+          - generic [ref=e446]:
+            - button "아니요, 유용하지 않습니다." [ref=e447]:
+              - img "아니요, 유용하지 않습니다." [ref=e448] [cursor=pointer]
+            - button "어느 정도 도움이 됨" [ref=e449]:
+              - img "어느 정도 도움이 됨" [ref=e450] [cursor=pointer]
+            - button "예, 유용합니다." [ref=e451]:
+              - img "예, 유용합니다." [ref=e452] [cursor=pointer]
+            - generic [ref=e453]: 아니요, 유용하지 않습니다.
+            - generic [ref=e454]: 어느 정도 도움이 됨
+            - generic [ref=e455]: 예, 유용합니다.
+      - generic [ref=e30]:
+        - generic [ref=e283]:
+          - link "제품 업데이트" [ref=e284] [cursor=pointer]:
+            - /url: https://play.google.com/console/about/whats-new/
+          - link "상태 대시보드" [ref=e285] [cursor=pointer]:
+            - /url: https://status.play.google.com/
+          - link "도움말" [ref=e286] [cursor=pointer]:
+            - /url: /console/u/0/developers/6742527097914769594/help-and-support?app=4972541981107957862
+        - generic [ref=e287]:
+          - generic [ref=e288]: © 2026 Google
+          - link "개인 정보 보호" [ref=e289] [cursor=pointer]:
+            - /url: https://www.google.com/policies/privacy/
+          - link "개발자 배포 계약" [ref=e290] [cursor=pointer]:
+            - /url: https://play.google.com/about/developer-distribution-agreement.html
+          - link "서비스 약관" [ref=e291] [cursor=pointer]:
+            - /url: https://play.google.com/about/console/terms-of-service/

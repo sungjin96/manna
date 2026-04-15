@@ -1,0 +1,6 @@
+[   63272ms] [WARNING] Blocked aria-hidden on an element because its descendant retained focus. The focus must not be hidden from assistive technology users. Avoid using aria-hidden on a focused element or its ancestor. Consider using the inert attribute instead, which will also prevent focus. For more details, see the aria-hidden section of the WAI-ARIA specification at https://w3c.github.io/aria/#aria-hidden.
+Element with focus: <div.s_insert_shape ellipse btn_wo btn_wo_fn btn_icon arrowkey_hover>
+Ancestor with aria-hidden: <div.menu_bar container_view#menu_bar> @ https://webhwp.mybox.naver.com/webhwp/?mode=HWP_EDITOR&docId=d6767a7f6cf2fb1b1dc73f42ea45106a744b42ce80e4ecfe097bfe27426cbfbd&lang=ko_KR:0
+[ 7414218ms] TypeError: Cannot read properties of null (reading 'hasAActionFromSentChanges')
+    at connectWebSocketForOfflineDataSyncCallback (https://webhwp.mybox.naver.com/webhwp/js/138.d9f7c4263b605dde632e.chunk.js:2:729905)
+    at https://webhwp.mybox.naver.com/webhwp/js/138.d9f7c4263b605dde632e.chunk.js:2:720406

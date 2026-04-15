@@ -1,0 +1,7 @@
+[    1093ms] [ERROR] Failed to load resource: the server responded with a status of 503 () @ https://ogads-pa.clients6.google.com/$rpc/google.internal.onegoogle.asyncdata.v1.AsyncDataService/GetAsyncData:0
+[    9690ms] [ERROR] Attestation check for Shared Storage on https://www.googleadservices.com failed. @ https://www.googleadservices.com/pagead/managed/js/activeview/current/reach_worklet.html:0
+[   68237ms] [LOG] Deprecated as of 10.6.0. initHighlightingOnLoad() is deprecated.  Use highlightAll() instead. @ https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.3/highlight.min.js:171
+[   68315ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://aem-kakao-collector.onkakao.net/api/13528/envelope/?sentry_version=7&sentry_key=a8db199ab4d9487f97e8df418a9d79a5&sentry_client=sentry.javascript.react%2F8.42.0:0
+[   68401ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://softone.tistory.com/127:0
+[   68401ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "new-password"): (More info: https://goo.gl/9p2vKq) %o @ https://softone.tistory.com/127:0
+[   68401ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "new-password"): (More info: https://goo.gl/9p2vKq) %o @ https://softone.tistory.com/127:0
