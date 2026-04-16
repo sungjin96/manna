@@ -1,13 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
+/**
+ * TTS orchestrator hook.
+ * Tries CDN audio first (expo-audio), falls back to device TTS (expo-speech).
+ * External interface is backward-compatible with the original useTTS.
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import * as Speech from 'expo-speech';
+import { setAudioModeAsync } from 'expo-audio';
 import { getSetting, setSetting } from '../db/settings';
+import { useTTSCdn } from './useTTSCdn';
+import { CDN_VOICES, TTS_RATES_CDN, TTS_RATES_SPEECH, TTS_RATE_LABELS,
+         TTS_TIMER_PRESETS, TTS_TIMER_MIN, TTS_TIMER_MAX } from '../constants/tts';
 
-export const TTS_RATES = [0.75, 0.9, 1.1, 1.3];
-export const TTS_RATE_LABELS = ['0.75×', '1×', '1.25×', '1.5×'];
-export const TTS_TIMER_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90, 120]; // minutes
-export const TTS_TIMER_MIN = 1;
-export const TTS_TIMER_MAX = 240;
+// Re-export constants for backward compatibility
+export { TTS_RATE_LABELS, TTS_TIMER_PRESETS, TTS_TIMER_MIN, TTS_TIMER_MAX };
+export const TTS_RATES = TTS_RATES_SPEECH; // legacy export
 
 export interface TTSVoice {
   identifier: string;
@@ -21,12 +29,12 @@ export interface TTSOptions {
   onVerseRead?: (verseNumber: number) => void;
 }
 
-// Cache Korean voices list
-let _koVoicesResolved = false;
-let _koVoices: TTSVoice[] = [];
-
 // Timer end time persists across chapter navigation (component remount)
 let _globalTimerEndMs: number | null = null;
+
+// Cache Korean voices list (for fallback mode)
+let _koVoicesResolved = false;
+let _koVoices: TTSVoice[] = [];
 
 async function getKoreanVoices(): Promise<TTSVoice[]> {
   if (_koVoicesResolved) return _koVoices;
@@ -39,7 +47,6 @@ async function getKoreanVoices(): Promise<TTSVoice[]> {
         name: v.name ?? v.identifier.split('.').pop() ?? 'Unknown',
         quality: (v as { quality?: string }).quality ?? 'Default',
       }));
-    // Yuna 최우선, Enhanced 차순위, 알파벳순
     _koVoices.sort((a, b) => {
       const aYuna = a.name.toLowerCase().includes('yuna');
       const bYuna = b.name.toLowerCase().includes('yuna');
@@ -60,7 +67,11 @@ export function useTTS(
   verses: Array<{ verse: number; text: string }> | null | undefined,
   options?: TTSOptions,
   isProUser?: boolean,
+  /** bookId + chapter needed for CDN audio lookup */
+  bookId?: number,
+  chapter?: number,
 ) {
+  // --- Shared state (same interface as before) ---
   const [isTTS, setIsTTS] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [ttsVerse, setTtsVerse] = useState<number | null>(null);
@@ -68,6 +79,8 @@ export function useTTS(
   const [noKoreanVoice, setNoKoreanVoice] = useState(false);
   const [availableVoices, setAvailableVoices] = useState<TTSVoice[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
+  const [isCdnMode, setIsCdnMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Timer state
   const [timerMinutes, setTimerMinutes] = useState<number | null>(null);
@@ -80,7 +93,7 @@ export function useTTS(
   const [verseReadEnabled, setVerseReadEnabled] = useState(true);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
-  // Refs for use inside async loops
+  // Refs
   const ttsRateIdxRef = useRef(1);
   const selectedVoiceRef = useRef<string | null>(null);
   const sessionRef = useRef(0);
@@ -93,6 +106,7 @@ export function useTTS(
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isProUserRef = useRef(!!isProUser);
+  const isCdnModeRef = useRef(false);
 
   optionsRef.current = options;
   isProUserRef.current = !!isProUser;
@@ -102,22 +116,81 @@ export function useTTS(
   useEffect(() => { autoAdvanceRef.current = autoAdvanceEnabled; }, [autoAdvanceEnabled]);
   useEffect(() => { verseReadRef.current = verseReadEnabled; }, [verseReadEnabled]);
 
-  // Load voices + saved settings on mount
+  // --- CDN Engine (always called — hook rules) ---
+  const cdn = useTTSCdn(
+    verses,
+    // onVerseChange
+    (verse) => {
+      setTtsVerse(verse);
+    },
+    // onVerseRead
+    (verse) => {
+      if (verseReadRef.current) {
+        optionsRef.current?.onVerseRead?.(verse);
+      }
+    },
+    // onFinish
+    () => {
+      setIsTTS(false);
+      setTtsVerse(null);
+      setIsPaused(false);
+      clearTimerIntervals();
+      setTimerMinutes(null);
+      setTimerRemaining(null);
+
+      if (!timerStoppedRef.current) {
+        if (autoCompleteRef.current) optionsRef.current?.onChapterEnd?.();
+        if (autoAdvanceRef.current) {
+          setTimeout(() => optionsRef.current?.onAutoAdvance?.(), 500);
+        }
+      }
+    },
+  );
+
+  // --- Init: load CDN audio + device voices + settings ---
   useEffect(() => {
     (async () => {
-      const voices = await getKoreanVoices();
-      setAvailableVoices(voices);
-      if (voices.length === 0) {
-        setNoKoreanVoice(true);
-        return;
+      // Try CDN load first
+      if (bookId != null && chapter != null) {
+        setIsLoading(true);
+        const loaded = await cdn.controls.load(bookId, chapter);
+        setIsLoading(false);
+        if (loaded) {
+          setIsCdnMode(true);
+          isCdnModeRef.current = true;
+          // Build voice list from CDN voices
+          setAvailableVoices(CDN_VOICES.map(v => ({
+            identifier: v.id,
+            name: v.label,
+            quality: 'Neural',
+          })));
+          setSelectedVoiceId(cdn.state.cdnVoiceId);
+          setNoKoreanVoice(false);
+        } else {
+          // Fallback: load device voices
+          setIsCdnMode(false);
+          isCdnModeRef.current = false;
+          const voices = await getKoreanVoices();
+          setAvailableVoices(voices);
+          if (voices.length === 0) {
+            setNoKoreanVoice(true);
+            return;
+          }
+          const savedId = await getSetting('tts_voice_id', '');
+          const match = savedId && voices.find(v => v.identifier === savedId);
+          const voiceId = match ? savedId : voices[0].identifier;
+          setSelectedVoiceId(voiceId);
+          selectedVoiceRef.current = voiceId;
+        }
+      } else {
+        // No bookId/chapter — fallback only
+        const voices = await getKoreanVoices();
+        setAvailableVoices(voices);
+        if (voices.length === 0) setNoKoreanVoice(true);
       }
-      const savedId = await getSetting('tts_voice_id', '');
-      const match = savedId && voices.find(v => v.identifier === savedId);
-      const voiceId = match ? savedId : voices[0].identifier;
-      setSelectedVoiceId(voiceId);
-      selectedVoiceRef.current = voiceId;
     })();
 
+    // Load settings
     (async () => {
       const autoComplete = await getSetting('tts_auto_complete', '1');
       const autoAdvance = await getSetting('tts_auto_advance', '0');
@@ -156,39 +229,46 @@ export function useTTS(
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
       if (state === 'background' && !isProUserRef.current) {
-        Speech.pause();
+        if (isCdnModeRef.current) {
+          cdn.controls.pause();
+        } else {
+          Speech.pause();
+        }
         setIsPaused(true);
       }
     });
     return () => subscription.remove();
   }, []);
 
-  // Cleanup on unmount — clear intervals but keep _globalTimerEndMs
-  // so timer carries over to the next chapter on auto-advance
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      sessionRef.current += 1; // Invalidate any running session
-      Speech.stop();
-      clearTimer(); // Clears intervals only, NOT _globalTimerEndMs
+      sessionRef.current += 1;
+      if (isCdnModeRef.current) {
+        cdn.controls.stop();
+      } else {
+        Speech.stop();
+      }
+      clearTimerIntervals();
     };
   }, []);
 
-  // Clears JS intervals only — does NOT clear _globalTimerEndMs
-  // so the timer carries over when navigating between chapters
-  function clearTimer() {
+  // ========== Timer logic (shared, engine-independent) ==========
+
+  function clearTimerIntervals() {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
   }
 
   function _runTimerFromSeconds(totalSecs: number) {
-    clearTimer();
+    clearTimerIntervals();
     timerStoppedRef.current = false;
     let remaining = totalSecs;
     countdownRef.current = setInterval(() => {
       remaining -= 1;
       setTimerRemaining(remaining);
       if (remaining <= 0) {
-        clearTimer();
+        clearTimerIntervals();
         _globalTimerEndMs = null;
         setTimerMinutes(null);
         setTimerRemaining(null);
@@ -197,7 +277,7 @@ export function useTTS(
     timerRef.current = setTimeout(async () => {
       timerStoppedRef.current = true;
       _globalTimerEndMs = null;
-      await _stopTTS();
+      await _stopAll();
     }, totalSecs * 1000);
   }
 
@@ -210,35 +290,49 @@ export function useTTS(
   }
 
   function cancelTimer() {
-    clearTimer();
+    clearTimerIntervals();
     _globalTimerEndMs = null;
     setTimerMinutes(null);
     setTimerRemaining(null);
   }
 
-  async function _stopTTS() {
-    sessionRef.current += 1; // Invalidate current session
-    await Speech.stop();
+  // ========== Playback controls ==========
+
+  async function _stopAll() {
+    if (isCdnModeRef.current) {
+      cdn.controls.stop();
+    } else {
+      sessionRef.current += 1;
+      await Speech.stop();
+    }
     setIsTTS(false);
     setTtsVerse(null);
     setIsPaused(false);
   }
 
-  async function startTTSFrom(startIdx: number) {
+  // --- Speech engine functions (fallback) ---
+
+  async function _speechStartFrom(startIdx: number) {
     if (!verses || verses.length === 0) return;
     const session = ++sessionRef.current;
     setIsTTS(true);
     setIsPaused(false);
     timerStoppedRef.current = false;
 
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: isProUserRef.current,
+      interruptionMode: 'doNotMix',
+    });
+
     for (let i = startIdx; i < verses.length; i++) {
-      if (sessionRef.current !== session) return; // Newer session started
+      if (sessionRef.current !== session) return;
       currentVerseIdxRef.current = i;
       setTtsVerse(verses[i].verse);
 
       await new Promise<void>(resolve => {
         const opts: Speech.SpeechOptions = {
-          rate: TTS_RATES[ttsRateIdxRef.current],
+          rate: TTS_RATES_SPEECH[ttsRateIdxRef.current],
           useApplicationAudioSession: true,
           onDone: resolve,
           onStopped: resolve,
@@ -252,19 +346,17 @@ export function useTTS(
         Speech.speak(verses[i].text, opts);
       });
 
-      // Notify verse read (only if enabled and session still valid)
       if (sessionRef.current === session && verseReadRef.current) {
         optionsRef.current?.onVerseRead?.(verses[i].verse);
       }
     }
 
-    if (sessionRef.current !== session) return; // Interrupted
+    if (sessionRef.current !== session) return;
 
-    // All verses completed normally
     setIsTTS(false);
     setTtsVerse(null);
     setIsPaused(false);
-    clearTimer();
+    clearTimerIntervals();
     setTimerMinutes(null);
     setTimerRemaining(null);
 
@@ -276,34 +368,65 @@ export function useTTS(
     }
   }
 
-  function startTTS() {
-    currentVerseIdxRef.current = 0;
-    startTTSFrom(0);
+  // --- Public API (delegates to CDN or Speech) ---
+
+  async function startTTS() {
+    if (isCdnModeRef.current) {
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: isProUserRef.current,
+        interruptionMode: 'doNotMix',
+      });
+      setIsTTS(true);
+      setIsPaused(false);
+      timerStoppedRef.current = false;
+      cdn.controls.play();
+    } else {
+      currentVerseIdxRef.current = 0;
+      _speechStartFrom(0);
+    }
   }
 
   async function startFromVerse(verseNum: number) {
     if (!verses) return;
-    const idx = verses.findIndex(v => v.verse === verseNum);
-    if (idx < 0) return;
-    sessionRef.current += 1; // Invalidate current session
-    await Speech.stop();
-    startTTSFrom(idx);
+    if (isCdnModeRef.current) {
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: isProUserRef.current,
+      });
+      setIsTTS(true);
+      setIsPaused(false);
+      timerStoppedRef.current = false;
+      cdn.controls.playFromVerse(verseNum);
+    } else {
+      const idx = verses.findIndex(v => v.verse === verseNum);
+      if (idx < 0) return;
+      sessionRef.current += 1;
+      await Speech.stop();
+      _speechStartFrom(idx);
+    }
   }
 
   async function stopTTS() {
-    clearTimer();
-    setTimerMinutes(null);
-    setTimerRemaining(null);
-    await _stopTTS();
+    cancelTimer();
+    await _stopAll();
   }
 
   async function pauseTTS() {
-    await Speech.pause();
+    if (isCdnModeRef.current) {
+      cdn.controls.pause();
+    } else {
+      await Speech.pause();
+    }
     setIsPaused(true);
   }
 
   async function resumeTTS() {
-    await Speech.resume();
+    if (isCdnModeRef.current) {
+      cdn.controls.resume();
+    } else {
+      await Speech.resume();
+    }
     setIsPaused(false);
   }
 
@@ -319,24 +442,63 @@ export function useTTS(
 
   async function skipVerse(delta: number) {
     if (!verses) return;
-    const newIdx = Math.max(0, Math.min(verses.length - 1, currentVerseIdxRef.current + delta));
-    sessionRef.current += 1; // Invalidate old session before stopping
-    await Speech.stop();
-    startTTSFrom(newIdx);
+    if (isCdnModeRef.current) {
+      cdn.controls.skipVerse(delta);
+    } else {
+      const newIdx = Math.max(0, Math.min(verses.length - 1, currentVerseIdxRef.current + delta));
+      sessionRef.current += 1;
+      await Speech.stop();
+      _speechStartFrom(newIdx);
+    }
   }
 
   function selectTTSRate(idx: number) {
     ttsRateIdxRef.current = idx;
     setTtsRateIdx(idx);
     setSetting('tts_rate_idx', String(idx));
-    if (isTTS && !isPaused) Speech.stop(); // Loop will restart next verse
+
+    if (isCdnModeRef.current) {
+      cdn.controls.setRate(idx);
+    } else {
+      if (isTTS && !isPaused) Speech.stop();
+    }
   }
 
   async function selectVoice(identifier: string) {
     setSelectedVoiceId(identifier);
-    selectedVoiceRef.current = identifier;
-    await setSetting('tts_voice_id', identifier);
-    if (isTTS && !isPaused) Speech.stop();
+
+    if (isCdnModeRef.current) {
+      const wasPlaying = isTTS && !isPaused;
+      const wasPaused = isTTS && isPaused;
+      const currentVerse = cdn.state.currentVerse;
+
+      // Save voice preference
+      await cdn.controls.selectVoice(identifier);
+      selectedVoiceRef.current = identifier;
+
+      // Reload with new voice if bookId/chapter available
+      if (bookId != null && chapter != null) {
+        // Schedule auto-resume if was playing or paused
+        if ((wasPlaying || wasPaused) && currentVerse) {
+          cdn.controls.scheduleResume(currentVerse, wasPlaying);
+          await setAudioModeAsync({
+            playsInSilentMode: true,
+            shouldPlayInBackground: isProUserRef.current,
+            interruptionMode: 'doNotMix',
+          });
+        }
+
+        // Load new voice (useAudioPlayer auto-releases old player)
+        setIsLoading(true);
+        await cdn.controls.load(bookId, chapter, identifier);
+        setIsLoading(false);
+        // playback will auto-resume via pendingResumeVerse useEffect in useTTSCdn
+      }
+    } else {
+      selectedVoiceRef.current = identifier;
+      await setSetting('tts_voice_id', identifier);
+      if (isTTS && !isPaused) Speech.stop();
+    }
   }
 
   async function toggleAutoComplete() {
@@ -367,6 +529,7 @@ export function useTTS(
   }
 
   return {
+    // Original interface
     isTTS,
     isPaused,
     ttsVerse,
@@ -397,5 +560,8 @@ export function useTTS(
     toggleAutoAdvance,
     togglePauseEnabled,
     toggleVerseRead,
+    // New fields
+    isCdnMode,
+    isLoading,
   };
 }

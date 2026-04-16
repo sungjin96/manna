@@ -226,6 +226,7 @@ export default function ReadScreen() {
     availableVoices, selectedVoiceId,
     timerMinutes, timerRemaining,
     autoCompleteEnabled, autoAdvanceEnabled, pauseEnabled, verseReadEnabled, settingsLoaded,
+    isCdnMode, isLoading,
     startTTS, startFromVerse, toggleTTS, stopTTS, togglePause, skipVerse,
     selectTTSRate, selectVoice,
     startTimer, cancelTimer,
@@ -243,7 +244,7 @@ export default function ReadScreen() {
       markVerseRead(bookId, chapter, verseNumber);
       setReadVerses(prev => new Set([...prev, verseNumber]));
     },
-  }, isProUser);
+  }, isProUser, bookId, chapter);
 
   const { headerOpacity, headerHeightValue, bottomNavOpacity, headerTransitioningRef, headerVisibleRef, afterAnimRef, handleScroll } = useHeaderAnim(HEADER_FULL_H);
   // 헤더 애니메이션 완료 후 집중 모드 포커스 재계산 (stale 방지)
@@ -932,16 +933,16 @@ export default function ReadScreen() {
                   toggleTTS();
                 }}
                 style={styles.headerIconBtn}
-                hitSlop={8}
+                hitSlop={14}
               >
                 <MaterialCommunityIcons
                   name={(isTTS || isPaused) ? 'volume-high' : 'volume-off'}
-                  size={20}
+                  size={24}
                   color={(isTTS || isPaused) ? colors.gold : colors.muted}
                 />
               </Pressable>
-              <Pressable onPress={openSettingsSheet} style={styles.headerIconBtn} hitSlop={8}>
-                <MaterialCommunityIcons name="format-size" size={20} color={colors.muted} />
+              <Pressable onPress={openSettingsSheet} style={styles.headerIconBtn} hitSlop={14}>
+                <MaterialCommunityIcons name="format-size" size={24} color={colors.muted} />
               </Pressable>
             </View>
           </View>
@@ -1052,6 +1053,8 @@ export default function ReadScreen() {
               autoAdvanceEnabled={autoAdvanceEnabled}
               pauseEnabled={pauseEnabled}
               verseReadEnabled={verseReadEnabled}
+              isCdnMode={isCdnMode}
+              isLoading={isLoading}
               isProUser={isProUser}
               colors={colors}
               paddingBottom={insets.bottom + 4}

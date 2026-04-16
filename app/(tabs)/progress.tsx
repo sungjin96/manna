@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useUIScale } from '../../contexts/UIScaleContext';
 import {
   Animated,
   Easing,
@@ -35,6 +36,8 @@ const TIER_LABELS: Record<Tier, string> = {
 
 export default function ProgressScreen() {
   const router = useRouter();
+  const { scale } = useUIScale();
+  const styles = useMemo(() => makeStyles(scale), [scale]);
   const { completed, loading } = useReadingProgress();
   const [isPro, setIsPro] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
@@ -303,7 +306,9 @@ export default function ProgressScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(scale: number) {
+  const fs = (n: number) => Math.round(n * scale);
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
   scroll: { paddingBottom: 40 },
 
@@ -319,7 +324,7 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: fs(24),
     fontWeight: '800',
     color: theme.text,
     letterSpacing: 0.3,
@@ -330,13 +335,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   headerCount: {
-    fontSize: 32,
+    fontSize: fs(32),
     fontWeight: '900',
     color: theme.gold,
     letterSpacing: -1,
   },
   headerTotal: {
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: '600',
     color: theme.textMuted,
   },
@@ -359,7 +364,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   progressPct: {
-    fontSize: 13,
+    fontSize: fs(13),
     fontWeight: '700',
     color: theme.gold,
     minWidth: 42,
@@ -378,14 +383,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionLabel: {
-    fontSize: 10,
+    fontSize: fs(10),
     fontWeight: '600',
     color: theme.textMuted,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
   sectionCount: {
-    fontSize: 12,
+    fontSize: fs(12),
     color: theme.textMuted,
     fontWeight: '600',
   },
@@ -401,7 +406,7 @@ const styles = StyleSheet.create({
     borderColor: theme.borderSubtle,
   },
   emptyBadgeText: {
-    fontSize: 13,
+    fontSize: fs(13),
     color: theme.textMuted,
   },
 
@@ -428,7 +433,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeChipTitle: {
-    fontSize: 12,
+    fontSize: fs(12),
     fontWeight: '700',
     maxWidth: 80,
   },
@@ -443,7 +448,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   showAllText: {
-    fontSize: 13,
+    fontSize: fs(13),
     fontWeight: '600',
     color: theme.gold,
   },
@@ -467,7 +472,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   tierLabel: {
-    fontSize: 10,
+    fontSize: fs(10),
     fontWeight: '700',
     letterSpacing: 1.5,
   },
@@ -477,7 +482,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   tierCount: {
-    fontSize: 11,
+    fontSize: fs(11),
     color: theme.textMuted,
   },
   badgeRow: {
@@ -498,12 +503,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.02)',
   },
   badgeMiniTitle: {
-    fontSize: 9,
+    fontSize: fs(9),
     fontWeight: '700',
     textAlign: 'center',
   },
   bookBadgeHint: {
-    fontSize: 12,
+    fontSize: fs(12),
     color: theme.textMuted,
     fontStyle: 'italic',
   },
@@ -512,4 +517,5 @@ const styles = StyleSheet.create({
   heatmapWrapper: {
     paddingTop: 4,
   },
-});
+  });
+}

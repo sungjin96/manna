@@ -267,8 +267,8 @@ function ToggleRow({ label, desc, value, onChange, colors }: ToggleRowProps) {
       <Switch
         value={value}
         onValueChange={onChange}
-        trackColor={{ false: colors.border, true: `${colors.gold}80` }}
-        thumbColor={value ? colors.gold : colors.muted}
+        trackColor={{ false: `${colors.muted}30`, true: colors.gold }}
+        thumbColor={value ? '#FFFFFF' : '#888'}
       />
     </View>
   );

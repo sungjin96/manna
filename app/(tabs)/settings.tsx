@@ -10,16 +10,16 @@ import {
   Text,
   View,
 } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getSetting, setSetting } from '../../db/settings';
 import { theme } from '../../constants/theme';
+import { UI_SCALE_OPTIONS, UIScaleValue, useUIScale } from '../../contexts/UIScaleContext';
 import { exportToJSON, importFromJSON, backupErrorMessage } from '../../utils/backup';
 import { checkAIEntitlement, purchasePremium, restorePurchases, purchaseErrorMessage } from '../../utils/subscriptions';
-import { scheduleReadingReminder, cancelReadingReminder } from '../../utils/notifications';
+import { requestNotificationPermission, scheduleReadingReminder, cancelReadingReminder } from '../../utils/notifications';
 import { READING_PLANS, PlanId } from '../../constants/reading-plans';
 import { getActivePlan, setActivePlan, clearActivePlan, todayISO } from '../../db/reading_plans';
 import { resetSettings } from '../../db/reset';
@@ -27,6 +27,7 @@ import MannaAlert from '../../components/MannaAlert';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { scale: uiScale, setScale: setUiScale, fs, is } = useUIScale();
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [notifHour, setNotifHour] = useState(8);
   const [notifMinute, setNotifMinute] = useState(0);
@@ -100,8 +101,8 @@ export default function SettingsScreen() {
 
   async function toggleNotification(value: boolean) {
     if (value) {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
         Alert.alert('알림 권한 필요', '설정 앱에서 알림 권한을 허용해주세요.');
         return;
       }
@@ -208,12 +209,12 @@ export default function SettingsScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>설정</Text>
+        <Text style={[styles.headerTitle, { fontSize: fs(24) }]}>설정</Text>
       </View>
 
       {/* 구독 섹션 */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>구독</Text>
+        <Text style={[styles.sectionTitle, { fontSize: fs(11) }]}>구독</Text>
 
         {isPremiumLoading ? (
           <View style={[styles.subsCard, { alignItems: 'center', paddingVertical: 24 }]}>
@@ -304,14 +305,49 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      {/* 텍스트 크기 섹션 */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { fontSize: fs(11) }]}>텍스트 크기</Text>
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            <MaterialCommunityIcons name="format-size" size={is(20)} color={theme.gold} />
+            <Text style={[styles.rowLabel, { fontSize: fs(15) }]}>화면 텍스트 크기</Text>
+          </View>
+        </View>
+        <View style={scalePickerStyles.row}>
+          {UI_SCALE_OPTIONS.map((opt) => {
+            const active = uiScale === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                style={[scalePickerStyles.chip, active && scalePickerStyles.chipActive]}
+                onPress={() => setUiScale(opt.value as UIScaleValue)}
+                hitSlop={8}
+              >
+                <Text style={[
+                  scalePickerStyles.chipLabel,
+                  active && scalePickerStyles.chipLabelActive,
+                  { fontSize: opt.value * 11 },
+                ]}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={[styles.rowHint, { paddingHorizontal: 20, paddingBottom: 14 }]}>
+          홈, 탭바, 설정 등 앱 전체 UI에 적용됩니다. 읽기 화면 본문은 별도 설정을 따릅니다.
+        </Text>
+      </View>
+
       {/* 알림 섹션 */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>알림</Text>
+        <Text style={[styles.sectionTitle, { fontSize: fs(11) }]}>알림</Text>
 
         <View style={styles.row}>
           <View style={styles.rowLeft}>
-            <MaterialCommunityIcons name="bell-outline" size={20} color={theme.gold} />
-            <Text style={styles.rowLabel}>매일 읽기 알림</Text>
+            <MaterialCommunityIcons name="bell-outline" size={is(20)} color={theme.gold} />
+            <Text style={[styles.rowLabel, { fontSize: fs(15) }]}>매일 읽기 알림</Text>
           </View>
           <Switch
             value={notifEnabled}
@@ -384,7 +420,7 @@ export default function SettingsScreen() {
 
       {/* 통독 계획 섹션 */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>통독 계획</Text>
+        <Text style={[styles.sectionTitle, { fontSize: fs(11) }]}>통독 계획</Text>
 
         {/* No plan option */}
         <Pressable
@@ -419,7 +455,7 @@ export default function SettingsScreen() {
 
       {/* 데이터 섹션 */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>데이터</Text>
+        <Text style={[styles.sectionTitle, { fontSize: fs(11) }]}>데이터</Text>
 
         <Pressable
           style={({ pressed }) => [styles.row, styles.rowPressable, pressed && styles.rowPressed]}
@@ -482,7 +518,7 @@ export default function SettingsScreen() {
 
       {/* 앱 정보 섹션 */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>앱 정보</Text>
+        <Text style={[styles.sectionTitle, { fontSize: fs(11) }]}>앱 정보</Text>
 
         {/* 버전 + 업데이트 상태 */}
         <View style={styles.row}>
@@ -575,6 +611,37 @@ export default function SettingsScreen() {
     </ScrollView>
   );
 }
+
+const scalePickerStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 4,
+  },
+  chip: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    minHeight: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    backgroundColor: 'transparent',
+  },
+  chipActive: {
+    borderColor: theme.gold,
+    backgroundColor: 'rgba(212,168,71,0.1)',
+  },
+  chipLabel: {
+    fontWeight: '600',
+    color: theme.textMuted,
+  },
+  chipLabelActive: {
+    color: theme.gold,
+  },
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },

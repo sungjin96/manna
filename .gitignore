@@ -31,6 +31,8 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.*
 .env*.local
 
 # typescript
@@ -41,3 +43,5 @@ yarn-error.*
 /android
 .gstack/
 google-service-account.json
+scripts/tts-pipeline/service-account.json
+scripts/tts-pipeline/output/

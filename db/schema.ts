@@ -35,17 +35,34 @@ async function _initDb(): Promise<SQLite.SQLiteDatabase> {
   }
 
   if (needsRestore) {
-    // Get the exact path expo-sqlite is using, close, replace with bundled DB.
-    const actualPath = _db.databasePath;
-    await _db.closeAsync();
-    _db = null;
-
+    // expo-file-system은 documentDirectory 외부(SQLite 기본 경로 포함)에 쓰기를 차단하므로
+    // 에셋을 documentDirectory에 복사한 뒤 ATTACH DATABASE로 데이터를 이관한다.
     const asset = Asset.fromModule(require('../assets/manna.db'));
     await asset.downloadAsync();
-    await FileSystem.deleteAsync(actualPath, { idempotent: true });
-    await FileSystem.copyAsync({ from: asset.localUri!, to: actualPath });
 
-    _db = await SQLite.openDatabaseAsync(DB_NAME);
+    const seedPath = (FileSystem.documentDirectory ?? '') + 'manna_seed.db';
+    await FileSystem.copyAsync({ from: asset.localUri!, to: seedPath });
+
+    // file:// 프로토콜 제거 — SQLite ATTACH는 파일시스템 절대경로를 요구
+    const seedFsPath = seedPath.replace(/^file:\/\//, '');
+    await _db.execAsync(`ATTACH DATABASE '${seedFsPath}' AS seed`);
+    try {
+      await _db.execAsync(`
+        DROP TABLE IF EXISTS bible;
+        CREATE TABLE bible (
+          id      INTEGER PRIMARY KEY,
+          book_id INTEGER NOT NULL,
+          chapter INTEGER NOT NULL,
+          verse   INTEGER NOT NULL,
+          text    TEXT    NOT NULL
+        );
+        INSERT INTO bible SELECT * FROM seed.bible;
+        CREATE INDEX IF NOT EXISTS idx_bible_book_chapter ON bible (book_id, chapter);
+      `);
+    } finally {
+      await _db.execAsync('DETACH DATABASE seed');
+      await FileSystem.deleteAsync(seedPath, { idempotent: true }).catch(() => {});
+    }
   }
 
   await migrate(_db);

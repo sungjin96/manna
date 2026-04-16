@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, Pressable, Modal, ScrollView, StyleSheet, Switch,
-  Animated, PanResponder,
+  Animated, PanResponder, InteractionManager, ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { TTS_RATE_LABELS, TTS_TIMER_PRESETS, TTSVoice } from '../hooks/useTTS';
+import { useUIScale } from '../contexts/UIScaleContext';
 
 interface Colors {
   bg: string;
@@ -38,6 +39,8 @@ interface TTSMiniPlayerProps {
   onSelectVoice: (id: string) => void;
   onStartTimer: (minutes: number) => void;
   onCancelTimer: () => void;
+  isCdnMode?: boolean;
+  isLoading?: boolean;
   isProUser: boolean;
   onUpgrade: () => void;
   onToggleAutoComplete: () => void;
@@ -67,6 +70,7 @@ interface WheelColumnProps {
 function WheelColumn({ data, initialIndex, onSelect, colors, width }: WheelColumnProps) {
   const scrollRef = useRef<ScrollView>(null);
   const [curIdx, setCurIdx] = useState(initialIndex);
+  const { fs } = useUIScale();
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -117,7 +121,7 @@ function WheelColumn({ data, initialIndex, onSelect, colors, width }: WheelColum
             <View key={i} style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}>
               <Text
                 style={{
-                  fontSize: dist === 0 ? 26 : dist === 1 ? 20 : 15,
+                  fontSize: dist === 0 ? fs(26) : dist === 1 ? fs(20) : fs(15),
                   fontWeight: dist === 0 ? '700' : '400',
                   color: dist === 0 ? colors.text : colors.muted,
                   opacity: dist === 0 ? 1 : dist === 1 ? 0.55 : 0.2,
@@ -243,18 +247,18 @@ function ToggleRow({ label, desc, value, onToggle, colors }: {
   onToggle: () => void;
   colors: Colors;
 }) {
+  const { fs } = useUIScale();
   return (
     <View style={[toggleStyles.row, { borderBottomColor: colors.border }]}>
-      <View style={{ flex: 1, marginRight: 12 }}>
-        <Text style={[toggleStyles.label, { color: colors.text }]}>{label}</Text>
-        <Text style={[toggleStyles.desc, { color: colors.muted }]}>{desc}</Text>
+      <View style={{ flex: 1, marginRight: 16 }}>
+        <Text style={[toggleStyles.label, { color: colors.text, fontSize: fs(15) }]}>{label}</Text>
+        <Text style={[toggleStyles.desc, { color: colors.muted, fontSize: fs(12) }]}>{desc}</Text>
       </View>
       <Switch
         value={value}
         onValueChange={onToggle}
-        trackColor={{ false: `${colors.muted}40`, true: `${colors.gold}90` }}
-        thumbColor={value ? colors.gold : '#888'}
-        ios_backgroundColor={`${colors.muted}40`}
+        trackColor={{ false: `${colors.muted}30`, true: colors.gold }}
+        thumbColor={value ? '#FFFFFF' : '#888'}
       />
     </View>
   );
@@ -296,18 +300,18 @@ const toggleStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 13,
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   label: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-    marginBottom: 2,
   },
   desc: {
     fontSize: 12,
-    lineHeight: 16,
+    marginTop: 2,
   },
 });
 
@@ -316,13 +320,16 @@ export function TTSMiniPlayer({
   isTTS, isPaused, currentVerseText, ttsRateIdx,
   availableVoices, selectedVoiceId, timerMinutes, timerRemaining,
   autoCompleteEnabled, autoAdvanceEnabled, pauseEnabled, verseReadEnabled,
+  isCdnMode = false, isLoading = false,
   isProUser, colors, paddingBottom,
   onUpgrade, onStop, onTogglePause, onSkip, onSelectRate, onSelectVoice,
   onStartTimer, onCancelTimer,
   onToggleAutoComplete, onToggleAutoAdvance, onTogglePauseEnabled, onToggleVerseRead,
 }: TTSMiniPlayerProps) {
+  const { fs, is } = useUIScale();
   const [showSheet, setShowSheet] = useState(false);
   const [activePanel, setActivePanel] = useState<'voice' | 'speed' | 'timer' | null>(null);
+  const closingRef = useRef(false);
 
   const sheetY = useRef(new Animated.Value(800)).current;
 
@@ -345,16 +352,22 @@ export function TTSMiniPlayer({
   ).current;
 
   function openSheet() {
+    closingRef.current = false;
     setShowSheet(true);
     sheetY.setValue(800);
     Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, tension: 60, friction: 11 }).start();
   }
 
   function closeSheet() {
+    if (closingRef.current) return; // 중복 닫기 방지
+    closingRef.current = true;
     Animated.timing(sheetY, { toValue: 800, duration: 260, useNativeDriver: true }).start(() => {
-      setShowSheet(false);
-      setActivePanel(null);
-      sheetY.setValue(800); // reset after modal is hidden
+      InteractionManager.runAfterInteractions(() => {
+        setShowSheet(false);
+        setActivePanel(null);
+        sheetY.setValue(800);
+        closingRef.current = false;
+      });
     });
   }
 
@@ -368,7 +381,7 @@ export function TTSMiniPlayer({
 
   // Short voice name for chip
   const voiceName = availableVoices.find(v => v.identifier === selectedVoiceId)?.name ?? '기본';
-  const chipVoiceName = voiceName.length > 6 ? voiceName.slice(0, 6) : voiceName;
+  const chipVoiceName = isCdnMode ? voiceName : (voiceName.length > 6 ? voiceName.slice(0, 6) : voiceName);
 
   return (
     <>
@@ -380,12 +393,12 @@ export function TTSMiniPlayer({
           { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom },
         ]}
       >
-        <Text style={[miniStyles.preview, { color: colors.muted }]} numberOfLines={1}>
+        <Text style={[miniStyles.preview, { color: colors.muted, fontSize: fs(13) }]} numberOfLines={1}>
           {currentVerseText ?? ''}
         </Text>
         <View style={miniStyles.controls}>
           <Pressable onPress={e => { e.stopPropagation(); onSkip(-1); }} hitSlop={8} style={miniStyles.ctrlBtn}>
-            <MaterialCommunityIcons name="skip-previous" size={22} color={colors.muted} />
+            <MaterialCommunityIcons name="skip-previous" size={is(22)} color={colors.muted} />
           </Pressable>
           <Pressable
             onPress={e => { e.stopPropagation(); pauseEnabled ? onTogglePause() : onStop(); }}
@@ -394,19 +407,19 @@ export function TTSMiniPlayer({
           >
             <MaterialCommunityIcons
               name={pauseEnabled ? (isPlaying ? 'pause' : 'play') : 'stop'}
-              size={20}
+              size={is(20)}
               color="#0B0A12"
             />
           </Pressable>
           <Pressable onPress={e => { e.stopPropagation(); onSkip(1); }} hitSlop={8} style={miniStyles.ctrlBtn}>
-            <MaterialCommunityIcons name="skip-next" size={22} color={colors.muted} />
+            <MaterialCommunityIcons name="skip-next" size={is(22)} color={colors.muted} />
           </Pressable>
           {timerRemaining !== null && (
-            <Text style={[miniStyles.timerBadge, { color: colors.gold }]}>
+            <Text style={[miniStyles.timerBadge, { color: colors.gold, fontSize: fs(12) }]}>
               {formatTime(timerRemaining)}
             </Text>
           )}
-          <MaterialCommunityIcons name="chevron-up" size={22} color={colors.muted} style={{ marginLeft: 4 }} />
+          <MaterialCommunityIcons name="chevron-up" size={is(22)} color={colors.muted} style={{ marginLeft: 4 }} />
         </View>
       </Pressable>
 
@@ -430,7 +443,7 @@ export function TTSMiniPlayer({
           </View>
 
           {/* Verse text */}
-          <Text style={[sheetStyles.verseText, { color: colors.text }]} numberOfLines={2}>
+          <Text style={[sheetStyles.verseText, { color: colors.text, fontSize: fs(16) }]} numberOfLines={2}>
             {currentVerseText ?? ''}
           </Text>
 
@@ -449,17 +462,17 @@ export function TTSMiniPlayer({
                 pressed && { opacity: 0.7 },
               ]}
             >
-              <Text style={[sheetStyles.ctrlChipText, { color: activePanel === 'voice' ? colors.gold : colors.text }]}>
+              <Text style={[sheetStyles.ctrlChipText, { color: activePanel === 'voice' ? colors.gold : colors.text, fontSize: fs(13) }]}>
                 {chipVoiceName}
               </Text>
               {isProUser ? (
                 <MaterialCommunityIcons
                   name={activePanel === 'voice' ? 'chevron-up' : 'chevron-down'}
-                  size={13}
+                  size={is(13)}
                   color={activePanel === 'voice' ? colors.gold : colors.muted}
                 />
               ) : (
-                <MaterialCommunityIcons name="lock-outline" size={13} color={colors.muted} />
+                <MaterialCommunityIcons name="lock-outline" size={is(13)} color={colors.muted} />
               )}
             </Pressable>
 
@@ -473,17 +486,17 @@ export function TTSMiniPlayer({
                 pressed && { opacity: 0.7 },
               ]}
             >
-              <Text style={[sheetStyles.ctrlChipText, { color: activePanel === 'speed' ? colors.gold : colors.text }]}>
+              <Text style={[sheetStyles.ctrlChipText, { color: activePanel === 'speed' ? colors.gold : colors.text, fontSize: fs(13) }]}>
                 {TTS_RATE_LABELS[ttsRateIdx]}
               </Text>
               {isProUser ? (
                 <MaterialCommunityIcons
                   name={activePanel === 'speed' ? 'chevron-up' : 'chevron-down'}
-                  size={13}
+                  size={is(13)}
                   color={activePanel === 'speed' ? colors.gold : colors.muted}
                 />
               ) : (
-                <MaterialCommunityIcons name="lock-outline" size={13} color={colors.muted} />
+                <MaterialCommunityIcons name="lock-outline" size={is(13)} color={colors.muted} />
               )}
             </Pressable>
 
@@ -561,9 +574,11 @@ export function TTSMiniPlayer({
                       <Text style={[sheetStyles.chipText, { color: active ? colors.gold : colors.text }]}>
                         {voice.name}
                       </Text>
-                      {voice.quality === 'Enhanced' && (
+                      {(voice.quality === 'Enhanced' || voice.quality === 'Neural') && (
                         <View style={[sheetStyles.hdBadge, { backgroundColor: `${colors.gold}25` }]}>
-                          <Text style={[sheetStyles.hdText, { color: colors.gold }]}>HD</Text>
+                          <Text style={[sheetStyles.hdText, { color: colors.gold }]}>
+                            {voice.quality === 'Neural' ? 'AI' : 'HD'}
+                          </Text>
                         </View>
                       )}
                     </Pressable>
@@ -609,20 +624,24 @@ export function TTSMiniPlayer({
           {/* Large play controls — reference image layout */}
           <View style={sheetStyles.bigControls}>
             <Pressable onPress={() => onSkip(-1)} hitSlop={8} style={sheetStyles.bigCtrlBtn}>
-              <MaterialCommunityIcons name="skip-previous" size={38} color={colors.muted} />
+              <MaterialCommunityIcons name="skip-previous" size={is(38)} color={colors.muted} />
             </Pressable>
             <Pressable
-              onPress={pauseEnabled ? onTogglePause : onStop}
-              style={[sheetStyles.bigPlayBtn, { backgroundColor: colors.gold }]}
+              onPress={isLoading ? undefined : (pauseEnabled ? onTogglePause : onStop)}
+              style={[sheetStyles.bigPlayBtn, { backgroundColor: colors.gold, opacity: isLoading ? 0.6 : 1 }]}
             >
-              <MaterialCommunityIcons
-                name={pauseEnabled ? (isPlaying ? 'pause' : 'play') : (isTTS ? 'stop' : 'play')}
-                size={34}
-                color="#0B0A12"
-              />
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#0B0A12" />
+              ) : (
+                <MaterialCommunityIcons
+                  name={pauseEnabled ? (isPlaying ? 'pause' : 'play') : (isTTS ? 'stop' : 'play')}
+                  size={is(34)}
+                  color="#0B0A12"
+                />
+              )}
             </Pressable>
             <Pressable onPress={() => onSkip(1)} hitSlop={8} style={sheetStyles.bigCtrlBtn}>
-              <MaterialCommunityIcons name="skip-next" size={38} color={colors.muted} />
+              <MaterialCommunityIcons name="skip-next" size={is(38)} color={colors.muted} />
             </Pressable>
           </View>
 

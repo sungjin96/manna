@@ -35,7 +35,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerIconBtn: {
-    padding: 8,
+    padding: 10,
   },
   ttsRateBtn: {
     paddingHorizontal: 6,

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
   Easing,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,7 +14,6 @@ import {
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import * as Notifications from 'expo-notifications';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useStreak } from '../../hooks/useStreak';
 import { getLastReadPosition, getAllCompletedChapters } from '../../db/readings';
@@ -23,11 +23,12 @@ import { getActivePlan, setActivePlan, todayISO } from '../../db/reading_plans';
 import { getChaptersForDay, PlanChapter, READING_PLANS, PlanId } from '../../constants/reading-plans';
 import { BOOKS } from '../../constants/books';
 import { theme } from '../../constants/theme';
-import { scheduleReadingReminder } from '../../utils/notifications';
+import { requestNotificationPermission, scheduleReadingReminder } from '../../utils/notifications';
 import { BADGES, BOOK_BADGES, type Badge, type Tier } from './achievements';
 import { getAllMeditations } from '../../db/meditations';
 import ProgressRing from '../../components/ProgressRing';
 import BadgeSelectSheet, { getSelectedBadgeId } from '../../components/BadgeSelectSheet';
+import { useUIScale } from '../../contexts/UIScaleContext';
 
 const XP_PER_LEVEL = 1200;
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -136,6 +137,8 @@ function fmt(d: Date): string {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { scale, fs, is } = useUIScale();
+  const styles = useMemo(() => makeStyles(scale), [scale]);
   const { stats, loading, refresh } = useStreak();
 
   // Data state
@@ -169,6 +172,34 @@ export default function HomeScreen() {
   const levelUpGlow = useRef(new Animated.Value(0)).current;
   const fabBounce = useRef(new Animated.Value(0)).current;
   const fabScale = useRef(new Animated.Value(1)).current;
+
+  // Flip card
+  const [heroFlipped, setHeroFlipped] = useState(false);
+  const flipAnim = useRef(new Animated.Value(0)).current;
+  const heroFlippedRef = useRef(false);
+
+  function flipHero() {
+    const toValue = heroFlippedRef.current ? 0 : 1;
+    heroFlippedRef.current = !heroFlippedRef.current;
+    Animated.spring(flipAnim, {
+      toValue,
+      friction: 8,
+      tension: 80,
+      useNativeDriver: true,
+    }).start();
+    setHeroFlipped(heroFlippedRef.current);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }
+
+  const flipPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gs) =>
+        Math.abs(gs.dx) > 10 && Math.abs(gs.dx) > Math.abs(gs.dy),
+      onPanResponderRelease: (_, gs) => {
+        if (Math.abs(gs.dx) > 40) flipHero();
+      },
+    })
+  ).current;
 
   // ── Data loading ──
 
@@ -305,8 +336,8 @@ export default function HomeScreen() {
 
   async function requestNotificationAndComplete() {
     try {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status === 'granted') {
+      const granted = await requestNotificationPermission();
+      if (granted) {
         await setSetting('notification_enabled', '1');
         await scheduleReadingReminder(8, 0);
       }
@@ -386,6 +417,15 @@ export default function HomeScreen() {
     extrapolate: 'clamp',
   });
 
+  const frontRotateY = flipAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
+  const backRotateY = flipAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['-180deg', '0deg'],
+  });
+
   const weekDays = getWeekDays();
 
   const page = ONBOARDING_PAGES[onboardingPage];
@@ -404,14 +444,13 @@ export default function HomeScreen() {
           </View>
           {/* Greeting skeleton */}
           <View style={[styles.skeleton, { width: 160, height: 14, marginBottom: 24 }]} />
-          {/* Character zone skeleton */}
-          <View style={styles.characterZone}>
-            <View style={[styles.skeleton, { width: 50, height: 50, borderRadius: 25 }]} />
-            <View style={[styles.skeleton, { width: 120, height: 120, borderRadius: 60 }]} />
-            <View style={[styles.skeleton, { width: 50, height: 50, borderRadius: 25 }]} />
+          {/* Hero flip card skeleton */}
+          <View style={{ alignItems: 'center', gap: 8, marginBottom: 28 }}>
+            <View style={[styles.skeleton, { width: 44, height: 44, borderRadius: 22 }]} />
+            <View style={[styles.skeleton, { width: 80, height: 72, borderRadius: 8 }]} />
+            <View style={[styles.skeleton, { width: 120, height: 16, borderRadius: 4 }]} />
+            <View style={[styles.skeleton, { width: 160, height: 4, borderRadius: 2, marginTop: 8 }]} />
           </View>
-          {/* XP skeleton */}
-          <View style={[styles.skeleton, { height: 6, borderRadius: 3, marginTop: 16, marginBottom: 32 }]} />
           {/* Mission skeleton */}
           <View style={[styles.skeleton, { height: 72, borderRadius: 16 }]} />
         </View>
@@ -433,12 +472,12 @@ export default function HomeScreen() {
           <Text style={styles.wordmark}>MANNA</Text>
           <Pressable
             onPress={() => router.push('/(tabs)/search')}
-            hitSlop={12}
+            hitSlop={16}
             style={styles.searchBtn}
             accessibilityLabel="검색"
             accessibilityRole="button"
           >
-            <MaterialCommunityIcons name="magnify" size={22} color={theme.textMuted} />
+            <MaterialCommunityIcons name="magnify" size={26} color={theme.textMuted} />
           </Pressable>
         </View>
 
@@ -447,48 +486,68 @@ export default function HomeScreen() {
           {todayLabel()} · {greetingText()}
         </Text>
 
-        {/* ── Character Zone ── */}
-        <View style={styles.characterZone}>
-          {/* Level-up glow overlay */}
-          {showLevelUp && (
-            <Animated.View
-              style={[styles.levelUpOverlay, { opacity: levelUpGlow }]}
-              pointerEvents="none"
-            >
-              <Text style={styles.levelUpText}>LEVEL UP</Text>
+        {/* ── Hero Flip Card ── */}
+        <View style={styles.flipCardContainer} {...flipPanResponder.panHandlers}>
+          {/* ── Front: Streak ── */}
+          <Animated.View
+            style={[
+              styles.flipFace,
+              { transform: [{ perspective: 1200 }, { rotateY: frontRotateY }] },
+            ]}
+            pointerEvents={heroFlipped ? 'none' : 'auto'}
+          >
+            {showLevelUp && (
+              <Animated.View
+                style={[styles.levelUpOverlay, { opacity: levelUpGlow }]}
+                pointerEvents="none"
+              >
+                <Text style={styles.levelUpText}>LEVEL UP</Text>
+              </Animated.View>
+            )}
+            <Animated.View style={{ transform: [{ scale: streakScale }] }}>
+              <MaterialCommunityIcons name="fire" size={44} color={theme.gold} />
             </Animated.View>
-          )}
-          {/* Streak (left) */}
-          <Animated.View style={[styles.statPod, { transform: [{ scale: streakScale }] }]}>
-            <MaterialCommunityIcons name="fire" size={22} color={theme.gold} />
-            <Text style={styles.statPodValue}>{stats?.currentStreak ?? 0}</Text>
-            <Text style={styles.statPodLabel}>연속</Text>
+            <Text style={styles.streakBigNumber}>{stats?.currentStreak ?? 0}</Text>
+            <Text style={styles.streakBigLabel}>일 연속 읽기</Text>
+            <Text style={styles.streakSubtext}>
+              {(stats?.currentStreak ?? 0) === 0 ? '오늘부터 시작해보세요' : '내일도 이어가세요'}
+            </Text>
+            <View style={styles.xpInlineSection}>
+              <View style={styles.xpInlineMeta}>
+                <Text style={styles.xpInlineLabel}>Lv.{level} {levelTitle}</Text>
+                <Text style={styles.xpInlineLabel}>{xpInLevel} / {XP_PER_LEVEL} XP</Text>
+              </View>
+              <View style={styles.xpBar}>
+                <Animated.View style={[styles.xpFill, { width: xpBarWidth }]} />
+              </View>
+            </View>
+            <Text style={styles.flipHint}>← 스와이프</Text>
           </Animated.View>
 
-          {/* Progress Ring (center) */}
-          <ProgressRing
-            percentage={completionPct}
-            size={Math.min(130, SCREEN_HEIGHT * 0.16)}
-            strokeWidth={6}
-            badge={topBadge ? { icon: topBadge.icon, tier: topBadge.tier, title: topBadge.title } : null}
-            onPress={() => setShowBadgeSheet(true)}
-          />
-
-          {/* Level (right) */}
-          <View style={styles.statPod}>
-            <Text style={styles.levelBadge}>Lv.{level}</Text>
-            <Text style={styles.statPodLabel}>{levelTitle}</Text>
-          </View>
-        </View>
-
-        {/* ── XP Bar ── */}
-        <View style={styles.xpSection}>
-          <View style={styles.xpMeta}>
-            <Text style={styles.xpLabel}>{xpInLevel} / {XP_PER_LEVEL} XP</Text>
-          </View>
-          <View style={styles.xpBar}>
-            <Animated.View style={[styles.xpFill, { width: xpBarWidth }]} />
-          </View>
+          {/* ── Back: Progress Ring + Stats ── */}
+          <Animated.View
+            style={[
+              styles.flipFace,
+              styles.flipBack,
+              { transform: [{ perspective: 1200 }, { rotateY: backRotateY }] },
+            ]}
+            pointerEvents={heroFlipped ? 'auto' : 'none'}
+          >
+            <ProgressRing
+              percentage={completionPct}
+              size={Math.min(140, SCREEN_HEIGHT * 0.18)}
+              strokeWidth={12}
+              badge={topBadge ? { icon: topBadge.icon, tier: topBadge.tier, title: topBadge.title } : null}
+              onPress={() => setShowBadgeSheet(true)}
+            />
+            <View style={{ height: 12 }} />
+            <Text style={styles.streakBigLabel}>{Math.round(completionPct)}% 완독</Text>
+            <View style={{ height: 4 }} />
+            <Text style={styles.streakSubtext}>
+              {stats?.totalChapters ?? 0}챕터 · 뱃지 {earnedBadges.length}개
+            </Text>
+            <Text style={styles.flipHint}>→ 스와이프</Text>
+          </Animated.View>
         </View>
 
         {/* ── Today's Plan / Quick Stats ── */}
@@ -736,7 +795,9 @@ export default function HomeScreen() {
 
 // ── Styles ────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+function makeStyles(scale: number) {
+  const fs = (n: number) => Math.round(n * scale);
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.bg,
@@ -761,7 +822,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   wordmark: {
-    fontSize: 13,
+    fontSize: fs(13),
     fontWeight: '700',
     letterSpacing: 5,
     color: theme.gold,
@@ -774,41 +835,71 @@ const styles = StyleSheet.create({
 
   // Greeting
   greeting: {
-    fontSize: 13,
+    fontSize: fs(13),
     color: theme.textMuted,
     marginBottom: 24,
     letterSpacing: 0.2,
   },
 
-  // Character Zone
-  characterZone: {
-    flexDirection: 'row',
+  // Hero Flip Card
+  flipCardContainer: {
+    height: fs(290),
+    marginBottom: 28,
+    position: 'relative',
+  },
+  flipFace: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 20,
-    marginBottom: 8,
+    gap: Math.round(6 * scale),
+    backfaceVisibility: 'hidden',
   },
-  statPod: {
-    alignItems: 'center',
-    gap: 4,
-    minWidth: 50,
+  flipBack: {
+    backfaceVisibility: 'hidden',
   },
-  statPodValue: {
-    fontSize: 24,
+
+  // Streak front
+  streakBigNumber: {
+    fontSize: fs(96),
     fontWeight: '900',
     color: theme.gold,
-    letterSpacing: -1,
+    letterSpacing: 0,
+    lineHeight: fs(104),
+    paddingHorizontal: 8,
   },
-  statPodLabel: {
-    fontSize: 10,
-    color: theme.textMuted,
+  streakBigLabel: {
+    fontSize: fs(18),
     fontWeight: '600',
-    letterSpacing: 0.5,
+    color: theme.text,
+    letterSpacing: 0.3,
   },
-  levelBadge: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: theme.gold,
+  streakSubtext: {
+    fontSize: fs(14),
+    color: theme.textMuted,
+    letterSpacing: 0.2,
+  },
+  flipHint: {
+    fontSize: fs(10),
+    color: theme.textMuted,
+    letterSpacing: 0.5,
+    opacity: 0.6,
+    position: 'absolute',
+    bottom: fs(8),
+  },
+
+  // XP inline (inside flip front)
+  xpInlineSection: {
+    width: '80%',
+    gap: 6,
+    marginTop: 8,
+  },
+  xpInlineMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  xpInlineLabel: {
+    fontSize: fs(11),
+    color: theme.textMuted,
     letterSpacing: 0.3,
   },
 
@@ -822,7 +913,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   levelUpText: {
-    fontSize: 24,
+    fontSize: fs(24),
     fontWeight: '900',
     color: theme.gold,
     letterSpacing: 4,
@@ -831,20 +922,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 20,
   },
 
-  // XP
-  xpSection: {
-    marginTop: 12,
-    marginBottom: 28,
-    gap: 6,
-  },
-  xpMeta: {
-    alignItems: 'center',
-  },
-  xpLabel: {
-    fontSize: 11,
-    color: theme.textMuted,
-    letterSpacing: 0.3,
-  },
+  // XP bar (shared)
   xpBar: {
     height: 4,
     backgroundColor: theme.goldBg,
@@ -865,7 +943,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionLabel: {
-    fontSize: 10,
+    fontSize: fs(10),
     fontWeight: '600',
     color: theme.textMuted,
     letterSpacing: 1.5,
@@ -906,13 +984,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   missionTitle: {
-    fontSize: 18,
+    fontSize: fs(18),
     fontWeight: '800',
     color: theme.text,
     letterSpacing: -0.3,
   },
   missionSub: {
-    fontSize: 13,
+    fontSize: fs(13),
     color: theme.textMuted,
     fontWeight: '500',
   },
@@ -942,7 +1020,7 @@ const styles = StyleSheet.create({
     borderColor: theme.borderSubtle,
   },
   extraChipText: {
-    fontSize: 14,
+    fontSize: fs(14),
     fontWeight: '600',
     color: theme.textSub,
   },
@@ -972,7 +1050,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   weekDayLabel: {
-    fontSize: 11,
+    fontSize: fs(11),
     fontWeight: '600',
     color: theme.textMuted,
   },
@@ -999,7 +1077,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface2,
   },
   pillText: {
-    fontSize: 12,
+    fontSize: fs(12),
     fontWeight: '600',
     color: theme.gold,
   },
@@ -1022,7 +1100,7 @@ const styles = StyleSheet.create({
   },
   planItemText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: fs(14),
     fontWeight: '600',
     color: theme.text,
   },
@@ -1033,7 +1111,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   planDoneText: {
-    fontSize: 14,
+    fontSize: fs(14),
     color: theme.gold,
     fontWeight: '600',
   },
@@ -1052,12 +1130,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   quickStatValue: {
-    fontSize: 20,
+    fontSize: fs(20),
     fontWeight: '800',
     color: theme.text,
   },
   quickStatLabel: {
-    fontSize: 10,
+    fontSize: fs(10),
     color: theme.textMuted,
     fontWeight: '600',
     letterSpacing: 0.5,
@@ -1096,13 +1174,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fabTitle: {
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: '800',
     color: theme.bg,
     letterSpacing: -0.2,
   },
   fabSub: {
-    fontSize: 10,
+    fontSize: fs(10),
     color: 'rgba(11,10,18,0.5)',
     marginTop: 1,
     letterSpacing: 0.3,
@@ -1127,12 +1205,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: fs(15),
     fontWeight: '700',
     color: theme.gold,
   },
   emptyBody: {
-    fontSize: 13,
+    fontSize: fs(13),
     color: theme.textSub,
     lineHeight: 20,
   },
@@ -1156,13 +1234,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   onboardingTitle: {
-    fontSize: 24,
+    fontSize: fs(24),
     fontWeight: '800',
     color: theme.text,
     textAlign: 'center',
   },
   onboardingBody: {
-    fontSize: 15,
+    fontSize: fs(15),
     color: theme.textSub,
     textAlign: 'center',
     lineHeight: 24,
@@ -1193,7 +1271,7 @@ const styles = StyleSheet.create({
   },
   onboardingBtnPressed: { backgroundColor: theme.goldDark },
   onboardingBtnText: {
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: '800',
     color: theme.bg,
     letterSpacing: 0.3,
@@ -1204,7 +1282,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   onboardingSkipText: {
-    fontSize: 13,
+    fontSize: fs(13),
     color: theme.textMuted,
   },
   onboardingPlanList: {
@@ -1227,7 +1305,7 @@ const styles = StyleSheet.create({
     borderColor: theme.gold,
   },
   onboardingPlanChipText: {
-    fontSize: 13,
+    fontSize: fs(13),
     fontWeight: '600',
     color: theme.text,
     flex: 1,
@@ -1236,8 +1314,9 @@ const styles = StyleSheet.create({
     color: theme.bg,
   },
   onboardingPlanChipHint: {
-    fontSize: 11,
+    fontSize: fs(11),
     color: theme.textMuted,
     marginTop: 1,
   },
-});
+  });
+}

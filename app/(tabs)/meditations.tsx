@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useUIScale } from '../../contexts/UIScaleContext';
 import {
   Dimensions,
   FlatList,
@@ -113,6 +114,8 @@ function CalendarView({
   onDaySelect: (key: string | null) => void;
   selectedDay: string | null;
 }) {
+  const { scale } = useUIScale();
+  const calStyles = useMemo(() => makeCalStyles(scale), [scale]);
   const [month, setMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -223,6 +226,8 @@ function CalendarView({
 // ── 메인 ──────────────────────────────────────────────────────────────────
 export default function MeditationsScreen() {
   const router = useRouter();
+  const { scale } = useUIScale();
+  const styles = useMemo(() => makeStyles(scale), [scale]);
   const [items, setItems] = useState<Meditation[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -793,6 +798,8 @@ export default function MeditationsScreen() {
 
 // ── Q&A 구조적 렌더링 ──────────────────────────────────────────────────────
 function QaCardBody({ note, query }: { note: string; query: string }) {
+  const { scale } = useUIScale();
+  const styles = useMemo(() => makeStyles(scale), [scale]);
   try {
     const parsed = JSON.parse(note);
     if (parsed?.type === 'qa' && Array.isArray(parsed.entries)) {
@@ -842,6 +849,8 @@ function MeditationCard({
   router: ReturnType<typeof useRouter>;
   onLongPress: (item: Meditation) => void;
 }) {
+  const { scale } = useUIScale();
+  const styles = useMemo(() => makeStyles(scale), [scale]);
   const noteType = getNoteType(item.note);
   const isMemo = noteType === 'memo';
   const isQa = noteType === 'qa';
@@ -906,10 +915,12 @@ function MeditationCard({
 }
 
 // ── 스타일 ─────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+function makeStyles(scale: number) {
+  const fs = (n: number) => Math.round(n * scale);
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
   center: { flex: 1, backgroundColor: theme.bg, alignItems: 'center', justifyContent: 'center' },
-  muted: { color: theme.textMuted, fontSize: 14 },
+  muted: { color: theme.textMuted, fontSize: fs(14) },
 
   header: {
     paddingHorizontal: 20,
@@ -922,8 +933,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerLeft: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: theme.text },
-  headerSub: { fontSize: 13, color: theme.textMuted },
+  headerTitle: { fontSize: fs(24), fontWeight: '800', color: theme.text },
+  headerSub: { fontSize: fs(13), color: theme.textMuted },
   headerRight: { flexDirection: 'row', gap: 4, alignItems: 'center' },
   viewToggleBtn: {
     padding: 8,
@@ -934,8 +945,8 @@ const styles = StyleSheet.create({
   },
 
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  emptyText: { fontSize: 16, color: theme.textSub, fontWeight: '600' },
-  emptyHint: { fontSize: 13, color: theme.textMuted },
+  emptyText: { fontSize: fs(16), color: theme.textSub, fontWeight: '600' },
+  emptyHint: { fontSize: fs(13), color: theme.textMuted },
 
   searchBar: {
     flexDirection: 'row',
@@ -951,7 +962,7 @@ const styles = StyleSheet.create({
     borderColor: theme.border,
     gap: 8,
   },
-  searchInput: { flex: 1, fontSize: 15, color: theme.text, padding: 0 },
+  searchInput: { flex: 1, fontSize: fs(15), color: theme.text, padding: 0 },
 
   list: { padding: 16, paddingTop: 4, gap: 12 },
 
@@ -968,7 +979,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   summaryText: {
-    fontSize: 12,
+    fontSize: fs(12),
     color: theme.textMuted,
     letterSpacing: 0.2,
   },
@@ -987,7 +998,7 @@ const styles = StyleSheet.create({
     backgroundColor: `rgba(212,168,71,0.03)`,
   },
   cardLongPressHint: {
-    fontSize: 10,
+    fontSize: fs(10),
     color: theme.textMuted,
     opacity: 0.5,
   },
@@ -1031,7 +1042,7 @@ const styles = StyleSheet.create({
     borderColor: theme.gold,
   },
   filterChipText: {
-    fontSize: 12,
+    fontSize: fs(12),
     fontWeight: '600',
     color: theme.textMuted,
   },
@@ -1051,9 +1062,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardTopLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  cardRef: { fontSize: 13, fontWeight: '700', color: theme.gold },
-  cardDate: { fontSize: 11, color: theme.textMuted },
-  cardNote: { fontSize: 15, lineHeight: 22, color: theme.text },
+  cardRef: { fontSize: fs(13), fontWeight: '700', color: theme.gold },
+  cardDate: { fontSize: fs(11), color: theme.textMuted },
+  cardNote: { fontSize: fs(15), lineHeight: 22, color: theme.text },
   cardNoteHighlight: {
     color: theme.goldLight,
     fontWeight: '700',
@@ -1063,9 +1074,9 @@ const styles = StyleSheet.create({
   // Q&A 구조적 렌더링
   qaBody: { gap: 10 },
   qaPairSep: { marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.08)' },
-  qaQuestion: { fontSize: 14, fontWeight: '700', color: theme.text, lineHeight: 20, marginBottom: 4 },
-  qaAnswer: { fontSize: 14, lineHeight: 21, color: theme.textSub, paddingLeft: 12 },
-  qaAnswerEmpty: { fontSize: 13, lineHeight: 20, color: theme.textMuted, paddingLeft: 12, fontStyle: 'italic' },
+  qaQuestion: { fontSize: fs(14), fontWeight: '700', color: theme.text, lineHeight: 20, marginBottom: 4 },
+  qaAnswer: { fontSize: fs(14), lineHeight: 21, color: theme.textSub, paddingLeft: 12 },
+  qaAnswerEmpty: { fontSize: fs(13), lineHeight: 20, color: theme.textMuted, paddingLeft: 12, fontStyle: 'italic' },
 
   // 활성 필터 뱃지
   filterBadge: {
@@ -1118,7 +1129,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   actionSheetText: {
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: '600',
     color: theme.text,
   },
@@ -1133,19 +1144,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   typeBadgeDot: { width: 5, height: 5, borderRadius: 2.5 },
-  typeBadgeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
+  typeBadgeText: { fontSize: fs(10), fontWeight: '700', letterSpacing: 0.3 },
 
   // 캘린더 관련
   dayRecordsWrap: { paddingHorizontal: 16, paddingBottom: 32, gap: 10 },
   dayRecordsLabel: {
-    fontSize: 13,
+    fontSize: fs(13),
     fontWeight: '700',
     color: theme.textSub,
     marginBottom: 4,
     marginTop: 4,
   },
   dayEmpty: { alignItems: 'center', paddingVertical: 24 },
-  dayEmptyText: { color: theme.textMuted, fontSize: 14 },
+  dayEmptyText: { color: theme.textMuted, fontSize: fs(14) },
   calendarHint: {
     alignItems: 'center',
     paddingTop: 16,
@@ -1171,12 +1182,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   calStatValue: {
-    fontSize: 24,
+    fontSize: fs(24),
     fontWeight: '800',
     color: theme.gold,
   },
   calStatLabel: {
-    fontSize: 11,
+    fontSize: fs(11),
     color: theme.textMuted,
     fontWeight: '600',
   },
@@ -1185,10 +1196,10 @@ const styles = StyleSheet.create({
     height: 28,
     backgroundColor: theme.borderSubtle,
   },
-  calendarHintText: { fontSize: 13, color: theme.textMuted },
+  calendarHintText: { fontSize: fs(13), color: theme.textMuted },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   legendDot: { width: 7, height: 7, borderRadius: 3.5 },
-  legendText: { fontSize: 12, color: theme.textMuted },
+  legendText: { fontSize: fs(12), color: theme.textMuted },
 
   // 수정 모달
   overlay: {
@@ -1213,8 +1224,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: theme.text },
-  modalSub: { fontSize: 13, color: theme.gold, marginBottom: 16 },
+  modalTitle: { fontSize: fs(20), fontWeight: '800', color: theme.text },
+  modalSub: { fontSize: fs(13), color: theme.gold, marginBottom: 16 },
   textInput: {
     borderWidth: 1,
     borderColor: theme.border,
@@ -1226,32 +1237,35 @@ const styles = StyleSheet.create({
     color: theme.text,
     backgroundColor: theme.surface2,
   },
-  charCount: { fontSize: 11, color: theme.textMuted, textAlign: 'right', marginTop: 6 },
+  charCount: { fontSize: fs(11), color: theme.textMuted, textAlign: 'right', marginTop: 6 },
   modalActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
   cancelBtn: {
     flex: 1, padding: 15, borderRadius: 12,
     borderWidth: 1, borderColor: theme.borderSubtle, alignItems: 'center',
   },
-  cancelBtnText: { color: theme.textSub, fontSize: 15, fontWeight: '600' },
+  cancelBtnText: { color: theme.textSub, fontSize: fs(15), fontWeight: '600' },
   saveBtn: {
     flex: 1, padding: 15, borderRadius: 12,
     backgroundColor: theme.gold, alignItems: 'center',
   },
   saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: { color: theme.bg, fontSize: 15, fontWeight: '700' },
+  saveBtnText: { color: theme.bg, fontSize: fs(15), fontWeight: '700' },
   qaScrollWrap: { maxHeight: 320 },
   qaEntry: { marginBottom: 12 },
   qaRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  qaNum: { fontSize: 13, fontWeight: '700', width: 16, lineHeight: 22, color: theme.gold },
+  qaNum: { fontSize: fs(13), fontWeight: '700', width: 16, lineHeight: 22, color: theme.gold },
   qaInputCol: { flex: 1 },
-  qaQ: { fontSize: 15, lineHeight: 22, paddingVertical: 0, minHeight: 22, color: theme.text },
+  qaQ: { fontSize: fs(15), lineHeight: 22, paddingVertical: 0, minHeight: 22, color: theme.text },
   qaDiv: { height: StyleSheet.hairlineWidth, marginVertical: 8, backgroundColor: theme.border },
-  qaA: { fontSize: 14, lineHeight: 21, paddingVertical: 0, minHeight: 44, opacity: 0.85, color: theme.text },
+  qaA: { fontSize: fs(14), lineHeight: 21, paddingVertical: 0, minHeight: 44, opacity: 0.85, color: theme.text },
   addPairBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
-  addPairText: { fontSize: 12, color: theme.textMuted },
-});
+  addPairText: { fontSize: fs(12), color: theme.textMuted },
+  });
+}
 
-const calStyles = StyleSheet.create({
+function makeCalStyles(scale: number) {
+  const fs = (n: number) => Math.round(n * scale);
+  return StyleSheet.create({
   wrap: {
     paddingHorizontal: 16,
     paddingTop: 16,
@@ -1266,7 +1280,7 @@ const calStyles = StyleSheet.create({
   },
   monthNav: { padding: 4 },
   monthLabel: {
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: '700',
     color: theme.text,
   },
@@ -1298,11 +1312,11 @@ const calStyles = StyleSheet.create({
     borderColor: theme.gold,
   },
   dayNum: {
-    fontSize: 14,
+    fontSize: fs(14),
     color: theme.text,
   },
   weekDay: {
-    fontSize: 11,
+    fontSize: fs(11),
     fontWeight: '600',
     color: theme.textMuted,
     textAlign: 'center',
@@ -1318,4 +1332,5 @@ const calStyles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
-});
+  });
+}

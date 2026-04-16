@@ -2,24 +2,16 @@ import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, Image, StyleSheet } from 'react-native';
 import { BadgeToastProvider } from '../contexts/BadgeToastContext';
-import * as Notifications from 'expo-notifications';
+import { UIScaleProvider } from '../contexts/UIScaleContext';
 import * as Updates from 'expo-updates';
 import { getDb } from '../db/schema';
 import { getSetting } from '../db/settings';
-import { scheduleReadingReminder } from '../utils/notifications';
+import { setupNotificationHandler, scheduleReadingReminder } from '../utils/notifications';
 import { configureRevenueCat } from '../utils/subscriptions';
 import { theme } from '../constants/theme';
 
-// Show alerts even when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Show alerts even when app is in foreground (noop on Android Expo Go)
+setupNotificationHandler();
 
 type AppState = 'loading' | 'updating' | 'ready';
 
@@ -89,6 +81,7 @@ export default function RootLayout() {
   }
 
   return (
+    <UIScaleProvider>
     <BadgeToastProvider>
       <Stack
         screenOptions={{
@@ -113,6 +106,7 @@ export default function RootLayout() {
         />
       </Stack>
     </BadgeToastProvider>
+    </UIScaleProvider>
   );
 }
 
