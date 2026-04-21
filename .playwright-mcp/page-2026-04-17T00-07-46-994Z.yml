@@ -1,0 +1,23 @@
+- generic [active] [ref=e1]:
+  - banner "App Store Connect" [ref=e3]:
+    - generic [ref=e4]:
+      - heading [level=1] [ref=e6]
+      - navigation "글로벌" [ref=e7]:
+        - generic:
+          - list
+  - contentinfo [ref=e10]:
+    - generic [ref=e11]:
+      - list
+      - list [ref=e12]:
+        - listitem [ref=e13]: Copyright © 2026 Apple Inc. 모든 권리 보유. |
+        - listitem [ref=e14]:
+          - link "서비스 약관" [ref=e15] [cursor=pointer]:
+            - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+          - text: "|"
+        - listitem [ref=e16]:
+          - link "개인정보 처리방침" [ref=e17] [cursor=pointer]:
+            - /url: https://www.apple.com/legal/privacy
+          - text: "|"
+        - listitem [ref=e18]:
+          - link "문의" [ref=e19] [cursor=pointer]:
+            - /url: /contact-us

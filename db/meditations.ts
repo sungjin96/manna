@@ -8,6 +8,7 @@ export interface Meditation {
   createdAt: string;
   verseStart?: number;
   verseEnd?: number;
+  prayerGroupId?: number | null;
 }
 
 const MAX_NOTE_LENGTH = 2000;
@@ -29,6 +30,36 @@ export async function saveMeditation(
   );
 }
 
+/**
+ * saveMeditation과 동일하나, 삽입된 row의 id를 반환한다.
+ * 기도제목 저장 후 prayer_group_id 설정에 사용.
+ */
+export async function saveMeditationReturningId(
+  bookId: number,
+  chapter: number,
+  note: string,
+  verseStart?: number,
+  verseEnd?: number,
+): Promise<number> {
+  if (note.length === 0) return -1;
+  if (note.length > MAX_NOTE_LENGTH) note = note.slice(0, MAX_NOTE_LENGTH);
+  const db = await getDb();
+  const now = new Date().toISOString();
+  const result = await db.runAsync(
+    'INSERT INTO meditations (book_id, chapter, note, created_at, verse_start, verse_end) VALUES (?, ?, ?, ?, ?, ?)',
+    [bookId, chapter, note, now, verseStart ?? null, verseEnd ?? null]
+  );
+  return result.lastInsertRowId;
+}
+
+/**
+ * 기도제목의 그룹을 설정/해제한다.
+ */
+export async function setPrayerGroup(id: number, groupId: number | null): Promise<void> {
+  const db = await getDb();
+  await db.runAsync('UPDATE meditations SET prayer_group_id = ? WHERE id = ?', [groupId, id]);
+}
+
 export async function updateMeditation(id: number, note: string): Promise<void> {
   if (note.length === 0) return;
   if (note.length > MAX_NOTE_LENGTH) note = note.slice(0, MAX_NOTE_LENGTH);
@@ -44,6 +75,7 @@ export async function deleteMeditation(id: number): Promise<void> {
 function mapRow(r: {
   id: number; book_id: number; chapter: number; note: string;
   created_at: string; verse_start?: number | null; verse_end?: number | null;
+  prayer_group_id?: number | null;
 }): Meditation {
   return {
     id: r.id,
@@ -53,6 +85,7 @@ function mapRow(r: {
     createdAt: r.created_at,
     verseStart: r.verse_start ?? undefined,
     verseEnd: r.verse_end ?? undefined,
+    prayerGroupId: r.prayer_group_id ?? null,
   };
 }
 
@@ -81,6 +114,25 @@ export async function getAllMeditations(): Promise<Meditation[]> {
     created_at: string; verse_start?: number | null; verse_end?: number | null;
   }>(
     'SELECT id, book_id, chapter, note, created_at, verse_start, verse_end FROM meditations ORDER BY created_at DESC'
+  );
+  return rows.map(mapRow);
+}
+
+/**
+ * 기도제목 전용 조회 — note JSON에서 type='prayer'인 행만 반환.
+ * DB는 LIKE로 1차 필터 후 클라이언트에서 JSON 파싱으로 확정.
+ */
+export async function getPrayerMeditations(): Promise<Meditation[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{
+    id: number; book_id: number; chapter: number; note: string;
+    created_at: string; verse_start?: number | null; verse_end?: number | null;
+    prayer_group_id?: number | null;
+  }>(
+    `SELECT id, book_id, chapter, note, created_at, verse_start, verse_end, prayer_group_id
+     FROM meditations
+     WHERE note LIKE '%"type":"prayer"%'
+     ORDER BY created_at DESC`
   );
   return rows.map(mapRow);
 }

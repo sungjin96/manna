@@ -1,0 +1,129 @@
+- generic [active] [ref=e1]:
+  - banner "App Store Connect" [ref=e3]:
+    - generic [ref=e4]:
+      - heading "App Store Connect" [level=1] [ref=e20]:
+        - link "App Store Connect" [ref=e21] [cursor=pointer]:
+          - /url: /
+      - navigation "글로벌" [ref=e7]:
+        - list [ref=e23]:
+          - listitem [ref=e24]:
+            - link "앱" [ref=e25] [cursor=pointer]:
+              - /url: /apps
+          - listitem [ref=e26]:
+            - link "추세" [ref=e27] [cursor=pointer]:
+              - /url: /trends
+          - listitem [ref=e28]:
+            - link "보고서" [ref=e29] [cursor=pointer]:
+              - /url: /itc/payments_and_financial_reports
+          - listitem [ref=e30]:
+            - link "비즈니스" [ref=e31] [cursor=pointer]:
+              - /url: /business
+          - listitem [ref=e32]:
+            - link "사용자 및 액세스" [ref=e33] [cursor=pointer]:
+              - /url: /access/users
+      - button "성진 장 Sungjin Jang Account name menu" [ref=e35] [cursor=pointer]:
+        - generic:
+          - generic: 성진 장
+          - generic: Sungjin Jang
+          - img [ref=e36]
+  - generic [ref=e41]:
+    - button "앱 메뉴, 만나 - 매일의 양식, 선택됨" [ref=e46] [cursor=pointer]:
+      - generic [ref=e47]:
+        - generic "만나 - 매일의 양식" [ref=e48]:
+          - img "만나 - 매일의 양식" [ref=e49]
+        - generic [ref=e50]: 만나 - 매일의 양식
+      - img [ref=e52]
+    - navigation "앱" [ref=e55]:
+      - list [ref=e56]:
+        - listitem [ref=e57]:
+          - link "배포" [ref=e58] [cursor=pointer]:
+            - /url: /apps/6761963940/distribution
+        - listitem [ref=e59]:
+          - link "분석" [ref=e60] [cursor=pointer]:
+            - /url: /apps/6761963940/analytics
+        - listitem [ref=e61]:
+          - link "TestFlight" [ref=e62] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight
+        - listitem [ref=e63]:
+          - link "Xcode Cloud" [ref=e64] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/ci
+  - main [ref=e68]:
+    - generic [ref=e73]:
+      - navigation "배포" [ref=e75]:
+        - list [ref=e76]:
+          - listitem [ref=e77]:
+            - generic [ref=e78]
+            - button "플랫폼 추가" [ref=e87] [cursor=pointer]
+          - listitem [ref=e88]:
+            - separator [ref=e89]
+          - listitem [ref=e90]:
+            - heading "일반 정보" [level=2] [ref=e92]
+            - list [ref=e93]
+          - listitem [ref=e103]:
+            - separator [ref=e104]
+          - listitem [ref=e105]:
+            - heading "App Store" [level=2] [ref=e107]
+            - generic [ref=e108]
+            - generic [ref=e121]
+            - generic [ref=e140]
+            - generic [ref=e153]
+      - generic [ref=e161]:
+        - heading "구독" [level=2] [ref=e166]
+        - separator [ref=e168]
+        - generic [ref=e169]:
+          - img [ref=e170]
+          - paragraph [ref=e172]: 다음 구독 그룹 중 하나 이상에 주의가 필요합니다.
+        - generic [ref=e173]:
+          - img [ref=e174]
+          - paragraph [ref=e176]:
+            - generic [ref=e177]
+        - heading "자동 갱신 구독" [level=3] [ref=e179]
+        - paragraph [ref=e180]:
+          - generic [ref=e181]:
+            - text: 구독은 사용자가 일정 기간 동안 동적 콘텐츠를 구입할 수 있게 하는 제품입니다. 이 구독 유형은 사용자가 취소하지 않는 한 자동으로 갱신됩니다. 바이너리를 업로드하고 첫 번째 구독을 심사에 제출한 경우, 아래 표를 사용하여 추가 구독을 제출할 수 있습니다.
+            - link "추가 정보" [ref=e182] [cursor=pointer]:
+              - /url: https://developer.apple.com/help/app-store-connect/manage-subscriptions/offer-auto-renewable-subscriptions
+        - generic [ref=e183]:
+          - generic [ref=e184]:
+            - generic [ref=e185]
+            - button [ref=e195] [cursor=pointer]
+          - generic [ref=e202]:
+            - generic
+        - generic [ref=e219]:
+          - heading "청구 유예 기간" [level=5] [ref=e221]
+          - paragraph [ref=e222]:
+            - generic [ref=e223]
+          - paragraph [ref=e227]:
+            - button "청구 유예 기간 설정" [ref=e228] [cursor=pointer]
+        - generic [ref=e229]:
+          - heading "간소화된 구입" [level=5] [ref=e230]
+          - paragraph [ref=e231]:
+            - generic [ref=e232]
+          - generic [ref=e234]:
+            - paragraph [ref=e235]: 켜짐
+            - paragraph [ref=e236]
+        - separator [ref=e238]
+        - heading "비갱신 구독" [level=3] [ref=e239]
+        - paragraph [ref=e240]: 사용자는 게임 내 콘텐츠에 대한 시즌 패스와 같이 일정 기간 동안 서비스나 콘텐츠에 액세스할 수 있는 권한을 구입할 수 있습니다. 이 구독 유형은 자동으로 갱신되지 않으므로 사용자가 액세스 권한을 유지하려면 구독이 종료된 후 새로운 구독을 구입해야 합니다.
+        - paragraph [ref=e241]:
+          - link "관리" [ref=e242] [cursor=pointer]:
+            - /url: /apps/6761963940/distribution/non-renewing-subscriptions
+  - contentinfo [ref=e10]:
+    - generic [ref=e11]:
+      - list [ref=e243]:
+        - listitem [ref=e244]:
+          - link "App Store Connect" [ref=e245] [cursor=pointer]:
+            - /url: /apps
+      - list [ref=e12]:
+        - listitem [ref=e13]: Copyright © 2026 Apple Inc. 모든 권리 보유. |
+        - listitem [ref=e14]:
+          - link "서비스 약관" [ref=e15] [cursor=pointer]:
+            - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+          - text: "|"
+        - listitem [ref=e16]:
+          - link "개인정보 처리방침" [ref=e17] [cursor=pointer]:
+            - /url: https://www.apple.com/legal/privacy
+          - text: "|"
+        - listitem [ref=e18]:
+          - link "문의" [ref=e19] [cursor=pointer]:
+            - /url: /contact-us

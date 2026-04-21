@@ -1,0 +1,372 @@
+- generic [active] [ref=e1]:
+  - banner "App Store Connect" [ref=e3]:
+    - generic [ref=e4]:
+      - heading "App Store Connect" [level=1] [ref=e20]:
+        - link "App Store Connect" [ref=e21] [cursor=pointer]:
+          - /url: /
+      - navigation "글로벌" [ref=e7]:
+        - list [ref=e23]:
+          - listitem [ref=e24]:
+            - link "앱" [ref=e25] [cursor=pointer]:
+              - /url: /apps
+          - listitem [ref=e26]:
+            - link "추세" [ref=e27] [cursor=pointer]:
+              - /url: /trends
+          - listitem [ref=e28]:
+            - link "보고서" [ref=e29] [cursor=pointer]:
+              - /url: /itc/payments_and_financial_reports
+          - listitem [ref=e30]:
+            - link "비즈니스" [ref=e31] [cursor=pointer]:
+              - /url: /business
+          - listitem [ref=e32]:
+            - link "사용자 및 액세스" [ref=e33] [cursor=pointer]:
+              - /url: /access/users
+      - button "성진 장 Sungjin Jang Account name menu" [ref=e35] [cursor=pointer]:
+        - generic:
+          - generic: 성진 장
+          - generic: Sungjin Jang
+          - img [ref=e36]
+  - generic [ref=e41]:
+    - button "앱 메뉴, 만나 - 매일의 양식, 선택됨" [ref=e46] [cursor=pointer]:
+      - generic [ref=e47]:
+        - generic "만나 - 매일의 양식" [ref=e48]:
+          - img "만나 - 매일의 양식" [ref=e49]
+        - generic [ref=e50]: 만나 - 매일의 양식
+      - img [ref=e52]
+    - navigation "앱" [ref=e55]:
+      - list [ref=e56]:
+        - listitem [ref=e57]:
+          - link "배포" [ref=e58] [cursor=pointer]:
+            - /url: /apps/6761963940/distribution
+        - listitem [ref=e59]:
+          - link "분석" [ref=e60] [cursor=pointer]:
+            - /url: /apps/6761963940/analytics
+        - listitem [ref=e61]:
+          - link "TestFlight" [ref=e62] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight
+        - listitem [ref=e63]:
+          - link "Xcode Cloud" [ref=e64] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/ci
+  - main [ref=e68]:
+    - generic [ref=e73]:
+      - navigation "배포" [ref=e75]:
+        - list [ref=e76]:
+          - listitem [ref=e77]:
+            - generic [ref=e78]:
+              - heading "iOS 앱" [level=2] [ref=e80]
+              - list [ref=e81]:
+                - listitem [ref=e82]:
+                  - link "1.0 심사 대기 중" [ref=e83] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/ios/version/inflight
+                    - generic [ref=e84]:
+                      - img [ref=e85]
+                      - text: 1.0 심사 대기 중
+            - button "플랫폼 추가" [ref=e87] [cursor=pointer]
+          - listitem [ref=e88]:
+            - separator [ref=e89]
+          - listitem [ref=e90]:
+            - heading "일반 정보" [level=2] [ref=e92]
+            - list [ref=e93]:
+              - listitem [ref=e94]:
+                - link "앱 정보" [ref=e95] [cursor=pointer]:
+                  - /url: /apps/6761963940/distribution/info
+                  - generic [ref=e96]: 앱 정보
+              - listitem [ref=e97]:
+                - link "앱 심사" [ref=e98] [cursor=pointer]:
+                  - /url: /apps/6761963940/distribution/reviewsubmissions
+                  - generic [ref=e99]: 앱 심사
+              - listitem [ref=e100]:
+                - link "버전 정보" [ref=e101] [cursor=pointer]:
+                  - /url: /apps/6761963940/distribution/activity/ios/versions
+                  - generic [ref=e102]: 버전 정보
+          - listitem [ref=e103]:
+            - separator [ref=e104]
+          - listitem [ref=e105]:
+            - heading "App Store" [level=2] [ref=e107]
+            - generic [ref=e108]:
+              - heading "신뢰 및 안전" [level=3] [ref=e110]
+              - list [ref=e111]:
+                - listitem [ref=e112]:
+                  - link "앱이 수집하는 개인정보" [ref=e113] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/privacy
+                    - generic [ref=e114]: 앱이 수집하는 개인정보
+                - listitem [ref=e115]:
+                  - link "앱의 손쉬운 사용" [ref=e116] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/accessibility
+                    - generic [ref=e117]: 앱의 손쉬운 사용
+                - listitem [ref=e118]:
+                  - link "평가 및 리뷰" [ref=e119] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/ratings/ios
+                    - generic [ref=e120]: 평가 및 리뷰
+            - generic [ref=e121]:
+              - heading "성장 및 마케팅" [level=3] [ref=e123]
+              - list [ref=e124]:
+                - listitem [ref=e125]:
+                  - link "앱 내 이벤트" [ref=e126] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/events
+                    - generic [ref=e127]: 앱 내 이벤트
+                - listitem [ref=e128]:
+                  - link "맞춤형 제품 페이지" [ref=e129] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/productpages
+                    - generic [ref=e130]: 맞춤형 제품 페이지
+                - listitem [ref=e131]:
+                  - link "제품 페이지 최적화" [ref=e132] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/optimization
+                    - generic [ref=e133]: 제품 페이지 최적화
+                - listitem [ref=e134]:
+                  - link "프로모션 코드" [ref=e135] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/promo_codes/generate
+                    - generic [ref=e136]: 프로모션 코드
+                - listitem [ref=e137]:
+                  - link "Game Center" [ref=e138] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/gamecenter
+                    - generic [ref=e139]: Game Center
+            - generic [ref=e140]:
+              - heading "수익화" [level=3] [ref=e142]
+              - list [ref=e143]:
+                - listitem [ref=e144]:
+                  - link "가격 및 사용 가능 여부" [ref=e145] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/pricing
+                    - generic [ref=e146]: 가격 및 사용 가능 여부
+                - listitem [ref=e147]:
+                  - link "앱 내 구입" [ref=e148] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/iaps
+                    - generic [ref=e149]: 앱 내 구입
+                - listitem [ref=e150]:
+                  - link "구독" [ref=e151] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/subscriptions
+                    - generic [ref=e152]: 구독
+            - generic [ref=e153]:
+              - heading "피처링" [level=3] [ref=e155]
+              - list [ref=e156]:
+                - listitem [ref=e157]:
+                  - link "피처링 요청" [ref=e158] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/nominations
+                    - generic [ref=e159]: 피처링 요청
+      - generic [ref=e162]:
+        - generic [ref=e163]:
+          - generic [ref=e164]:
+            - heading "iOS 앱 버전 1.0" [level=2] [ref=e167]
+            - button "저장" [disabled] [ref=e169]
+          - separator [ref=e170]
+        - generic [ref=e171]:
+          - img [ref=e172]
+          - paragraph [ref=e174]:
+            - generic [ref=e175]: 심사 대기 중인 버전에서도 일부 정보를 편집할 수 있습니다. 새 빌드를 제출하려면 심사에서 이 버전을 삭제해야 합니다.
+        - generic [ref=e176]:
+          - generic [ref=e179]:
+            - paragraph [ref=e181]: 아래의 자산 및 메타데이터는 사용자가 앱을 설치할 때 앱의 제품 페이지에 표시되며, 앱이 출시되면 웹 엔진 검색 결과에 사용됩니다.
+            - generic [ref=e184]:
+              - button "한국어" [disabled] [ref=e185]
+              - button "?" [ref=e188] [cursor=pointer]
+          - separator [ref=e189]
+          - generic [ref=e190]:
+            - heading "미리보기 및 스크린샷" [level=3] [ref=e191]
+            - button "추가 정보" [ref=e193] [cursor=pointer]: "?"
+          - paragraph [ref=e194]: 최신 기기에서 앱의 정확한 스크린샷을 추가하면 앱의 사용자 경험을 더 정확하게 보여줄 수 있습니다. 스크린샷은 모든 디스플레이 크기 및 현지화에 사용된다는 점에 유의하십시오. 스크린샷은 iOS 앱에만 필요합니다. 앱 설치 시트에는 처음 3개의 스크린샷만 사용됩니다.
+          - generic [ref=e195]:
+            - tablist [ref=e196]:
+              - tab "iPhone" [selected] [ref=e197] [cursor=pointer]:
+                - generic [ref=e198]: iPhone
+            - paragraph [ref=e199]:
+              - link "미디어 관리에서 모든 크기 보기" [ref=e200] [cursor=pointer]:
+                - /url: /apps/6761963940/distribution/ios/version/inflight/media-manager/iphone
+          - generic [ref=e202]:
+            - generic:
+              - alert
+            - tabpanel "iPhone" [ref=e203]:
+              - generic [ref=e204]:
+                - generic [ref=e205]:
+                  - img [ref=e208]
+                  - generic [ref=e213]:
+                    - generic [ref=e214]: iPhone
+                    - generic [ref=e215]: 6.5 디스플레이
+                - region [ref=e216]:
+                  - tabpanel [ref=e217]:
+                    - generic [ref=e220]:
+                      - list "6.5 디스플레이의 앱 미리보기"
+                      - list "6.5 디스플레이의 스크린샷" [ref=e221]:
+                        - listitem [ref=e222]:
+                          - img "스크린샷 IMG_0628.jpg" [ref=e224] [cursor=pointer]:
+                            - img [ref=e226]
+                        - listitem [ref=e227]:
+                          - img "스크린샷 IMG_0634.jpg" [ref=e229] [cursor=pointer]:
+                            - img [ref=e231]
+                        - listitem [ref=e232]:
+                          - img "스크린샷 IMG_0631.jpg" [ref=e234] [cursor=pointer]:
+                            - img [ref=e236]
+                        - listitem [ref=e237]:
+                          - img "스크린샷 IMG_0632.jpg" [ref=e239] [cursor=pointer]:
+                            - img [ref=e241]
+                        - listitem [ref=e242]:
+                          - img "스크린샷 IMG_0636.jpg" [ref=e244] [cursor=pointer]:
+                            - img [ref=e246]
+                        - listitem [ref=e247]:
+                          - img "스크린샷 IMG_0635.jpg" [ref=e249] [cursor=pointer]:
+                            - img [ref=e251]
+          - generic [ref=e252]:
+            - generic [ref=e253]:
+              - generic [ref=e255]:
+                - generic [ref=e256]: 프로모션 텍스트
+                - button "추가 정보" [ref=e258] [cursor=pointer]: "?"
+              - textbox "프로모션 텍스트" [ref=e260]: AI가 오늘 읽은 말씀으로 묵상 질문을 만들어줍니다. 매일 성경을 읽는 습관, 만나와 함께 시작하세요.
+              - status "남은 글자 수" [ref=e262]: "113"
+            - separator [ref=e264]
+            - generic [ref=e265]:
+              - generic [ref=e267]:
+                - generic [ref=e268]: 설명
+                - button "추가 정보" [ref=e270] [cursor=pointer]: "?"
+              - textbox "설명" [ref=e272]: "매일 성경을 읽고 싶지만 작심삼일로 끝나셨나요? 만나는 꾸준한 말씀 읽기를 돕는 AI 성경 동역자입니다. 읽기만 하는 성경 앱은 많습니다. 만나는 읽고, 생각하고, 기도하는 앱입니다. ■ 개역성경 전권 읽기 구약 39권, 신약 27권 — 총 66권 전체를 깔끔한 화면에서 읽을 수 있습니다. 절 단위로 읽은 곳을 표시하고, 진행률을 한눈에 확인하세요. ■ 연속 읽기 스트릭 매일 한 장씩 읽으면 스트릭이 쌓입니다. 불꽃 아이콘과 함께 \"오늘도 읽었다\"는 성취감을 느껴보세요. 5일, 30일, 100일 달성 시 특별한 축하 애니메이션이 기다립니다. ■ 레벨 & 뱃지 시스템 읽을수록 경험치(XP)가 쌓이고 레벨이 올라갑니다. Bronze부터 Diamond까지, 다양한 뱃지를 모아보세요. 첫 걸음, 3일 연속, 첫 묵상 등 자연스러운 목표가 읽기 습관을 만들어줍니다. ■ 통독 계획 맥체인 1년 통독, 연대기순 읽기 등 검증된 읽기 플랜을 제공합니다. 플랜을 선택하면 매일 읽을 분량이 자동으로 배정되고, 홈 화면에서 바로 시작할 수 있습니다. ■ 성경 검색 기억나는 단어 하나로 성경 전체를 검색하세요. \"천사\", \"사랑\", \"소망\" — 찾고 싶은 구절을 빠르게 찾아줍니다. ■ 읽기 알림 원하는 시간에 매일 알림을 받으세요. 아침 묵상, 점심 말씀, 저녁 기도 — 나만의 말씀 시간을 만들 수 있습니다. ■ 데이터 백업 읽기 기록, 묵상, 스트릭을 파일로 내보내고 복원할 수 있습니다. 기기를 바꿔도 그동안의 기록이 사라지지 않습니다. • • • Pro — AI와 함께하는 깊은 묵상 ■ AI 묵상 질문 읽은 구절을 선택하면, AI가 그 말씀에 맞는 묵상 질문 3개를 만들어줍니다. \"이 구절이 내 삶에 어떤 의미일까?\" — 혼자서는 놓치기 쉬운 질문을 던져줍니다. ■ AI 구절 해설 역사적 배경, 원어의 의미, 현대적 적용까지. 주석을 펼치지 않아도, AI가 구절의 맥락을 알기 쉽게 설명해줍니다. ■ AI 기도문 생성 오늘 읽은 말씀을 바탕으로, 나만의 기도문을 만들어줍니다. 읽고, 묵상하고, 기도하는 — 하나의 흐름이 완성됩니다. • • • 만나는 계정이 필요 없습니다. 설치하고 바로 읽기 시작하세요. 문의: sungjin5891@gmail.com 개인정보 처리방침: https://jjangsung.notion.site/Manna-33e95ab5ea7e805ab3d8f4f824171665"
+              - status "남은 글자 수" [ref=e274]: 2,706
+            - generic [ref=e275]:
+              - generic [ref=e277]:
+                - generic [ref=e278]: 키워드
+                - button "추가 정보" [ref=e280] [cursor=pointer]: "?"
+              - textbox "키워드" [ref=e282]: 성경,묵상,통독,말씀,QT,경건,성경읽기,큐티,신앙,기도,AI
+              - status "남은 글자 수" [ref=e284]: "66"
+            - generic [ref=e285]:
+              - generic [ref=e287]:
+                - generic [ref=e288]: 지원 URL
+                - button "추가 정보" [ref=e290] [cursor=pointer]: "?"
+              - textbox "지원 URL" [ref=e292]: https://jjangsung.notion.site/Manna-33e95ab5ea7e805ab3d8f4f824171665
+            - generic [ref=e293]:
+              - generic [ref=e295]:
+                - generic [ref=e296]: 마케팅 URL
+                - button "추가 정보" [ref=e298] [cursor=pointer]: "?"
+              - textbox "마케팅 URL" [ref=e300]
+            - generic [ref=e301]:
+              - generic [ref=e303]:
+                - generic [ref=e304]: 버전
+                - button "추가 정보" [ref=e306] [cursor=pointer]: "?"
+              - textbox "버전" [ref=e308]: "1.0"
+            - generic [ref=e309]:
+              - generic [ref=e311]:
+                - generic [ref=e312]: 저작권
+                - button "추가 정보" [ref=e314] [cursor=pointer]: "?"
+              - textbox "저작권" [ref=e316]: © 2026 Sungjin Jang
+              - status "남은 글자 수" [ref=e318]: "181"
+            - generic [ref=e319]:
+              - generic [ref=e321]:
+                - generic [ref=e322]: 라우팅 앱 적용 범위 파일
+                - button "추가 정보" [ref=e324] [cursor=pointer]: "?"
+              - generic [ref=e326] [cursor=pointer]:
+                - button "파일 선택" [ref=e327]
+                - generic [ref=e329]: 파일 선택
+          - separator [ref=e330]
+          - button "앱 클립" [ref=e332] [cursor=pointer]:
+            - img [ref=e334]
+            - text: 앱 클립
+        - generic [ref=e336]:
+          - heading "빌드" [level=3] [ref=e338]
+          - table [ref=e340]:
+            - rowgroup [ref=e341]:
+              - row "빌드 버전 앱 클립 있음" [ref=e342]:
+                - columnheader "빌드" [ref=e343]:
+                  - generic [ref=e345]: 빌드
+                - columnheader "버전" [ref=e346]:
+                  - generic [ref=e348]: 버전
+                - columnheader "앱 클립 있음" [ref=e349]:
+                  - generic [ref=e351]: 앱 클립 있음
+            - rowgroup [ref=e352]:
+              - row "앱 아이콘 31 1.0.0 아니요" [ref=e353]:
+                - cell "앱 아이콘 31" [ref=e354]:
+                  - generic [ref=e356]:
+                    - link "앱 아이콘" [ref=e357] [cursor=pointer]:
+                      - /url: /apps/6761963940/testflight/ios/d5b6225d-ad51-4b01-8c75-b187c4eab263/metadata
+                      - generic "앱 아이콘" [ref=e358]:
+                        - img "앱 아이콘" [ref=e359]
+                    - link "31" [ref=e361] [cursor=pointer]:
+                      - /url: /apps/6761963940/testflight/ios/d5b6225d-ad51-4b01-8c75-b187c4eab263/metadata
+                - cell "1.0.0" [ref=e362]:
+                  - generic [ref=e363]: 1.0.0
+                - cell "아니요" [ref=e364]:
+                  - paragraph [ref=e366]: 아니요
+          - paragraph [ref=e367]: 포함된 자산
+          - generic [ref=e369]:
+            - button "앱 아이콘" [ref=e370] [cursor=pointer]:
+              - generic "앱 아이콘" [ref=e371]:
+                - img "앱 아이콘" [ref=e372]
+            - paragraph [ref=e373]: 앱 아이콘
+        - generic [ref=e375]:
+          - generic [ref=e379]:
+            - checkbox "Game Center" [disabled] [ref=e381]
+            - text: Game Center
+          - generic [ref=e383]:
+            - img [ref=e384]
+            - paragraph [ref=e386]:
+              - text: 이제 Game Center 구성 요소를 Game Center 섹션에서 직접 심사를 위해 추가할 수 있습니다. 앱 버전 페이지에서는 더 이상 선택할 수 없습니다.
+              - link "추가 정보" [ref=e387] [cursor=pointer]:
+                - /url: https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-game-center-components
+            - button [ref=e388] [cursor=pointer]:
+              - img [ref=e389]
+        - separator [ref=e391]
+        - generic [ref=e392]:
+          - heading "앱 심사 정보" [level=3] [ref=e393]
+          - generic [ref=e394]:
+            - generic [ref=e396]:
+              - generic [ref=e398]:
+                - generic [ref=e399]: 로그인 정보
+                - button "추가 정보" [ref=e401] [cursor=pointer]: "?"
+              - paragraph [ref=e402]: 앱에 로그인할 수 있도록 사용자 이름 및 암호를 입력하십시오. 앱 심사를 완료하려면 로그인 정보가 필요합니다.
+              - generic [ref=e404]:
+                - checkbox "로그인 필요" [ref=e405]
+                - generic [ref=e407]: 로그인 필요
+            - generic [ref=e408]:
+              - generic [ref=e410]:
+                - generic [ref=e411]: 연락처 정보
+                - button "추가 정보" [ref=e413] [cursor=pointer]: "?"
+              - textbox "이름" [ref=e416]: 성진
+              - textbox "성" [ref=e419]: 장
+              - textbox "전화번호" [ref=e422]: "+8201020085891"
+              - textbox "이메일" [ref=e425]: sungjin5891@gmail.com
+            - generic [ref=e426]:
+              - generic [ref=e428]:
+                - generic [ref=e429]: 메모
+                - button "추가 정보" [ref=e431] [cursor=pointer]: "?"
+              - textbox "메모" [ref=e433]: "▎ \"Background audio playback is a Pro subscriber feature. To test this feature: ▎ 1. Tap the subscription button on the premium screen ▎ 2. Complete a sandbox purchase ▎ 3. Start Bible reading with TTS enabled ▎ 4. Put the app in the background — audio will continue playing\""
+              - status "남은 글자 수" [ref=e435]: 3,715
+            - generic [ref=e436]:
+              - generic [ref=e438]:
+                - generic [ref=e439]: 첨부 파일
+                - button "추가 정보" [ref=e441] [cursor=pointer]: "?"
+              - generic [ref=e443] [cursor=pointer]:
+                - button "파일 선택(선택사항)" [ref=e444]
+                - generic [ref=e446]: 파일 선택(선택사항)
+        - separator [ref=e447]
+        - generic [ref=e448]:
+          - heading "App Store 버전 출시" [level=3] [ref=e449]
+          - paragraph [ref=e450]: App Store에서 앱을 판매하기 위해 앱 심사 팀의 승인을 받은 후 자동으로 출시할 수 있습니다. 나중에 App Store에서 수동으로 출시할 수도 있습니다.
+          - generic [ref=e451]:
+            - generic [ref=e453]:
+              - generic [ref=e454]:
+                - radio "수동으로 버전 출시" [ref=e455]
+                - generic [ref=e457]: 수동으로 버전 출시
+              - generic [ref=e458]:
+                - radio "자동으로 버전 출시" [checked] [ref=e459]
+                - generic [ref=e461]: 자동으로 버전 출시
+              - generic [ref=e462]:
+                - radio "다음 날짜 이후 앱 심사가 끝나면 자동으로 이 버전을 공개" [ref=e463]
+                - generic [ref=e465]: 다음 날짜 이후 앱 심사가 끝나면 자동으로 이 버전을 공개
+            - paragraph [ref=e467]: 현지 날짜와 시간입니다.
+            - generic [ref=e470]:
+              - textbox "다음 날짜 이후 앱 심사가 끝나면 자동으로 이 버전을 공개" [disabled] [ref=e471]: 2026년 4월 17일 10:00 AM
+              - text: GMT+9
+  - contentinfo [ref=e10]:
+    - generic [ref=e11]:
+      - list [ref=e472]:
+        - listitem [ref=e473]:
+          - link "App Store Connect" [ref=e474] [cursor=pointer]:
+            - /url: /apps
+      - list [ref=e12]:
+        - listitem [ref=e13]: Copyright © 2026 Apple Inc. 모든 권리 보유. |
+        - listitem [ref=e14]:
+          - link "서비스 약관" [ref=e15] [cursor=pointer]:
+            - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+          - text: "|"
+        - listitem [ref=e16]:
+          - link "개인정보 처리방침" [ref=e17] [cursor=pointer]:
+            - /url: https://www.apple.com/legal/privacy
+          - text: "|"
+        - listitem [ref=e18]:
+          - link "문의" [ref=e19] [cursor=pointer]:
+            - /url: /contact-us

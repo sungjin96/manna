@@ -54,6 +54,9 @@ import { BADGES, BOOK_BADGES } from '../../../app/(tabs)/achievements';
 import { useShowBadgeToast } from '../../../contexts/BadgeToastContext';
 import PaywallSheet from '../../../components/PaywallSheet';
 import VerseShareCard from '../../../components/VerseShareCard';
+import VerseActionBar from '../../../components/VerseActionBar';
+import { saveBookmark, deleteBookmark, getBookmarkedVerses } from '../../../db/bookmarks';
+import { getDailyEntry } from '../../../utils/daily-meditation';
 
 // ── Rich text parser for AI explanation ────────────────────────────────────
 type RichSegment = { text: string; type: 'normal' | 'ref' | 'quote' };
@@ -100,8 +103,8 @@ function prevBefore(bookId: number, chapter: number): { bookId: number; chapter:
 
 // ── Main screen ────────────────────────────────────────────────────────────
 export default function ReadScreen() {
-  const { bookId: bookIdStr, chapter: chapterStr, verse: verseStr, ttsAutoStart } = useLocalSearchParams<{
-    bookId: string; chapter: string; verse?: string; ttsAutoStart?: string;
+  const { bookId: bookIdStr, chapter: chapterStr, verse: verseStr, ttsAutoStart, openMeditation } = useLocalSearchParams<{
+    bookId: string; chapter: string; verse?: string; ttsAutoStart?: string; openMeditation?: string;
   }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -122,6 +125,7 @@ export default function ReadScreen() {
   const [readVerses, setReadVerses] = useState<Set<number>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
+  const [bookmarkedVerses, setBookmarkedVerses] = useState<Set<number>>(new Set());
   const [verseShareData, setVerseShareData] = useState<{ verseStart: number; verseEnd: number; texts: { verse: number; text: string }[] } | null>(null);
   const [meditationPromptEnabled, setMeditationPromptEnabled] = useState(true);
   const [centerVerseIndex, setCenterVerseIndex] = useState<number | null>(null);
@@ -307,13 +311,15 @@ export default function ReadScreen() {
       checkAIEntitlement(),
       getMeditationsForChapter(bookId, chapter),
       getSetting('show_meditation_markers', '1'),
-    ]).then(([done, rv, promptSetting, entitled, meditations, markerSetting]) => {
+      getBookmarkedVerses(bookId, chapter),
+    ]).then(([done, rv, promptSetting, entitled, meditations, markerSetting, bv]) => {
       setAlreadyDone(done);
       setReadVerses(rv);
       setMeditationPromptEnabled(promptSetting === '1');
       setIsProUser(entitled);
       setChapterMeditations(meditations as Meditation[]);
       setShowMeditationMarkers((markerSetting as string) !== '0');
+      setBookmarkedVerses(new Set(bv as number[]));
     });
   }, [bookId, chapter]);
 
@@ -459,6 +465,24 @@ export default function ReadScreen() {
   function cancelSelection() {
     setSelectionMode(false);
     setSelectionRange(null);
+  }
+
+  async function toggleBookmark() {
+    if (!selectionRange) return;
+    const verse = selectionRange.start;
+    if (bookmarkedVerses.has(verse)) {
+      await deleteBookmark(bookId, chapter, verse);
+      setBookmarkedVerses(prev => {
+        const next = new Set(prev);
+        next.delete(verse);
+        return next;
+      });
+    } else {
+      await saveBookmark(bookId, chapter, verse);
+      setBookmarkedVerses(prev => new Set([...prev, verse]));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    cancelSelection();
   }
 
   function openVerseMeditation() {
@@ -671,6 +695,30 @@ export default function ReadScreen() {
     }
   }, [ttsAutoStart, verses, settingsLoaded]);
 
+  // 말씀 알림 / 오늘의 말씀 탭 — ?openMeditation=1 시 Q&A 모드로 묵상 시트 자동 오픈
+  const didOpenMeditation = useRef(false);
+  useEffect(() => {
+    if (openMeditation !== '1') return;
+    if (didOpenMeditation.current) return;
+    if (!verses || verses.length === 0) return;
+    didOpenMeditation.current = true;
+
+    // 오늘의 말씀 질문을 Q&A 첫 항목으로 프리셋
+    const daily = getDailyEntry();
+    if (daily?.question) {
+      setMeditationMode('qa');
+      setQaEntries([{ q: daily.question, a: '' }]);
+    }
+
+    // 오늘의 말씀 특정 구절로 meditationVerse 설정 (저장 위치 + 완료 후 네비게이션 방지)
+    if (daily?.verse) {
+      setMeditationVerse({ start: daily.verse, end: daily.verse });
+    }
+
+    // 구절 스크롤 완료를 기다린 후 시트 오픈 (scroll setTimeout과 맞춤)
+    setTimeout(() => openMeditationSheet(), 800);
+  }, [openMeditation, verses]);
+
   // ── Chapter complete ───────────────────────────────────────────────────────
   const STREAK_MILESTONES = [5, 30, 100];
 
@@ -723,14 +771,9 @@ export default function ReadScreen() {
       setTimeout(() => {
         setMeditationVerse(lastVerse ? { start: 1, end: lastVerse } : null);
         setNote('');
-        if (isProUser) {
-          setMeditationMode('qa');
-          openMeditationSheet();
-          generateInModal();
-        } else {
-          setMeditationMode('basic');
-          openMeditationSheet();
-        }
+        setMeditationMode('qa');
+        openMeditationSheet();
+        if (isProUser) generateInModal();
       }, 400);
     } else {
       setTimeout(() => navigateNext(), 400);
@@ -752,14 +795,9 @@ export default function ReadScreen() {
         const lastVerse = verses ? verses[verses.length - 1]?.verse : undefined;
         setMeditationVerse(lastVerse ? { start: 1, end: lastVerse } : null);
         setNote('');
-        if (isProUser) {
-          setMeditationMode('qa');
-          openMeditationSheet();
-          generateInModal();
-        } else {
-          setMeditationMode('basic');
-          openMeditationSheet();
-        }
+        setMeditationMode('qa');
+        openMeditationSheet();
+        if (isProUser) generateInModal();
       } else {
         navigateNext();
       }
@@ -769,14 +807,10 @@ export default function ReadScreen() {
   async function handleSaveMeditation() {
     const wasChapter = meditationVerse === null;
     try {
-      if (meditationMode === 'qa') {
-        const validEntries = qaEntries.filter(e => e.q.trim() || e.a.trim());
-        if (validEntries.length > 0) {
-          const noteToSave = JSON.stringify({ type: 'qa', entries: validEntries });
-          await saveMeditation(bookId, chapter, noteToSave, meditationVerse?.start, meditationVerse?.end);
-        }
-      } else if (note.trim()) {
-        await saveMeditation(bookId, chapter, note.trim(), meditationVerse?.start, meditationVerse?.end);
+      const validEntries = qaEntries.filter(e => e.q.trim() || e.a.trim());
+      if (validEntries.length > 0) {
+        const noteToSave = JSON.stringify({ type: 'qa', entries: validEntries });
+        await saveMeditation(bookId, chapter, noteToSave, meditationVerse?.start, meditationVerse?.end);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast('묵상이 저장되었습니다');
@@ -936,7 +970,7 @@ export default function ReadScreen() {
                 hitSlop={14}
               >
                 <MaterialCommunityIcons
-                  name={(isTTS || isPaused) ? 'volume-high' : 'volume-off'}
+                  name={isTTS ? 'stop' : isPaused ? 'volume-high' : 'volume-off'}
                   size={24}
                   color={(isTTS || isPaused) ? colors.gold : colors.muted}
                 />
@@ -1095,42 +1129,24 @@ export default function ReadScreen() {
 
         {/* Selection bar */}
         {selectionMode && selectionRange && (
-          <View style={[styles.selectionBar, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: insets.bottom + 12 }]}>
-            <Text style={[styles.selectionLabel, { color: colors.muted }]} numberOfLines={1}>{verseLabel}</Text>
-            <View style={styles.selectionActions}>
-              <Pressable style={[styles.selBtn, { backgroundColor: colors.gold, flex: 1 }]} onPress={openVerseMeditation}>
-                <MaterialCommunityIcons name="notebook-edit-outline" size={15} color="#0B0A12" />
-                <Text style={[styles.selBtnText, { color: '#0B0A12' }]}>기록</Text>
-              </Pressable>
-              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border, flex: 1 }]} onPress={openAIMeditation}>
-                <MaterialCommunityIcons name="robot-outline" size={15} color={colors.gold} />
-                <Text style={[styles.selBtnText, { color: colors.gold }]}>AI</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border, flex: 1 }]}
-                onPress={() => {
-                  if (!selectionRange) return;
-                  const verseNum = selectionRange.start;
-                  cancelSelection();
-                  startFromVerse(verseNum);
-                }}
-              >
-                <MaterialCommunityIcons name="play-circle-outline" size={15} color={colors.text} />
-                <Text style={[styles.selBtnText, { color: colors.text }]}>TTS</Text>
-              </Pressable>
-              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border, flex: 1 }]} onPress={copySelectedVerses}>
-                <MaterialCommunityIcons name="content-copy" size={15} color={colors.text} />
-                <Text style={[styles.selBtnText, { color: colors.text }]}>복사</Text>
-              </Pressable>
-              <Pressable style={[styles.selBtn, { borderWidth: 1, borderColor: colors.border, flex: 1 }]} onPress={shareSelectedVerses}>
-                <MaterialCommunityIcons name="share-variant-outline" size={15} color={colors.text} />
-                <Text style={[styles.selBtnText, { color: colors.text }]}>공유</Text>
-              </Pressable>
-              <Pressable style={styles.selBtnCancel} onPress={cancelSelection} hitSlop={8}>
-                <MaterialCommunityIcons name="close" size={18} color={colors.muted} />
-              </Pressable>
-            </View>
-          </View>
+          <VerseActionBar
+            verseLabel={verseLabel}
+            isBookmarked={bookmarkedVerses.has(selectionRange.start)}
+            paddingBottom={insets.bottom + 12}
+            colors={colors}
+            onMemo={openVerseMeditation}
+            onAI={openAIMeditation}
+            onTTS={() => {
+              if (!selectionRange) return;
+              const verseNum = selectionRange.start;
+              cancelSelection();
+              startFromVerse(verseNum);
+            }}
+            onCopy={copySelectedVerses}
+            onShare={shareSelectedVerses}
+            onBookmark={toggleBookmark}
+            onClose={cancelSelection}
+          />
         )}
 
         {/* Meditation modal */}
@@ -1156,14 +1172,14 @@ export default function ReadScreen() {
                 </Text>
               </View>
 
-              {/* 탭: 묵상하기 | 빠른 메모 */}
+              {/* 탭: 묵상 | 빠른 메모 */}
               <View style={[meditStyles.modeTabBar, { borderBottomColor: colors.border }]}>
                 <Pressable
                   style={[meditStyles.modeTab, meditationMode !== 'memo' && meditStyles.modeTabActive]}
-                  onPress={() => setMeditationMode(meditationMode === 'qa' ? 'qa' : 'basic')}
+                  onPress={() => setMeditationMode('qa')}
                   hitSlop={8}
                 >
-                  <Text style={[meditStyles.modeTabText, { color: meditationMode !== 'memo' ? colors.gold : colors.muted }]}>묵상하기</Text>
+                  <Text style={[meditStyles.modeTabText, { color: meditationMode !== 'memo' ? colors.gold : colors.muted }]}>묵상</Text>
                 </Pressable>
                 <Pressable
                   style={[meditStyles.modeTab, meditationMode === 'memo' && meditStyles.modeTabActive]}
@@ -1174,86 +1190,7 @@ export default function ReadScreen() {
                 </Pressable>
               </View>
 
-              {meditationMode === 'qa' ? (
-                /* Q&A 모드 — 스크롤 가능 */
-                <ScrollView
-                  style={meditStyles.qaScrollView}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
-                >
-                  {qaEntries.map((entry, idx) => (
-                    <View key={idx} style={meditStyles.qaEntry}>
-                      {/* 질문 번호 + 질문 입력 */}
-                      <View style={meditStyles.qaRow}>
-                        <Text style={[meditStyles.qaNum, { color: colors.gold }]}>{idx + 1}</Text>
-                        <View style={meditStyles.qaInputCol}>
-                          <TextInput
-                            style={[meditStyles.qaQ, { color: colors.text }]}
-                            placeholder="질문을 입력하세요"
-                            placeholderTextColor={colors.muted}
-                            multiline
-                            value={entry.q}
-                            onChangeText={text => setQaEntries(prev => prev.map((e, i) => i === idx ? { ...e, q: text } : e))}
-                          />
-                          {/* 구분선 */}
-                          <View style={[meditStyles.qaDiv, { backgroundColor: colors.border }]} />
-                          <TextInput
-                            style={[meditStyles.qaA, { color: colors.text }]}
-                            placeholder="묵상 내용..."
-                            placeholderTextColor={colors.muted}
-                            multiline
-                            value={entry.a}
-                            onChangeText={text => setQaEntries(prev => prev.map((e, i) => i === idx ? { ...e, a: text } : e))}
-                          />
-                        </View>
-                        {qaEntries.length > 1 && (
-                          <Pressable hitSlop={10} onPress={() => setQaEntries(prev => prev.filter((_, i) => i !== idx))}>
-                            <MaterialCommunityIcons name="close" size={15} color={colors.muted} />
-                          </Pressable>
-                        )}
-                      </View>
-                    </View>
-                  ))}
-
-                  {/* 질문 추가 + AI 버튼 — 같은 행에 자연스럽게 */}
-                  <View style={meditStyles.qaFooter}>
-                    {qaEntries.length < 5 && (
-                      <Pressable
-                        style={meditStyles.addPairBtn}
-                        onPress={() => setQaEntries(prev => [...prev, { q: '', a: '' }])}
-                        hitSlop={8}
-                      >
-                        <MaterialCommunityIcons name="plus" size={14} color={colors.muted} />
-                        <Text style={[meditStyles.addPairText, { color: colors.muted }]}>질문 추가</Text>
-                      </Pressable>
-                    )}
-                    {/* AI 생성 — 오른쪽 끝, 흐르듯 배치 */}
-                    <Pressable
-                      style={[meditStyles.aiInlineBtn, { opacity: aiLoading ? 0.5 : 1 }]}
-                      onPress={generateInModal}
-                      disabled={aiLoading}
-                      hitSlop={8}
-                    >
-                      {aiLoading
-                        ? <ActivityIndicator size={12} color={colors.gold} />
-                        : <MaterialCommunityIcons
-                            name="auto-fix"
-                            size={14}
-                            color={colors.gold}
-                          />
-                      }
-                      <Text style={[meditStyles.aiInlineText, { color: colors.gold }]}>
-                        {aiLoading ? '생성 중' : 'AI 질문'}
-                      </Text>
-                    </Pressable>
-                  </View>
-
-                  {/* Q&A → 기본 전환 링크 */}
-                  <Pressable onPress={() => setMeditationMode('basic')} hitSlop={8} style={meditStyles.switchLink}>
-                    <Text style={[meditStyles.switchLinkText, { color: colors.muted }]}>← 자유롭게 쓰기</Text>
-                  </Pressable>
-                </ScrollView>
-              ) : meditationMode === 'memo' ? (
+              {meditationMode === 'memo' ? (
                 /* 빠른 메모 모드 */
                 <>
                   <TextInput
@@ -1273,23 +1210,71 @@ export default function ReadScreen() {
                   )}
                 </>
               ) : (
-                /* 기본 모드 */
-                <>
-                  <TextInput
-                    style={[meditStyles.basicInput, { color: colors.text, borderColor: `${colors.border}60` }]}
-                    placeholder="오늘 읽은 말씀에서 받은 것..."
-                    placeholderTextColor={colors.muted}
-                    multiline maxLength={500}
-                    value={note} onChangeText={setNote} autoFocus
-                  />
-                  <View style={meditStyles.basicFooter}>
-                    <Text style={[meditStyles.charCount, { color: colors.muted }]}>{note.length}/500</Text>
-                    {/* 기본 → Q&A 전환 링크 */}
-                    <Pressable onPress={() => setMeditationMode('qa')} hitSlop={8}>
-                      <Text style={[meditStyles.switchLinkText, { color: colors.muted }]}>Q&A 형식으로 →</Text>
+                /* 묵상 (Q&A) 모드 — 스크롤 가능 */
+                <ScrollView
+                  style={meditStyles.qaScrollView}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  {qaEntries.map((entry, idx) => (
+                    <View key={idx} style={meditStyles.qaEntry}>
+                      <View style={meditStyles.qaRow}>
+                        <Text style={[meditStyles.qaNum, { color: colors.gold }]}>{idx + 1}</Text>
+                        <View style={meditStyles.qaInputCol}>
+                          <TextInput
+                            style={[meditStyles.qaQ, { color: colors.text }]}
+                            placeholder="질문을 입력하세요"
+                            placeholderTextColor={colors.muted}
+                            multiline
+                            value={entry.q}
+                            onChangeText={text => setQaEntries(prev => prev.map((e, i) => i === idx ? { ...e, q: text } : e))}
+                          />
+                          <View style={[meditStyles.qaDiv, { backgroundColor: colors.border }]} />
+                          <TextInput
+                            style={[meditStyles.qaA, { color: colors.text }]}
+                            placeholder="묵상 내용..."
+                            placeholderTextColor={colors.muted}
+                            multiline
+                            value={entry.a}
+                            onChangeText={text => setQaEntries(prev => prev.map((e, i) => i === idx ? { ...e, a: text } : e))}
+                          />
+                        </View>
+                        {qaEntries.length > 1 && (
+                          <Pressable hitSlop={10} onPress={() => setQaEntries(prev => prev.filter((_, i) => i !== idx))}>
+                            <MaterialCommunityIcons name="close" size={15} color={colors.muted} />
+                          </Pressable>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+
+                  <View style={meditStyles.qaFooter}>
+                    {qaEntries.length < 5 && (
+                      <Pressable
+                        style={meditStyles.addPairBtn}
+                        onPress={() => setQaEntries(prev => [...prev, { q: '', a: '' }])}
+                        hitSlop={8}
+                      >
+                        <MaterialCommunityIcons name="plus" size={14} color={colors.muted} />
+                        <Text style={[meditStyles.addPairText, { color: colors.muted }]}>질문 추가</Text>
+                      </Pressable>
+                    )}
+                    <Pressable
+                      style={[meditStyles.aiInlineBtn, { opacity: aiLoading ? 0.5 : 1 }]}
+                      onPress={generateInModal}
+                      disabled={aiLoading}
+                      hitSlop={8}
+                    >
+                      {aiLoading
+                        ? <ActivityIndicator size={12} color={colors.gold} />
+                        : <MaterialCommunityIcons name="auto-fix" size={14} color={colors.gold} />
+                      }
+                      <Text style={[meditStyles.aiInlineText, { color: colors.gold }]}>
+                        {aiLoading ? '생성 중' : 'AI 질문'}
+                      </Text>
                     </Pressable>
                   </View>
-                </>
+                </ScrollView>
               )}
 
               <View style={styles.modalActions}>
@@ -1311,11 +1296,10 @@ export default function ReadScreen() {
                   <Pressable
                     style={[
                       styles.saveBtn, { backgroundColor: colors.gold },
-                      meditationMode === 'basic' && !note.trim() && styles.saveBtnDisabled,
-                      meditationMode === 'qa' && !qaEntries.some(e => e.q.trim() || e.a.trim()) && styles.saveBtnDisabled,
+                      !qaEntries.some(e => e.q.trim() || e.a.trim()) && styles.saveBtnDisabled,
                     ]}
                     onPress={handleSaveMeditation}
-                    disabled={meditationMode === 'basic' ? !note.trim() : !qaEntries.some(e => e.q.trim() || e.a.trim())}
+                    disabled={!qaEntries.some(e => e.q.trim() || e.a.trim())}
                   >
                     <Text style={[styles.saveBtnText, { color: '#0B0A12' }]}>저장</Text>
                   </Pressable>
@@ -1437,7 +1421,7 @@ export default function ReadScreen() {
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <Text style={[aiStyles.ref, { color: colors.gold, marginBottom: 0 }]}>{aiVerseRef}</Text>
                 <Text style={{ fontSize: 11, color: colors.muted }}>
-                  오늘 {Math.max(0, getDailyAILimit(isProUser) - aiDailyRefreshCount)}회 남음
+                  {isProUser ? '무제한' : `오늘 ${Math.max(0, getDailyAILimit(isProUser) - aiDailyRefreshCount)}회 남음`}
                 </Text>
               </View>
 
@@ -1636,7 +1620,7 @@ export default function ReadScreen() {
                     <Text style={[aiStyles.refreshText, { color: colors.muted }]}>재조회</Text>
                   </Pressable>
                   <Text style={[aiStyles.refreshCount, { color: colors.muted }]}>
-                    오늘 {getDailyAILimit(isProUser) - aiDailyRefreshCount}회 남음
+                    {isProUser ? '무제한' : `오늘 ${Math.max(0, getDailyAILimit(isProUser) - aiDailyRefreshCount)}회 남음`}
                   </Text>
                 </View>
               )}
@@ -1648,13 +1632,13 @@ export default function ReadScreen() {
                   onPress={() => {
                     setShowAiSheet(false);
                     setMeditationVerse(aiVerseRange.current ?? null);
+                    setMeditationMode('qa');
                     if (aiPrompts && aiPrompts.length > 0) {
-                      setMeditationMode('qa');
                       setQaEntries(aiPrompts.map(q => ({ q, a: '' })));
-                      setNote('');
                     } else {
-                      setMeditationMode('basic');
+                      setQaEntries([{ q: '', a: '' }]);
                     }
+                    setNote('');
                     openMeditationSheet();
                   }}
                 >

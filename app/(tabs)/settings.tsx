@@ -19,7 +19,14 @@ import { theme } from '../../constants/theme';
 import { UI_SCALE_OPTIONS, UIScaleValue, useUIScale } from '../../contexts/UIScaleContext';
 import { exportToJSON, importFromJSON, backupErrorMessage } from '../../utils/backup';
 import { checkAIEntitlement, purchasePremium, restorePurchases, purchaseErrorMessage } from '../../utils/subscriptions';
-import { requestNotificationPermission, scheduleReadingReminder, cancelReadingReminder } from '../../utils/notifications';
+import {
+  requestNotificationPermission,
+  scheduleReadingReminder,
+  cancelReadingReminder,
+  scheduleVerseNotifications,
+  cancelVerseNotifications,
+  type VerseNotifContent,
+} from '../../utils/notifications';
 import { READING_PLANS, PlanId } from '../../constants/reading-plans';
 import { getActivePlan, setActivePlan, clearActivePlan, todayISO } from '../../db/reading_plans';
 import { resetSettings } from '../../db/reset';
@@ -31,6 +38,11 @@ export default function SettingsScreen() {
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [notifHour, setNotifHour] = useState(8);
   const [notifMinute, setNotifMinute] = useState(0);
+  // 말씀 알림 (읽기 알람과 동일한 단일 선택 구조)
+  const [verseNotifEnabled, setVerseNotifEnabled] = useState(false);
+  const [verseNotifHour, setVerseNotifHour] = useState(21);
+  const [verseNotifMinute, setVerseNotifMinute] = useState(0);
+  const [verseNotifContent, setVerseNotifContent] = useState<VerseNotifContent>('verse');
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
@@ -46,11 +58,24 @@ export default function SettingsScreen() {
       const enabled = await getSetting('notification_enabled', '0');
       const hour = parseInt(await getSetting('notification_hour', '8'), 10);
       const minute = parseInt(await getSetting('notification_minute', '0'), 10);
+      const verseEnabled = await getSetting('verse_notif_enabled', '0');
+      const verseTimesJson = await getSetting('verse_notif_times', '["21:00"]');
+      const verseContent = await getSetting('verse_notif_content', 'verse') as VerseNotifContent;
       const plan = await getActivePlan();
       const autoUpd = await getSetting('auto_update', '1');
       setNotifEnabled(enabled === '1');
       setNotifHour(hour);
       setNotifMinute(minute);
+      setVerseNotifEnabled(verseEnabled === '1');
+      setVerseNotifContent(verseContent);
+      try {
+        const times: string[] = JSON.parse(verseTimesJson);
+        if (times.length > 0) {
+          const [h, m] = times[0].split(':').map(Number);
+          setVerseNotifHour(h);
+          setVerseNotifMinute(m);
+        }
+      } catch {}
       setActivePlanId((plan?.planId as PlanId) ?? null);
       setAutoUpdate(autoUpd === '1');
       const premium = await checkAIEntitlement();
@@ -126,6 +151,48 @@ export default function SettingsScreen() {
     setNotifMinute(next);
     await setSetting('notification_minute', String(next));
     if (notifEnabled) await scheduleReadingReminder(notifHour, next);
+  }
+
+  // ─── 말씀 알림 (읽기 알람과 동일한 단일 시간 구조) ──────────────────────
+  function currentVerseTime() {
+    return [`${pad(verseNotifHour)}:${pad(verseNotifMinute)}`];
+  }
+
+  async function toggleVerseNotif(value: boolean) {
+    if (value) {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        Alert.alert('알림 권한 필요', '설정 앱에서 알림 권한을 허용해주세요.');
+        return;
+      }
+      await scheduleVerseNotifications(currentVerseTime(), verseNotifContent);
+    } else {
+      await cancelVerseNotifications();
+    }
+    setVerseNotifEnabled(value);
+    await setSetting('verse_notif_enabled', value ? '1' : '0');
+  }
+
+  async function changeVerseHour(delta: number) {
+    const next = (verseNotifHour + delta + 24) % 24;
+    setVerseNotifHour(next);
+    const times = [`${pad(next)}:${pad(verseNotifMinute)}`];
+    await setSetting('verse_notif_times', JSON.stringify(times));
+    if (verseNotifEnabled) await scheduleVerseNotifications(times, verseNotifContent);
+  }
+
+  async function changeVerseMinute(delta: number) {
+    const next = (verseNotifMinute + delta + 60) % 60;
+    setVerseNotifMinute(next);
+    const times = [`${pad(verseNotifHour)}:${pad(next)}`];
+    await setSetting('verse_notif_times', JSON.stringify(times));
+    if (verseNotifEnabled) await scheduleVerseNotifications(times, verseNotifContent);
+  }
+
+  async function changeVerseContent(val: VerseNotifContent) {
+    setVerseNotifContent(val);
+    await setSetting('verse_notif_content', val);
+    if (verseNotifEnabled) await scheduleVerseNotifications(currentVerseTime(), val);
   }
 
   async function handleExport() {
@@ -264,10 +331,10 @@ export default function SettingsScreen() {
             {/* 기능 그리드 (2열) */}
             <View style={styles.subsGrid}>
               {([
-                { icon: 'headphones',              label: 'TTS 낭독' },
-                { icon: 'brain',                   label: 'AI 묵상 30회/일' },
-                { icon: 'book-open-page-variant',  label: '구절 해설 30회/일' },
-                { icon: 'hands-pray',              label: '기도문 30회/일' },
+                { icon: 'headphones',              label: 'TTS 백그라운드 재생' },
+                { icon: 'brain',                   label: 'AI 묵상 무제한' },
+                { icon: 'book-open-page-variant',  label: '구절 해설 무제한' },
+                { icon: 'hands-pray',              label: '기도문 생성 무제한' },
                 { icon: 'compass-rose',            label: '테마 구절 추천' },
                 { icon: 'calendar-month',          label: 'Streak 히트맵' },
               ] as const).map((f) => (
@@ -344,78 +411,193 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { fontSize: fs(11) }]}>알림</Text>
 
-        <View style={styles.row}>
-          <View style={styles.rowLeft}>
-            <MaterialCommunityIcons name="bell-outline" size={is(20)} color={theme.gold} />
-            <Text style={[styles.rowLabel, { fontSize: fs(15) }]}>매일 읽기 알림</Text>
+        {/* ── 읽기 알람 ── */}
+        <View style={styles.notifCard}>
+          <View style={styles.notifCardHeader}>
+            <View style={styles.notifCardTitleRow}>
+              <View style={styles.notifCardIcon}>
+                <MaterialCommunityIcons name="alarm" size={16} color={theme.gold} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.notifCardTitle, { fontSize: fs(15) }]}>읽기 알람</Text>
+                <Text style={[styles.notifCardDesc, { fontSize: fs(12) }]}>
+                  설정한 시간에 오늘의 성경 읽기를 알려드려요
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={notifEnabled}
+              onValueChange={toggleNotification}
+              trackColor={{ false: theme.borderSubtle, true: theme.gold }}
+              thumbColor={theme.bg}
+            />
           </View>
-          <Switch
-            value={notifEnabled}
-            onValueChange={toggleNotification}
-            trackColor={{ false: theme.borderSubtle, true: theme.gold }}
-            thumbColor={theme.bg}
-          />
+
+          {notifEnabled && (
+            <View style={styles.timePicker}>
+              {/* 프리셋 시간대 */}
+              <View style={styles.presetRow}>
+                {([
+                  { label: '새벽', hour: 5, minute: 0 },
+                  { label: '아침', hour: 7, minute: 0 },
+                  { label: '점심', hour: 12, minute: 0 },
+                  { label: '저녁', hour: 21, minute: 0 },
+                ] as const).map(p => {
+                  const active = notifHour === p.hour && notifMinute === p.minute;
+                  return (
+                    <Pressable
+                      key={p.label}
+                      style={[styles.presetChip, active && styles.presetChipActive]}
+                      onPress={async () => {
+                        setNotifHour(p.hour);
+                        setNotifMinute(p.minute);
+                        await setSetting('notification_hour', String(p.hour));
+                        await setSetting('notification_minute', String(p.minute));
+                        await scheduleReadingReminder(p.hour, p.minute);
+                      }}
+                    >
+                      <Text style={[styles.presetLabel, active && styles.presetLabelActive]}>
+                        {p.label}
+                      </Text>
+                      <Text style={[styles.presetTime, active && styles.presetTimeActive]}>
+                        {pad(p.hour)}:{pad(p.minute)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* 직접 설정 */}
+              <Text style={styles.timePickerLabel}>직접 설정</Text>
+              <View style={styles.timeRow}>
+                <View style={styles.timeUnit}>
+                  <Pressable style={styles.timeBtn} onPress={() => changeHour(1)} hitSlop={8}>
+                    <MaterialCommunityIcons name="chevron-up" size={20} color={theme.gold} />
+                  </Pressable>
+                  <Text style={styles.timeValue}>{pad(notifHour)}</Text>
+                  <Pressable style={styles.timeBtn} onPress={() => changeHour(-1)} hitSlop={8}>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color={theme.gold} />
+                  </Pressable>
+                </View>
+                <Text style={styles.timeSep}>:</Text>
+                <View style={styles.timeUnit}>
+                  <Pressable style={styles.timeBtn} onPress={() => changeMinute(5)} hitSlop={8}>
+                    <MaterialCommunityIcons name="chevron-up" size={20} color={theme.gold} />
+                  </Pressable>
+                  <Text style={styles.timeValue}>{pad(notifMinute)}</Text>
+                  <Pressable style={styles.timeBtn} onPress={() => changeMinute(-5)} hitSlop={8}>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color={theme.gold} />
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
 
-        {notifEnabled && (
-          <View style={styles.timePicker}>
-            {/* 프리셋 시간대 */}
-            <View style={styles.presetRow}>
-              {([
-                { label: '새벽', hour: 5, minute: 0 },
-                { label: '아침', hour: 7, minute: 0 },
-                { label: '점심', hour: 12, minute: 0 },
-                { label: '저녁', hour: 21, minute: 0 },
-              ] as const).map(p => {
-                const active = notifHour === p.hour && notifMinute === p.minute;
-                return (
-                  <Pressable
-                    key={p.label}
-                    style={[styles.presetChip, active && styles.presetChipActive]}
-                    onPress={async () => {
-                      setNotifHour(p.hour);
-                      setNotifMinute(p.minute);
-                      await setSetting('notification_hour', String(p.hour));
-                      await setSetting('notification_minute', String(p.minute));
-                      await scheduleReadingReminder(p.hour, p.minute);
-                    }}
-                  >
-                    <Text style={[styles.presetLabel, active && styles.presetLabelActive]}>
-                      {p.label}
-                    </Text>
-                    <Text style={[styles.presetTime, active && styles.presetTimeActive]}>
-                      {pad(p.hour)}:{pad(p.minute)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* 직접 설정 — 가운데 정렬 */}
-            <Text style={styles.timePickerLabel}>직접 설정</Text>
-            <View style={styles.timeRow}>
-              <View style={styles.timeUnit}>
-                <Pressable style={styles.timeBtn} onPress={() => changeHour(1)} hitSlop={8}>
-                  <MaterialCommunityIcons name="chevron-up" size={20} color={theme.gold} />
-                </Pressable>
-                <Text style={styles.timeValue}>{pad(notifHour)}</Text>
-                <Pressable style={styles.timeBtn} onPress={() => changeHour(-1)} hitSlop={8}>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color={theme.gold} />
-                </Pressable>
+        {/* ── 말씀 알림 ── */}
+        <View style={[styles.notifCard, styles.notifCardVerse]}>
+          <View style={styles.notifCardHeader}>
+            <View style={styles.notifCardTitleRow}>
+              <View style={[styles.notifCardIcon, styles.notifCardIconVerse]}>
+                <MaterialCommunityIcons name="book-open-variant" size={16} color={theme.gold} />
               </View>
-              <Text style={styles.timeSep}>:</Text>
-              <View style={styles.timeUnit}>
-                <Pressable style={styles.timeBtn} onPress={() => changeMinute(5)} hitSlop={8}>
-                  <MaterialCommunityIcons name="chevron-up" size={20} color={theme.gold} />
-                </Pressable>
-                <Text style={styles.timeValue}>{pad(notifMinute)}</Text>
-                <Pressable style={styles.timeBtn} onPress={() => changeMinute(-5)} hitSlop={8}>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color={theme.gold} />
-                </Pressable>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.notifCardTitle, { fontSize: fs(15) }]}>말씀 알림</Text>
+                <Text style={[styles.notifCardDesc, { fontSize: fs(12) }]}>
+                  하루 중 말씀 한 구절을 받아보세요{'\n'}탭하면 바로 묵상 기록을 남길 수 있어요
+                </Text>
               </View>
             </View>
+            <Switch
+              value={verseNotifEnabled}
+              onValueChange={toggleVerseNotif}
+              trackColor={{ false: theme.borderSubtle, true: theme.gold }}
+              thumbColor={theme.bg}
+            />
           </View>
-        )}
+
+          {verseNotifEnabled && (
+            <View style={styles.timePicker}>
+              {/* 프리셋 시간대 (단일 선택 — 읽기 알람과 동일) */}
+              <View style={styles.presetRow}>
+                {([
+                  { label: '아침', hour: 7, minute: 0 },
+                  { label: '점심', hour: 12, minute: 0 },
+                  { label: '오후', hour: 15, minute: 0 },
+                  { label: '저녁', hour: 21, minute: 0 },
+                ] as const).map(p => {
+                  const active = verseNotifHour === p.hour && verseNotifMinute === p.minute;
+                  return (
+                    <Pressable
+                      key={p.label}
+                      style={[styles.presetChip, active && styles.presetChipActive]}
+                      onPress={async () => {
+                        setVerseNotifHour(p.hour);
+                        setVerseNotifMinute(p.minute);
+                        await setSetting('verse_notif_times', JSON.stringify([`${pad(p.hour)}:${pad(p.minute)}`]));
+                        if (verseNotifEnabled) await scheduleVerseNotifications([`${pad(p.hour)}:${pad(p.minute)}`], verseNotifContent);
+                      }}
+                    >
+                      <Text style={[styles.presetLabel, active && styles.presetLabelActive]}>
+                        {p.label}
+                      </Text>
+                      <Text style={[styles.presetTime, active && styles.presetTimeActive]}>
+                        {`${pad(p.hour)}:${pad(p.minute)}`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* 직접 설정 */}
+              <Text style={styles.timePickerLabel}>직접 설정</Text>
+              <View style={styles.timeRow}>
+                <View style={styles.timeUnit}>
+                  <Pressable style={styles.timeBtn} onPress={() => changeVerseHour(1)} hitSlop={8}>
+                    <MaterialCommunityIcons name="chevron-up" size={20} color={theme.gold} />
+                  </Pressable>
+                  <Text style={styles.timeValue}>{pad(verseNotifHour)}</Text>
+                  <Pressable style={styles.timeBtn} onPress={() => changeVerseHour(-1)} hitSlop={8}>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color={theme.gold} />
+                  </Pressable>
+                </View>
+                <Text style={styles.timeSep}>:</Text>
+                <View style={styles.timeUnit}>
+                  <Pressable style={styles.timeBtn} onPress={() => changeVerseMinute(5)} hitSlop={8}>
+                    <MaterialCommunityIcons name="chevron-up" size={20} color={theme.gold} />
+                  </Pressable>
+                  <Text style={styles.timeValue}>{pad(verseNotifMinute)}</Text>
+                  <Pressable style={styles.timeBtn} onPress={() => changeVerseMinute(-5)} hitSlop={8}>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color={theme.gold} />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* 알림 내용 선택 */}
+              <Text style={[styles.timePickerLabel, { marginTop: 4 }]}>알림 내용</Text>
+              <View style={styles.presetRow}>
+                {([
+                  { label: '구절만', value: 'verse' as const },
+                  { label: '묵상 질문만', value: 'question' as const },
+                  { label: '둘 다', value: 'both' as const },
+                ]).map(opt => {
+                  const active = verseNotifContent === opt.value;
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      style={[styles.presetChip, active && styles.presetChipActive]}
+                      onPress={() => changeVerseContent(opt.value)}
+                    >
+                      <Text style={[styles.presetLabel, active && styles.presetLabelActive, { fontSize: fs(11) }]}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* 통독 계획 섹션 */}
@@ -568,8 +750,8 @@ export default function SettingsScreen() {
           <Switch
             value={autoUpdate}
             onValueChange={toggleAutoUpdate}
-            trackColor={{ false: theme.borderSubtle, true: `${theme.gold}80` }}
-            thumbColor={autoUpdate ? theme.gold : theme.textMuted}
+            trackColor={{ false: theme.borderSubtle, true: theme.gold }}
+            thumbColor={theme.bg}
           />
         </View>
 
@@ -580,6 +762,17 @@ export default function SettingsScreen() {
             Korean Revised Version — 무료 사용 허가
           </Text>
         </View>
+      </View>
+
+      {/* 법적 고지 */}
+      <View style={styles.legalSection}>
+        <Pressable onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')} hitSlop={8}>
+          <Text style={styles.legalLink}>이용약관</Text>
+        </Pressable>
+        <Text style={styles.legalSep}>·</Text>
+        <Pressable onPress={() => Linking.openURL('https://jjangsung.notion.site/Manna-33e95ab5ea7e805ab3d8f4f824171665')} hitSlop={8}>
+          <Text style={styles.legalLink}>개인정보처리방침</Text>
+        </Pressable>
       </View>
 
       <MannaAlert
@@ -647,6 +840,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
   content: { paddingBottom: 40 },
 
+  legalSection: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 20 },
+  legalLink: { fontSize: 12, color: theme.textMuted, textDecorationLine: 'underline' },
+  legalSep: { fontSize: 12, color: theme.textMuted },
+
   header: {
     padding: 20,
     paddingTop: 60,
@@ -689,6 +886,62 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 15, color: theme.text },
   rowValue: { fontSize: 14, color: theme.textMuted },
   rowHint: { fontSize: 12, color: theme.textMuted, lineHeight: 18 },
+
+  // ─── 알림 카드 ───────────────────────────────────────────────────────────
+  notifCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    marginTop: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    backgroundColor: theme.surface2,
+    overflow: 'hidden',
+  },
+  notifCardVerse: {
+    borderColor: `${theme.gold}20`,
+  },
+  notifCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  notifCardTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  notifCardIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: `${theme.gold}15`,
+    borderWidth: 1,
+    borderColor: `${theme.gold}25`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  notifCardIconVerse: {
+    backgroundColor: `${theme.gold}20`,
+    borderColor: `${theme.gold}35`,
+  },
+  notifCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.text,
+    marginBottom: 3,
+  },
+  notifCardDesc: {
+    fontSize: 12,
+    color: theme.textMuted,
+    lineHeight: 17,
+  },
+
 
   timePicker: {
     paddingHorizontal: 20,

@@ -1,0 +1,318 @@
+- generic [active] [ref=e1]:
+  - banner "App Store Connect" [ref=e3]:
+    - generic [ref=e4]:
+      - heading "App Store Connect" [level=1] [ref=e6]:
+        - link "App Store Connect" [ref=e7] [cursor=pointer]:
+          - /url: /
+      - navigation "글로벌" [ref=e8]:
+        - list [ref=e10]:
+          - listitem [ref=e11]:
+            - link "앱" [ref=e12] [cursor=pointer]:
+              - /url: /apps
+          - listitem [ref=e13]:
+            - link "추세" [ref=e14] [cursor=pointer]:
+              - /url: /trends
+          - listitem [ref=e15]:
+            - link "보고서" [ref=e16] [cursor=pointer]:
+              - /url: /itc/payments_and_financial_reports
+          - listitem [ref=e17]:
+            - link "비즈니스" [ref=e18] [cursor=pointer]:
+              - /url: /business
+          - listitem [ref=e19]:
+            - link "사용자 및 액세스" [ref=e20] [cursor=pointer]:
+              - /url: /access/users
+      - button "성진 장 Sungjin Jang Account name menu" [ref=e22] [cursor=pointer]:
+        - generic:
+          - generic: 성진 장
+          - generic: Sungjin Jang
+          - img [ref=e23]
+  - generic [ref=e28]:
+    - button "앱 메뉴, 만나 - 매일의 양식, 선택됨" [ref=e55] [cursor=pointer]:
+      - generic [ref=e56]:
+        - generic "만나 - 매일의 양식" [ref=e57]:
+          - img "만나 - 매일의 양식" [ref=e58]
+        - generic [ref=e59]: 만나 - 매일의 양식
+      - img [ref=e61]
+    - navigation "앱" [ref=e30]:
+      - list [ref=e31]:
+        - listitem [ref=e63]:
+          - link "배포" [ref=e64] [cursor=pointer]:
+            - /url: /apps/6761963940/distribution
+        - listitem [ref=e65]:
+          - link "분석" [ref=e66] [cursor=pointer]:
+            - /url: /apps/6761963940/analytics
+        - listitem [ref=e67]:
+          - link "TestFlight" [ref=e68] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight
+        - listitem [ref=e69]:
+          - link "Xcode Cloud" [ref=e70] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/ci
+  - main [ref=e74]:
+    - generic [ref=e77]:
+      - generic [ref=e79]:
+        - navigation "배포" [ref=e81]:
+          - list [ref=e82]:
+            - listitem [ref=e83]:
+              - generic [ref=e84]:
+                - heading "iOS 앱" [level=2] [ref=e86]
+                - list [ref=e87]:
+                  - listitem [ref=e88]:
+                    - link "1.0 심사 준비됨" [ref=e89] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/ios/version/inflight
+                      - generic [ref=e90]:
+                        - img [ref=e91]
+                        - text: 1.0 심사 준비됨
+              - button "플랫폼 추가" [ref=e93] [cursor=pointer]
+            - listitem [ref=e94]:
+              - separator [ref=e95]
+            - listitem [ref=e96]:
+              - heading "일반 정보" [level=2] [ref=e98]
+              - list [ref=e99]:
+                - listitem [ref=e100]:
+                  - link "앱 정보" [ref=e101] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/info
+                    - generic [ref=e102]: 앱 정보
+                - listitem [ref=e103]:
+                  - link "앱 심사" [ref=e104] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/reviewsubmissions
+                    - generic [ref=e105]: 앱 심사
+                - listitem [ref=e106]:
+                  - link "버전 정보" [ref=e107] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/activity/ios/versions
+                    - generic [ref=e108]: 버전 정보
+            - listitem [ref=e109]:
+              - separator [ref=e110]
+            - listitem [ref=e111]:
+              - heading "App Store" [level=2] [ref=e113]
+              - generic [ref=e114]:
+                - heading "신뢰 및 안전" [level=3] [ref=e116]
+                - list [ref=e117]:
+                  - listitem [ref=e118]:
+                    - link "앱이 수집하는 개인정보" [ref=e119] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/privacy
+                      - generic [ref=e120]: 앱이 수집하는 개인정보
+                  - listitem [ref=e121]:
+                    - link "앱의 손쉬운 사용" [ref=e122] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/accessibility
+                      - generic [ref=e123]: 앱의 손쉬운 사용
+                  - listitem [ref=e124]:
+                    - link "평가 및 리뷰" [ref=e125] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/ratings/ios
+                      - generic [ref=e126]: 평가 및 리뷰
+              - generic [ref=e127]:
+                - heading "성장 및 마케팅" [level=3] [ref=e129]
+                - list [ref=e130]:
+                  - listitem [ref=e131]:
+                    - link "앱 내 이벤트" [ref=e132] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/events
+                      - generic [ref=e133]: 앱 내 이벤트
+                  - listitem [ref=e134]:
+                    - link "맞춤형 제품 페이지" [ref=e135] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/productpages
+                      - generic [ref=e136]: 맞춤형 제품 페이지
+                  - listitem [ref=e137]:
+                    - link "제품 페이지 최적화" [ref=e138] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/optimization
+                      - generic [ref=e139]: 제품 페이지 최적화
+                  - listitem [ref=e140]:
+                    - link "프로모션 코드" [ref=e141] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/promo_codes/generate
+                      - generic [ref=e142]: 프로모션 코드
+                  - listitem [ref=e143]:
+                    - link "Game Center" [ref=e144] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/gamecenter
+                      - generic [ref=e145]: Game Center
+              - generic [ref=e146]:
+                - heading "수익화" [level=3] [ref=e148]
+                - list [ref=e149]:
+                  - listitem [ref=e150]:
+                    - link "가격 및 사용 가능 여부" [ref=e151] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/pricing
+                      - generic [ref=e152]: 가격 및 사용 가능 여부
+                  - listitem [ref=e153]:
+                    - link "앱 내 구입" [ref=e154] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/iaps
+                      - generic [ref=e155]: 앱 내 구입
+                  - listitem [ref=e156]:
+                    - link "구독" [ref=e157] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/subscriptions
+                      - generic [ref=e158]: 구독
+              - generic [ref=e159]:
+                - heading "피처링" [level=3] [ref=e161]
+                - list [ref=e162]:
+                  - listitem [ref=e163]:
+                    - link "피처링 요청" [ref=e164] [cursor=pointer]:
+                      - /url: /apps/6761963940/distribution/nominations
+                      - generic [ref=e165]: 피처링 요청
+        - generic [ref=e166]:
+          - generic [ref=e168]:
+            - heading "앱 심사" [level=2] [ref=e171]
+            - paragraph [ref=e172]: 앱 심사에 제출된 모든 항목 및 Apple과 나눈 메시지가 아래에 표시됩니다.
+          - generic [ref=e173]:
+            - separator [ref=e174]
+            - generic [ref=e175]:
+              - heading "초안" [level=3] [ref=e176]
+              - generic [ref=e177]:
+                - paragraph [ref=e178]: 앱 심사에 제출 준비된 제출입니다.
+                - grid "초안" [ref=e180]:
+                  - rowgroup [ref=e181]:
+                    - row "생성일 버전 만든 사람 항목 상태 작업" [ref=e182]:
+                      - columnheader "생성일" [ref=e183]:
+                        - generic [ref=e186]: 생성일
+                      - columnheader "버전" [ref=e187]:
+                        - generic [ref=e190]: 버전
+                      - columnheader "만든 사람" [ref=e191]:
+                        - generic [ref=e194]: 만든 사람
+                      - columnheader "항목" [ref=e195]:
+                        - generic [ref=e198]: 항목
+                      - columnheader "상태" [ref=e199]:
+                        - generic [ref=e202]: 상태
+                      - columnheader "작업" [ref=e203]
+                  - rowgroup [ref=e204]:
+                    - row "오늘 오전 8:34" [ref=e205]:
+                      - rowheader "오늘 오전 8:34" [ref=e206]:
+                        - button "오늘 오전 8:34" [ref=e209] [cursor=pointer]
+                      - gridcell "iOS 1.0" [ref=e210]:
+                        - generic [ref=e211]: iOS 1.0
+                      - gridcell "장성진" [ref=e212]:
+                        - generic [ref=e213]: 장성진
+                      - gridcell "1개의 항목" [ref=e214]:
+                        - generic [ref=e215]: 1개의 항목
+                      - gridcell "심사 준비됨" [ref=e216]:
+                        - generic [ref=e218]:
+                          - img [ref=e219]
+                          - text: 심사 준비됨
+                      - gridcell [ref=e221]
+            - generic [ref=e222]:
+              - heading "제출" [level=3] [ref=e223]
+              - generic [ref=e224]:
+                - paragraph [ref=e225]: 지난 180일 동안 완료된 최근 10개의 제출이 아래에 표시됩니다.
+                - grid "제출" [ref=e227]:
+                  - rowgroup [ref=e228]:
+                    - row "제출한 날짜 버전 제출한 사람 항목 상태 작업" [ref=e229]:
+                      - columnheader "제출한 날짜" [ref=e230]:
+                        - generic [ref=e233]: 제출한 날짜
+                      - columnheader "버전" [ref=e234]:
+                        - generic [ref=e237]: 버전
+                      - columnheader "제출한 사람" [ref=e238]:
+                        - generic [ref=e241]: 제출한 사람
+                      - columnheader "항목" [ref=e242]:
+                        - generic [ref=e245]: 항목
+                      - columnheader "상태" [ref=e246]:
+                        - generic [ref=e249]: 상태
+                      - columnheader "작업" [ref=e250]
+                  - rowgroup [ref=e251]:
+                    - row "어제 오후 2:58" [ref=e252]:
+                      - rowheader "어제 오후 2:58" [ref=e253]:
+                        - link "어제 오후 2:58" [ref=e255] [cursor=pointer]:
+                          - /url: /apps/6761963940/distribution/reviewsubmissions/details/6e2b0367-de4d-4fd7-9f18-147231034bc0
+                      - gridcell "iOS 1.0" [ref=e256]:
+                        - generic [ref=e257]: iOS 1.0
+                      - gridcell "장성진" [ref=e258]:
+                        - generic [ref=e259]: 장성진
+                      - gridcell "1개의 항목" [ref=e260]:
+                        - generic [ref=e261]: 1개의 항목
+                      - gridcell "삭제됨" [ref=e262]:
+                        - generic [ref=e264]:
+                          - img [ref=e265]
+                          - text: 삭제됨
+                      - gridcell [ref=e267]
+                    - row "토요일 오후 2:05" [ref=e268]:
+                      - rowheader "토요일 오후 2:05" [ref=e269]:
+                        - link "토요일 오후 2:05" [ref=e271] [cursor=pointer]:
+                          - /url: /apps/6761963940/distribution/reviewsubmissions/details/1dd45f9b-27a7-47a6-85f4-e2e4818eab9d
+                      - gridcell "iOS 1.0" [ref=e272]:
+                        - generic [ref=e273]: iOS 1.0
+                      - gridcell "장성진" [ref=e274]:
+                        - generic [ref=e275]: 장성진
+                      - gridcell "1개의 항목" [ref=e276]:
+                        - generic [ref=e277]: 1개의 항목
+                      - gridcell "삭제됨" [ref=e278]:
+                        - generic [ref=e280]:
+                          - img [ref=e281]
+                          - text: 삭제됨
+                      - gridcell [ref=e283]
+                    - row "토요일 오후 2:02" [ref=e284]:
+                      - rowheader "토요일 오후 2:02" [ref=e285]:
+                        - link "토요일 오후 2:02" [ref=e287] [cursor=pointer]:
+                          - /url: /apps/6761963940/distribution/reviewsubmissions/details/f87a9e63-7a07-4f83-8d0c-8cc26f21472f
+                      - gridcell "iOS 1.0" [ref=e288]:
+                        - generic [ref=e289]: iOS 1.0
+                      - gridcell "장성진" [ref=e290]:
+                        - generic [ref=e291]: 장성진
+                      - gridcell "1개의 항목" [ref=e292]:
+                        - generic [ref=e293]: 1개의 항목
+                      - gridcell "삭제됨" [ref=e294]:
+                        - generic [ref=e296]:
+                          - img [ref=e297]
+                          - text: 삭제됨
+                      - gridcell [ref=e299]
+                    - row "토요일 오후 1:03" [ref=e300]:
+                      - rowheader "토요일 오후 1:03" [ref=e301]:
+                        - link "토요일 오후 1:03" [ref=e303] [cursor=pointer]:
+                          - /url: /apps/6761963940/distribution/reviewsubmissions/details/a7a2f968-62e2-4582-b6ec-3738c59a025d
+                      - gridcell "iOS 1.0" [ref=e304]:
+                        - generic [ref=e305]: iOS 1.0
+                      - gridcell "장성진" [ref=e306]:
+                        - generic [ref=e307]: 장성진
+                      - gridcell "1개의 항목" [ref=e308]:
+                        - generic [ref=e309]: 1개의 항목
+                      - gridcell "삭제됨" [ref=e310]:
+                        - generic [ref=e312]:
+                          - img [ref=e313]
+                          - text: 삭제됨
+                      - gridcell [ref=e315]
+                    - row "토요일 오전 8:28" [ref=e316]:
+                      - rowheader "토요일 오전 8:28" [ref=e317]:
+                        - link "토요일 오전 8:28" [ref=e319] [cursor=pointer]:
+                          - /url: /apps/6761963940/distribution/reviewsubmissions/details/258243ea-4d32-4a7b-ab13-4afd3e86fd94
+                      - gridcell "iOS 1.0" [ref=e320]:
+                        - generic [ref=e321]: iOS 1.0
+                      - gridcell "장성진" [ref=e322]:
+                        - generic [ref=e323]: 장성진
+                      - gridcell "1개의 항목" [ref=e324]:
+                        - generic [ref=e325]: 1개의 항목
+                      - gridcell "삭제됨" [ref=e326]:
+                        - generic [ref=e328]:
+                          - img [ref=e329]
+                          - text: 삭제됨
+                      - gridcell [ref=e331]
+                    - row "4월 10일 오후 4:46" [ref=e332]:
+                      - rowheader "4월 10일 오후 4:46" [ref=e333]:
+                        - link "4월 10일 오후 4:46" [ref=e335] [cursor=pointer]:
+                          - /url: /apps/6761963940/distribution/reviewsubmissions/details/8b9a71db-b864-475e-8c52-9de853a8e22b
+                      - gridcell "iOS 1.0" [ref=e336]:
+                        - generic [ref=e337]: iOS 1.0
+                      - gridcell "장성진" [ref=e338]:
+                        - generic [ref=e339]: 장성진
+                      - gridcell "1개의 항목" [ref=e340]:
+                        - generic [ref=e341]: 1개의 항목
+                      - gridcell "삭제됨" [ref=e342]:
+                        - generic [ref=e344]:
+                          - img [ref=e345]
+                          - text: 삭제됨
+                      - gridcell [ref=e347]
+      - region "제출 초안" [ref=e348]:
+        - button "제출 초안(1개)" [ref=e349] [cursor=pointer]:
+          - generic [ref=e350]:
+            - text: 제출 초안(1개)
+            - img [ref=e351]
+  - contentinfo [ref=e38]:
+    - generic [ref=e39]:
+      - list [ref=e40]:
+        - listitem [ref=e41]:
+          - link "App Store Connect" [ref=e42] [cursor=pointer]:
+            - /url: /apps
+      - list [ref=e43]:
+        - listitem [ref=e44]: Copyright © 2026 Apple Inc. 모든 권리 보유. |
+        - listitem [ref=e45]:
+          - link "서비스 약관" [ref=e46] [cursor=pointer]:
+            - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+          - text: "|"
+        - listitem [ref=e47]:
+          - link "개인정보 처리방침" [ref=e48] [cursor=pointer]:
+            - /url: https://www.apple.com/legal/privacy
+          - text: "|"
+        - listitem [ref=e49]:
+          - link "문의" [ref=e50] [cursor=pointer]:
+            - /url: /contact-us

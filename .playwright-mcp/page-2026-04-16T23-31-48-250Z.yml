@@ -1,0 +1,179 @@
+- generic [active] [ref=e1]:
+  - banner "App Store Connect" [ref=e3]:
+    - generic [ref=e4]:
+      - heading "App Store Connect" [level=1] [ref=e20]:
+        - link "App Store Connect" [ref=e21] [cursor=pointer]:
+          - /url: /
+      - navigation "글로벌" [ref=e7]:
+        - list [ref=e23]:
+          - listitem [ref=e24]:
+            - link "앱" [ref=e25] [cursor=pointer]:
+              - /url: /apps
+          - listitem [ref=e26]:
+            - link "추세" [ref=e27] [cursor=pointer]:
+              - /url: /trends
+          - listitem [ref=e28]:
+            - link "보고서" [ref=e29] [cursor=pointer]:
+              - /url: /itc/payments_and_financial_reports
+          - listitem [ref=e30]:
+            - link "비즈니스" [ref=e31] [cursor=pointer]:
+              - /url: /business
+          - listitem [ref=e32]:
+            - link "사용자 및 액세스" [ref=e33] [cursor=pointer]:
+              - /url: /access/users
+      - button "성진 장 Sungjin Jang Account name menu" [ref=e35] [cursor=pointer]:
+        - generic:
+          - generic: 성진 장
+          - generic: Sungjin Jang
+          - img [ref=e36]
+  - generic [ref=e41]:
+    - button "앱 메뉴, 만나 - 매일의 양식, 선택됨" [ref=e46] [cursor=pointer]:
+      - generic [ref=e47]:
+        - generic "만나 - 매일의 양식" [ref=e48]:
+          - img "만나 - 매일의 양식" [ref=e49]
+        - generic [ref=e50]: 만나 - 매일의 양식
+      - img [ref=e52]
+    - navigation "앱" [ref=e55]:
+      - list [ref=e56]:
+        - listitem [ref=e57]:
+          - link "배포" [ref=e58] [cursor=pointer]:
+            - /url: /apps/6761963940/distribution
+        - listitem [ref=e59]:
+          - link "분석" [ref=e60] [cursor=pointer]:
+            - /url: /apps/6761963940/analytics
+        - listitem [ref=e61]:
+          - link "TestFlight" [ref=e62] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight
+        - listitem [ref=e63]:
+          - link "Xcode Cloud" [ref=e64] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/ci
+  - main [ref=e68]:
+    - generic [ref=e75]:
+      - progressbar [ref=e78]
+      - generic [ref=e82]:
+        - link "구독" [ref=e86] [cursor=pointer]:
+          - /url: /apps/6761963940/distribution/subscriptions
+          - generic [ref=e87]:
+            - img [ref=e88]
+            - text: 구독
+        - heading "Manna Pro" [level=2] [ref=e91]:
+          - heading "Manna Pro" [level=2] [ref=e92]
+      - generic [ref=e93]:
+        - paragraph [ref=e94]:
+          - generic [ref=e95]:
+            - text: 구독 그룹을 생성한 후 구독을 생성할 수 있습니다. 모든 구독은 그룹에 속해야 합니다. 사용자는 한 번에 하나의 그룹 내에서 한 개의 구독만 이용할 수 있지만, 동일 그룹 내에서는 다른 구독으로 변경할 수 있습니다. 이 경우, 두 번째 해에 수익금의 85％를 계속 받게 됩니다(해당되는 경우, 세후).
+            - link "추가 정보" [ref=e96] [cursor=pointer]:
+              - /url: https://developer.apple.com/help/app-store-connect/manage-subscriptions/offer-auto-renewable-subscriptions
+        - generic [ref=e97]:
+          - img [ref=e98]
+          - paragraph [ref=e100]:
+            - generic [ref=e101]:
+              - text: 구독에 주의가 필요합니다. 준비가 되면 다시 제출하십시오. 자세한 내용은
+              - link "앱 심사 메모" [ref=e102] [cursor=pointer]:
+                - /url: javascript:void(0)
+              - text: 를 참고하십시오.
+        - generic [ref=e103]:
+          - img [ref=e104]
+          - paragraph [ref=e106]:
+            - generic [ref=e107]:
+              - text: 첫 번째 구독은 새로운 앱 버전과 함께 제출해야 합니다. 구독을 생성한 다음, 해당 버전을 앱 심사에 제출하기 전에 버전 페이지에 있는 앱의 앱 내 구입 및 구독 섹션에서 이를 선택하십시오.
+              - text: 바이너리를 업로드하고 첫번째 구독을 심사에 제출한 경우 구독 섹션에서 추가 구독을 제출할 수 있습니다.
+              - link "추가 정보" [ref=e108] [cursor=pointer]:
+                - /url: https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-for-review
+        - generic [ref=e109]:
+          - generic [ref=e110]:
+            - generic [ref=e111]:
+              - generic [ref=e112]:
+                - heading "구독" [level=3] [ref=e113]
+                - button "구독 생성" [ref=e114] [cursor=pointer]:
+                  - img [ref=e115]
+              - paragraph [ref=e117]:
+                - generic [ref=e118]:
+                  - text: 최고 수준의 서비스를 제공하는 옵션부터 내림차순으로 구독을 정렬하십시오. 각 수준당 한 개 이상의 구독을 추가할 수 있습니다. 이 순서에 따라 구독 업그레이드 및 다운그레이드 옵션이 결정됩니다.
+                  - link "구독 업그레이드 및 다운그레이드에 대해 더 알아보십시오." [ref=e119] [cursor=pointer]:
+                    - /url: https://developer.apple.com/go/?id=subscriptions-overview
+            - button "등급 편집" [disabled] [ref=e122]
+          - generic [ref=e126]:
+            - generic:
+              - generic:
+                - grid:
+                  - row "등급 식별 정보 제품 ID 기간 상태" [ref=e127]:
+                    - columnheader "등급" [ref=e128]
+                    - columnheader "식별 정보" [ref=e129]
+                    - columnheader "제품 ID" [ref=e130]
+                    - columnheader "기간" [ref=e131]
+                    - columnheader "상태" [ref=e132]
+                  - rowgroup "grid" [ref=e133]:
+                    - rowgroup [ref=e134]:
+                      - row "1 Manna Pro Monthly com.jsj.manna.pro.monthly 1개월 개발자의 조치가 필요함" [ref=e135]:
+                        - gridcell "1" [ref=e136]:
+                          - generic [ref=e138]: "1"
+                        - gridcell "Manna Pro Monthly" [ref=e139]:
+                          - link "Manna Pro Monthly" [ref=e142] [cursor=pointer]:
+                            - /url: /apps/6761963940/distribution/subscriptions/6761966178
+                        - gridcell "com.jsj.manna.pro.monthly" [ref=e143]:
+                          - generic [ref=e145]: com.jsj.manna.pro.monthly
+                        - gridcell "1개월" [ref=e146]:
+                          - generic [ref=e148]: 1개월
+                        - gridcell "개발자의 조치가 필요함" [ref=e149]:
+                          - generic [ref=e151]:
+                            - img [ref=e152]
+                            - text: 개발자의 조치가 필요함
+        - generic [ref=e154]:
+          - generic [ref=e157]:
+            - heading "현지화" [level=3] [ref=e158]
+            - button [ref=e159] [cursor=pointer]:
+              - img [ref=e160]
+          - paragraph [ref=e163]:
+            - generic [ref=e164]:
+              - text: 현지화별로 다른 구독 그룹 표시 이름과 앱 이름 표시 옵션을 사용할 수 있습니다. 해당 이름은 사용자가 기기에서 구독을 관리할 때 나타납니다.
+              - link "추가 정보" [ref=e165] [cursor=pointer]:
+                - /url: https://developer.apple.com/help/app-store-connect/manage-subscriptions/offer-auto-renewable-subscriptions
+          - generic [ref=e169]:
+            - generic:
+              - generic:
+                - grid:
+                  - row "현지화 구독 그룹 표시 이름 앱 이름 상태" [ref=e170]:
+                    - columnheader "현지화" [ref=e171]
+                    - columnheader "구독 그룹 표시 이름" [ref=e172]
+                    - columnheader "앱 이름" [ref=e173]
+                    - columnheader "상태" [ref=e174]:
+                      - generic [ref=e175]: 상태
+                    - columnheader
+                  - rowgroup "grid" [ref=e176]:
+                    - rowgroup [ref=e177]:
+                      - row "한국어 만나 프리미엄 만나 - 매일의 양식 거절됨" [ref=e178]:
+                        - gridcell "한국어" [ref=e179]:
+                          - button "한국어" [ref=e182] [cursor=pointer]
+                        - gridcell "만나 프리미엄" [ref=e183]:
+                          - generic [ref=e185]: 만나 프리미엄
+                        - gridcell "만나 - 매일의 양식" [ref=e186]:
+                          - generic [ref=e188]: 만나 - 매일의 양식
+                        - gridcell "거절됨" [ref=e189]:
+                          - generic [ref=e191]:
+                            - img [ref=e192]
+                            - text: 거절됨
+                        - gridcell [ref=e194]
+        - heading "구독 그룹 ID" [level=6] [ref=e196]
+        - paragraph [ref=e197]: "22024505"
+        - paragraph [ref=e198]:
+          - button "구독 그룹 편집" [ref=e199] [cursor=pointer]
+  - contentinfo [ref=e10]:
+    - generic [ref=e11]:
+      - list [ref=e200]:
+        - listitem [ref=e201]:
+          - link "App Store Connect" [ref=e202] [cursor=pointer]:
+            - /url: /apps
+      - list [ref=e12]:
+        - listitem [ref=e13]: Copyright © 2026 Apple Inc. 모든 권리 보유. |
+        - listitem [ref=e14]:
+          - link "서비스 약관" [ref=e15] [cursor=pointer]:
+            - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+          - text: "|"
+        - listitem [ref=e16]:
+          - link "개인정보 처리방침" [ref=e17] [cursor=pointer]:
+            - /url: https://www.apple.com/legal/privacy
+          - text: "|"
+        - listitem [ref=e18]:
+          - link "문의" [ref=e19] [cursor=pointer]:
+            - /url: /contact-us

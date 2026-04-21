@@ -9,10 +9,10 @@ interface Feature {
 }
 
 const PRO_FEATURES: Feature[] = [
-  { icon: 'headphones',         title: 'TTS 고급 설정',  desc: '속도·목소리·타이머·백그라운드 재생' },
-  { icon: 'brain',              title: 'AI 묵상 질문',   desc: '구절에서 나온 깊은 질문 3가지' },
-  { icon: 'book-open-page-variant', title: 'AI 구절 해설', desc: '역사적 배경과 원어 의미' },
-  { icon: 'hands-pray',         title: 'AI 기도문',      desc: '말씀에서 나온 나만의 기도' },
+  { icon: 'headphones',         title: 'TTS 백그라운드 재생', desc: '화면 꺼도 말씀 낭독 계속' },
+  { icon: 'brain',              title: 'AI 묵상 무제한',   desc: '구절에서 나온 깊은 질문 — 제한 없이' },
+  { icon: 'book-open-page-variant', title: 'AI 구절 해설 무제한', desc: '역사적 배경과 원어 의미' },
+  { icon: 'hands-pray',         title: 'AI 기도문 무제한', desc: '말씀에서 나온 나만의 기도' },
   { icon: 'compass-rose',       title: 'AI 맞춤 구절 추천', desc: 'AI가 내 상황에 맞는 말씀 추천' },
   { icon: 'calendar-month',     title: 'Streak 히트맵',  desc: '연간 읽기 기록 한눈에' },
 ];

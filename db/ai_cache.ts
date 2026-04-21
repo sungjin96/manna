@@ -2,7 +2,8 @@ import { getDb } from './schema';
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7일
 const FREE_DAILY_AI_LIMIT = 3;
-const PRO_DAILY_AI_LIMIT = 30;
+// Pro는 무제한 — Number.MAX_SAFE_INTEGER로 카운터 체크를 사실상 비활성화
+const PRO_DAILY_AI_LIMIT = Number.MAX_SAFE_INTEGER;
 
 export function getDailyAILimit(isPro: boolean): number {
   return isPro ? PRO_DAILY_AI_LIMIT : FREE_DAILY_AI_LIMIT;

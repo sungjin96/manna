@@ -15,39 +15,43 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
 }
 
 async function _initDb(): Promise<SQLite.SQLiteDatabase> {
-  // Open first — expo-sqlite creates the file at its own internal location.
-  // We use databasePath to find that location instead of guessing the path.
-  _db = await SQLite.openDatabaseAsync(DB_NAME);
+  // 로컬 변수로 작업 — _db는 migrate()까지 완전히 끝난 뒤에만 할당.
+  // migrate() 완료 전에 getDb()가 _db를 반환하면 테이블이 없는 상태로 쿼리가 실행되는
+  // 레이스 컨디션을 방지한다.
+  const db = await SQLite.openDatabaseAsync(DB_NAME);
 
   // Check if the KorRV bible data is present.
-  // An empty DB means the bundled file was never copied here.
-  const tableCheck = await _db.getFirstAsync<{ count: number }>(
+  const tableCheck = await db.getFirstAsync<{ count: number }>(
     "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='bible'"
   );
   const bibleTableExists = (tableCheck?.count ?? 0) > 0;
 
   let needsRestore = !bibleTableExists;
   if (bibleTableExists && !needsRestore) {
-    const verseCheck = await _db.getFirstAsync<{ count: number }>(
+    const verseCheck = await db.getFirstAsync<{ count: number }>(
       'SELECT COUNT(*) as count FROM bible'
     );
     if ((verseCheck?.count ?? 0) === 0) needsRestore = true;
   }
 
   if (needsRestore) {
-    // expo-file-system은 documentDirectory 외부(SQLite 기본 경로 포함)에 쓰기를 차단하므로
-    // 에셋을 documentDirectory에 복사한 뒤 ATTACH DATABASE로 데이터를 이관한다.
     const asset = Asset.fromModule(require('../assets/manna.db'));
     await asset.downloadAsync();
 
     const seedPath = (FileSystem.documentDirectory ?? '') + 'manna_seed.db';
     await FileSystem.copyAsync({ from: asset.localUri!, to: seedPath });
 
-    // file:// 프로토콜 제거 — SQLite ATTACH는 파일시스템 절대경로를 요구
     const seedFsPath = seedPath.replace(/^file:\/\//, '');
-    await _db.execAsync(`ATTACH DATABASE '${seedFsPath}' AS seed`);
+    await db.execAsync(`ATTACH DATABASE '${seedFsPath}' AS seed`);
+    let seedOk = false;
     try {
-      await _db.execAsync(`
+      // 에셋 복사가 빈 파일로 끝난 경우 seed.bible이 없음 — 먼저 확인
+      const seedCheck = await db.getFirstAsync<{ count: number }>(
+        "SELECT COUNT(*) as count FROM seed.sqlite_master WHERE type='table' AND name='bible'"
+      );
+      if ((seedCheck?.count ?? 0) === 0) throw new Error('seed.bible table missing — asset copy may be empty');
+
+      await db.execAsync(`
         DROP TABLE IF EXISTS bible;
         CREATE TABLE bible (
           id      INTEGER PRIMARY KEY,
@@ -59,14 +63,26 @@ async function _initDb(): Promise<SQLite.SQLiteDatabase> {
         INSERT INTO bible SELECT * FROM seed.bible;
         CREATE INDEX IF NOT EXISTS idx_bible_book_chapter ON bible (book_id, chapter);
       `);
+      seedOk = true;
+    } catch (err) {
+      // 실패 시 bible 테이블을 제거해서 다음 실행에 재시도 가능하게 함
+      await db.execAsync('DROP TABLE IF EXISTS bible').catch(() => {});
+      throw err;
     } finally {
-      await _db.execAsync('DETACH DATABASE seed');
+      await db.execAsync('DETACH DATABASE seed').catch(() => {});
       await FileSystem.deleteAsync(seedPath, { idempotent: true }).catch(() => {});
+      if (!seedOk) {
+        // _dbPromise 리셋 — 다음 getDb() 호출 시 재시도
+        _dbPromise = null;
+      }
     }
   }
 
-  await migrate(_db);
-  return _db;
+  await migrate(db);
+
+  // migrate() 완료 후에만 _db 할당 → 이후 getDb() 빠른 경로에서 안전하게 반환
+  _db = db;
+  return db;
 }
 
 async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -240,6 +256,52 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
         PRIMARY KEY (book_id, chapter, verse, date)
       );
       PRAGMA user_version = 9;
+    `);
+  }
+
+  // v9 → v10: 책갈피
+  if (user_version < 10) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS bookmarks (
+        book_id   INTEGER NOT NULL,
+        chapter   INTEGER NOT NULL,
+        verse     INTEGER NOT NULL,
+        saved_at  TEXT    NOT NULL,
+        PRIMARY KEY (book_id, chapter, verse)
+      );
+      CREATE INDEX IF NOT EXISTS idx_bookmarks_chapter ON bookmarks (book_id, chapter);
+      PRAGMA user_version = 10;
+    `);
+  }
+
+  // v10 → v11: 기도제목 그룹
+  if (user_version < 11) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS prayer_groups (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT    NOT NULL,
+        order_idx  INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+      );
+      PRAGMA user_version = 11;
+    `);
+    try { await db.execAsync('ALTER TABLE meditations ADD COLUMN prayer_group_id INTEGER'); } catch {}
+  }
+
+  // v11 → v12: 말씀 알림 설정 (읽기 알람과 분리)
+  if (user_version < 12) {
+    await db.execAsync(`
+      INSERT OR IGNORE INTO app_settings (key, value) VALUES ('verse_notif_enabled', '0');
+      INSERT OR IGNORE INTO app_settings (key, value) VALUES ('verse_notif_times', '["21:00"]');
+      PRAGMA user_version = 12;
+    `);
+  }
+
+  // v12 → v13: 말씀 알림 콘텐츠 타입 ('verse' | 'question' | 'both')
+  if (user_version < 13) {
+    await db.execAsync(`
+      INSERT OR IGNORE INTO app_settings (key, value) VALUES ('verse_notif_content', 'verse');
+      PRAGMA user_version = 13;
     `);
   }
 

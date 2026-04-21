@@ -3,7 +3,6 @@ import {
   Animated,
   Dimensions,
   Easing,
-  Modal,
   PanResponder,
   Pressable,
   ScrollView,
@@ -23,15 +22,16 @@ import { getActivePlan, setActivePlan, todayISO } from '../../db/reading_plans';
 import { getChaptersForDay, PlanChapter, READING_PLANS, PlanId } from '../../constants/reading-plans';
 import { BOOKS } from '../../constants/books';
 import { theme } from '../../constants/theme';
-import { requestNotificationPermission, scheduleReadingReminder } from '../../utils/notifications';
+import { requestNotificationPermission, scheduleReadingReminder, scheduleVerseNotifications } from '../../utils/notifications';
 import { BADGES, BOOK_BADGES, type Badge, type Tier } from './achievements';
 import { getAllMeditations } from '../../db/meditations';
+import { getDailyEntry, type DailyEntry } from '../../utils/daily-meditation';
 import ProgressRing from '../../components/ProgressRing';
 import BadgeSelectSheet, { getSelectedBadgeId } from '../../components/BadgeSelectSheet';
 import { useUIScale } from '../../contexts/UIScaleContext';
 
 const XP_PER_LEVEL = 1200;
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -87,6 +87,12 @@ const ONBOARDING_PAGES = [
     body: '하루 5분. 성경 한 챕터를 읽고\n연속 읽기 기록을 쌓아보세요.',
   },
   {
+    type: 'explore' as const,
+    icon: 'compass-outline' as const,
+    title: '오늘 뭘 읽을까요?',
+    body: '탐색 섹션에서 원하는 방식으로\n말씀을 펼쳐보세요.',
+  },
+  {
     type: 'content' as const,
     icon: 'notebook-edit-outline' as const,
     title: '묵상을 기록하세요',
@@ -107,8 +113,14 @@ const ONBOARDING_PAGES = [
   {
     type: 'notification' as const,
     icon: 'bell-ring-outline' as const,
-    title: '매일 말씀 알림',
+    title: '읽기 알림',
     body: '매일 같은 시간에 알림을 받으면\n꾸준한 읽기 습관을 만들 수 있어요.',
+  },
+  {
+    type: 'verse_notification' as const,
+    icon: 'book-open-variant' as const,
+    title: '말씀 알림',
+    body: '하루 중 말씀 한 구절을 보내드려요.\n탭하면 바로 묵상 기록을 남길 수 있어요.',
   },
 ];
 
@@ -146,6 +158,7 @@ export default function HomeScreen() {
   const [lastOpenedChapter, setLastOpenedChapter] = useState<{ bookId: number; chapter: number } | null | undefined>(undefined);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [todayRecommendation, setTodayRecommendation] = useState<{ bookId: number; chapter: number } | null>(null);
+  const [dailyEntry, setDailyEntry] = useState<DailyEntry | null>(null);
   const [todayPlanChapters, setTodayPlanChapters] = useState<PlanChapter[]>([]);
   const [activePlanName, setActivePlanName] = useState<string | null>(null);
   const [weeklyData, setWeeklyData] = useState<Map<string, number>>(new Map());
@@ -160,6 +173,9 @@ export default function HomeScreen() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingPage, setOnboardingPage] = useState(0);
   const [onboardingPlan, setOnboardingPlan] = useState<PlanId | null>(null);
+  const [onboardingVerseHour, setOnboardingVerseHour] = useState(21);
+  const [onboardingVerseMinute, setOnboardingVerseMinute] = useState(0);
+  const onboardingSlide = useRef(new Animated.Value(0)).current;
 
   // Level-up detection
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -230,6 +246,7 @@ export default function HomeScreen() {
         setCompleted(comp);
         setTodayRecommendation(getTodayRecommendation(comp));
         setMeditationCount(meditations.length);
+        setDailyEntry(getDailyEntry());
         setSelectedBadgeIdState(badgeId);
         setWeeklyData(weekly);
 
@@ -326,15 +343,27 @@ export default function HomeScreen() {
     setShowOnboarding(false);
   }
 
+  function goToOnboardingPage(next: number) {
+    const dir = next > onboardingPage ? 1 : -1;
+    onboardingSlide.setValue(dir * SCREEN_WIDTH);
+    setOnboardingPage(next);
+    Animated.spring(onboardingSlide, {
+      toValue: 0,
+      damping: 22,
+      stiffness: 200,
+      useNativeDriver: true,
+    }).start();
+  }
+
   function nextOnboardingPage() {
     if (onboardingPage < ONBOARDING_PAGES.length - 1) {
-      setOnboardingPage(p => p + 1);
+      goToOnboardingPage(onboardingPage + 1);
     } else {
       completeOnboarding();
     }
   }
 
-  async function requestNotificationAndComplete() {
+  async function requestReadingNotifAndNext() {
     try {
       const granted = await requestNotificationPermission();
       if (granted) {
@@ -342,8 +371,22 @@ export default function HomeScreen() {
         await scheduleReadingReminder(8, 0);
       }
     } catch {}
+    nextOnboardingPage();
+  }
+
+  async function requestVerseNotifAndComplete() {
+    try {
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        await setSetting('verse_notif_enabled', '1');
+        const timeStr = `${String(onboardingVerseHour).padStart(2, '0')}:${String(onboardingVerseMinute).padStart(2, '0')}`;
+        await setSetting('verse_notif_times', JSON.stringify([timeStr]));
+        await scheduleVerseNotifications([timeStr]);
+      }
+    } catch {}
     completeOnboarding();
   }
+
 
   // ── Derived values ──
 
@@ -638,18 +681,18 @@ export default function HomeScreen() {
             <Text style={styles.pillText}>테마 구절</Text>
           </Pressable>
 
-          {todayRecommendation && (
+          {dailyEntry && (
             <Pressable
               style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
               onPress={() => {
                 Haptics.selectionAsync();
-                router.push(`/read/${todayRecommendation.bookId}/${todayRecommendation.chapter}`);
+                router.push(`/read/${dailyEntry.bookId}/${dailyEntry.chapter}?verse=${dailyEntry.verse}&openMeditation=1`);
               }}
-              accessibilityLabel="오늘의 추천 챕터"
+              accessibilityLabel="오늘의 말씀"
               accessibilityRole="button"
             >
-              <MaterialCommunityIcons name="star-outline" size={16} color={theme.gold} />
-              <Text style={styles.pillText}>오늘 추천</Text>
+              <MaterialCommunityIcons name="book-open-variant" size={16} color={theme.gold} />
+              <Text style={styles.pillText}>오늘의 말씀</Text>
             </Pressable>
           )}
 
@@ -670,10 +713,19 @@ export default function HomeScreen() {
 
         {/* Empty state — 첫 사용자 */}
         {(stats?.totalChapters ?? 0) === 0 && !showOnboarding && (
-          <View style={styles.emptyCard}>
+          <Pressable
+            style={({ pressed }) => [styles.emptyCard, pressed && { opacity: 0.8 }]}
+            onPress={() => router.push('/read/1/1')}
+            accessibilityRole="button"
+            accessibilityLabel="창세기 1장 읽기 시작"
+          >
             <Text style={styles.emptyTitle}>오늘 창세기 1장부터 시작해볼까요?</Text>
             <Text style={styles.emptyBody}>매일 한 챕터씩 읽으면 3년 안에 성경 전체를 완독할 수 있어요.</Text>
-          </View>
+            <View style={styles.emptyAction}>
+              <Text style={styles.emptyActionText}>시작하기</Text>
+              <MaterialCommunityIcons name="chevron-right" size={16} color={theme.gold} />
+            </View>
+          </Pressable>
         )}
       </Animated.ScrollView>
 
@@ -716,14 +768,40 @@ export default function HomeScreen() {
         meditationCount={meditationCount}
       />
 
-      {/* ── Onboarding Modal ── */}
-      <Modal visible={showOnboarding} transparent animationType="fade">
+      {/* ── Onboarding Overlay (fullscreen) ── */}
+      {showOnboarding && (
         <View style={styles.onboardingOverlay}>
-          <View style={styles.onboardingCard}>
-            <MaterialCommunityIcons name={page.icon} size={72} color={theme.gold} />
+          <Animated.View
+            style={[styles.onboardingContent, { transform: [{ translateX: onboardingSlide }] }]}
+          >
+            {/* 아이콘 */}
+            <View style={styles.onboardingIconWrap}>
+              <MaterialCommunityIcons name={page.icon} size={80} color={theme.gold} />
+            </View>
+
             <Text style={styles.onboardingTitle}>{page.title}</Text>
             <Text style={styles.onboardingBody}>{page.body}</Text>
 
+            {/* ── 탐색 기능 소개 ── */}
+            {page.type === 'explore' && (
+              <View style={styles.onboardingExploreCards}>
+                {[
+                  { icon: 'bookmark-outline', label: '테마 구절', desc: '주제별로 선별된 대표 구절들을 펼쳐보세요.' },
+                  { icon: 'weather-sunny', label: '오늘의 말씀', desc: '매일 바뀌는 오늘의 말씀 한 구절.' },
+                  { icon: 'shuffle-variant', label: '랜덤', desc: '성령님께 맡기는 오늘의 말씀.' },
+                ].map(item => (
+                  <View key={item.label} style={styles.onboardingExploreCard}>
+                    <MaterialCommunityIcons name={item.icon as any} size={22} color={theme.gold} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.onboardingExploreLabel}>{item.label}</Text>
+                      <Text style={styles.onboardingExploreDesc}>{item.desc}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* ── 통독 계획 선택 ── */}
             {page.type === 'plan' && (
               <ScrollView
                 style={styles.onboardingPlanList}
@@ -758,19 +836,64 @@ export default function HomeScreen() {
               </ScrollView>
             )}
 
+            {/* ── 말씀 알림 시간 선택 ── */}
+            {page.type === 'verse_notification' && (
+              <View style={styles.onboardingTimeSelect}>
+                <Text style={styles.onboardingTimeSectionLabel}>알림 시간</Text>
+                <View style={styles.onboardingPresetRow}>
+                  {([
+                    { label: '아침', hour: 7, minute: 0 },
+                    { label: '점심', hour: 12, minute: 0 },
+                    { label: '오후', hour: 15, minute: 0 },
+                    { label: '저녁', hour: 21, minute: 0 },
+                  ] as const).map(p => {
+                    const active = onboardingVerseHour === p.hour && onboardingVerseMinute === p.minute;
+                    return (
+                      <Pressable
+                        key={p.label}
+                        style={[styles.onboardingPresetChip, active && styles.onboardingPresetChipActive]}
+                        onPress={() => { setOnboardingVerseHour(p.hour); setOnboardingVerseMinute(p.minute); }}
+                      >
+                        <Text style={[styles.onboardingPresetLabel, active && styles.onboardingPresetLabelActive]}>
+                          {p.label}
+                        </Text>
+                        <Text style={[styles.onboardingPresetTime, active && styles.onboardingPresetTimeActive]}>
+                          {`${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* 진행 도트 */}
             <View style={styles.dots}>
               {ONBOARDING_PAGES.map((_, i) => (
                 <View key={i} style={[styles.dot, i === onboardingPage && styles.dotActive]} />
               ))}
             </View>
 
+            {/* 버튼 영역 */}
             {page.type === 'notification' ? (
               <View style={styles.onboardingNotifBtns}>
                 <Pressable
                   style={({ pressed }) => [styles.onboardingBtn, pressed && styles.onboardingBtnPressed]}
-                  onPress={requestNotificationAndComplete}
+                  onPress={requestReadingNotifAndNext}
                 >
                   <Text style={styles.onboardingBtnText}>알림 켜기</Text>
+                </Pressable>
+                <Pressable onPress={nextOnboardingPage} hitSlop={8}>
+                  <Text style={styles.onboardingSkipText}>나중에 설정에서 켤게요</Text>
+                </Pressable>
+              </View>
+            ) : page.type === 'verse_notification' ? (
+              <View style={styles.onboardingNotifBtns}>
+                <Pressable
+                  style={({ pressed }) => [styles.onboardingBtn, pressed && styles.onboardingBtnPressed]}
+                  onPress={requestVerseNotifAndComplete}
+                >
+                  <Text style={styles.onboardingBtnText}>말씀 알림 켜기</Text>
                 </Pressable>
                 <Pressable onPress={completeOnboarding} hitSlop={8}>
                   <Text style={styles.onboardingSkipText}>나중에 설정에서 켤게요</Text>
@@ -781,14 +904,12 @@ export default function HomeScreen() {
                 style={({ pressed }) => [styles.onboardingBtn, pressed && styles.onboardingBtnPressed]}
                 onPress={nextOnboardingPage}
               >
-                <Text style={styles.onboardingBtnText}>
-                  {isLastPage ? '시작하기' : '다음'}
-                </Text>
+                <Text style={styles.onboardingBtnText}>다음</Text>
               </Pressable>
             )}
-          </View>
+          </Animated.View>
         </View>
-      </Modal>
+      )}
     </View>
   );
 }
@@ -1146,6 +1267,64 @@ function makeStyles(scale: number) {
     backgroundColor: theme.borderSubtle,
   },
 
+  // Daily 묵상 카드
+  dailyCard: {
+    backgroundColor: theme.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: `${theme.gold}30`,
+    padding: 16,
+    marginBottom: 16,
+    gap: 10,
+  },
+  dailyCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dailyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: `${theme.gold}18`,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  dailyBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.gold,
+    letterSpacing: 0.3,
+  },
+  dailyRef: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.gold,
+    letterSpacing: 0.3,
+  },
+  dailyText: {
+    fontSize: 15,
+    color: theme.text,
+    lineHeight: 24,
+    fontStyle: 'italic',
+  },
+  dailyDivider: {
+    height: 1,
+    backgroundColor: theme.borderSubtle,
+  },
+  dailyQuestionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  dailyQuestion: {
+    flex: 1,
+    fontSize: 13,
+    color: theme.textSub,
+    lineHeight: 19,
+  },
+
   // FAB
   fabWrap: {
     position: 'absolute',
@@ -1214,30 +1393,47 @@ function makeStyles(scale: number) {
     color: theme.textSub,
     lineHeight: 20,
   },
+  emptyAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 2,
+  },
+  emptyActionText: {
+    fontSize: fs(13),
+    color: theme.gold,
+    fontWeight: '600',
+  },
 
-  // Onboarding
+  // Onboarding (fullscreen overlay)
   onboardingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.bg,
+    zIndex: 999,
+  },
+  onboardingContent: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-  },
-  onboardingCard: {
-    backgroundColor: theme.surface,
-    borderRadius: 24,
-    padding: 32,
-    alignItems: 'center',
-    width: '100%',
-    borderWidth: 1,
-    borderColor: theme.goldBorder,
+    paddingHorizontal: 32,
+    paddingBottom: 48,
     gap: 16,
   },
+  onboardingIconWrap: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: `${theme.gold}18`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   onboardingTitle: {
-    fontSize: fs(24),
+    fontSize: fs(28),
     fontWeight: '800',
     color: theme.text,
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   onboardingBody: {
     fontSize: fs(15),
@@ -1245,10 +1441,78 @@ function makeStyles(scale: number) {
     textAlign: 'center',
     lineHeight: 24,
   },
+  // 탐색 기능 소개 카드
+  onboardingExploreCards: {
+    width: '100%',
+    gap: 10,
+    marginTop: 4,
+  },
+  onboardingExploreCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    backgroundColor: theme.surface,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.goldBorder,
+  },
+  onboardingExploreLabel: {
+    fontSize: fs(14),
+    fontWeight: '700',
+    color: theme.text,
+  },
+  onboardingExploreDesc: {
+    fontSize: fs(12),
+    color: theme.textMuted,
+    lineHeight: 18,
+  },
+  // 말씀 알림 시간 선택
+  onboardingTimeSelect: {
+    width: '100%',
+    gap: 10,
+    marginTop: 4,
+  },
+  onboardingTimeSectionLabel: {
+    fontSize: fs(12),
+    color: theme.textMuted,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  onboardingPresetRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  onboardingPresetChip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    backgroundColor: theme.surface,
+    gap: 3,
+  },
+  onboardingPresetChipActive: {
+    borderColor: theme.gold,
+    backgroundColor: `${theme.gold}18`,
+  },
+  onboardingPresetLabel: {
+    fontSize: fs(12),
+    fontWeight: '600',
+    color: theme.textMuted,
+  },
+  onboardingPresetLabelActive: { color: theme.gold },
+  onboardingPresetTime: {
+    fontSize: fs(12),
+    fontWeight: '700',
+    color: theme.textSub,
+  },
+  onboardingPresetTimeActive: { color: theme.gold },
   dots: {
     flexDirection: 'row',
     gap: 8,
-    marginVertical: 8,
+    marginVertical: 4,
   },
   dot: {
     width: 8,
@@ -1262,12 +1526,11 @@ function makeStyles(scale: number) {
   },
   onboardingBtn: {
     backgroundColor: theme.gold,
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 48,
+    borderRadius: 16,
+    paddingVertical: 18,
     alignItems: 'center',
     width: '100%',
-    marginTop: 8,
+    marginTop: 4,
   },
   onboardingBtnPressed: { backgroundColor: theme.goldDark },
   onboardingBtnText: {
@@ -1287,17 +1550,17 @@ function makeStyles(scale: number) {
   },
   onboardingPlanList: {
     width: '100%',
-    maxHeight: 200,
+    maxHeight: 220,
   },
   onboardingPlanChip: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.goldBorder,
-    backgroundColor: theme.surface2,
+    backgroundColor: theme.surface,
     gap: 8,
   },
   onboardingPlanChipSelected: {

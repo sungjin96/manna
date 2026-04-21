@@ -77,6 +77,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="prayers"
+        options={{
+          title: '기도',
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="hands-pray" size={TAB_ICON} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="achievements"
         options={{
           href: null,  // 탭바에서 숨김 — 진행률에서 '전체 보기'로 접근

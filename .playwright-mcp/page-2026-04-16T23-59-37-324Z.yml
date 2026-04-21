@@ -1,0 +1,70 @@
+- generic [active] [ref=e1]:
+  - banner "App Store Connect" [ref=e3]:
+    - generic [ref=e4]:
+      - heading "App Store Connect" [level=1] [ref=e6]:
+        - link "App Store Connect" [ref=e7] [cursor=pointer]:
+          - /url: /
+      - navigation "글로벌" [ref=e8]:
+        - list [ref=e10]:
+          - listitem [ref=e11]:
+            - link "앱" [ref=e12] [cursor=pointer]:
+              - /url: /apps
+          - listitem [ref=e13]:
+            - link "추세" [ref=e14] [cursor=pointer]:
+              - /url: /trends
+          - listitem [ref=e15]:
+            - link "보고서" [ref=e16] [cursor=pointer]:
+              - /url: /itc/payments_and_financial_reports
+          - listitem [ref=e17]:
+            - link "비즈니스" [ref=e18] [cursor=pointer]:
+              - /url: /business
+          - listitem [ref=e19]:
+            - link "사용자 및 액세스" [ref=e20] [cursor=pointer]:
+              - /url: /access/users
+      - button "성진 장 Sungjin Jang Account name menu" [ref=e22] [cursor=pointer]:
+        - generic:
+          - generic: 성진 장
+          - generic: Sungjin Jang
+          - img [ref=e23]
+  - generic [ref=e28]:
+    - button "앱 메뉴, 만나 - 매일의 양식, 선택됨" [ref=e55] [cursor=pointer]:
+      - generic [ref=e56]:
+        - generic "만나 - 매일의 양식" [ref=e57]:
+          - img "만나 - 매일의 양식" [ref=e58]
+        - generic [ref=e59]: 만나 - 매일의 양식
+      - img [ref=e61]
+    - navigation "앱" [ref=e30]:
+      - list [ref=e31]:
+        - listitem [ref=e63]:
+          - link "배포" [ref=e64] [cursor=pointer]:
+            - /url: /apps/6761963940/distribution
+        - listitem [ref=e65]:
+          - link "분석" [ref=e66] [cursor=pointer]:
+            - /url: /apps/6761963940/analytics
+        - listitem [ref=e67]:
+          - link "TestFlight" [ref=e68] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight
+        - listitem [ref=e69]:
+          - link "Xcode Cloud" [ref=e70] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/ci
+  - main [ref=e74]:
+    - progressbar [ref=e80]
+  - contentinfo [ref=e38]:
+    - generic [ref=e39]:
+      - list [ref=e40]:
+        - listitem [ref=e41]:
+          - link "App Store Connect" [ref=e42] [cursor=pointer]:
+            - /url: /apps
+      - list [ref=e43]:
+        - listitem [ref=e44]: Copyright © 2026 Apple Inc. 모든 권리 보유. |
+        - listitem [ref=e45]:
+          - link "서비스 약관" [ref=e46] [cursor=pointer]:
+            - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+          - text: "|"
+        - listitem [ref=e47]:
+          - link "개인정보 처리방침" [ref=e48] [cursor=pointer]:
+            - /url: https://www.apple.com/legal/privacy
+          - text: "|"
+        - listitem [ref=e49]:
+          - link "문의" [ref=e50] [cursor=pointer]:
+            - /url: /contact-us

@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useUIScale } from '../../contexts/UIScaleContext';
 import {
+  Animated,
   Dimensions,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -21,19 +23,21 @@ import { BOOKS } from '../../constants/books';
 import { theme } from '../../constants/theme';
 import MeditationShareCard from '../../components/MeditationShareCard';
 import MannaAlert from '../../components/MannaAlert';
+import SwipeableRow from '../../components/SwipeableRow';
 
 const MEMO_COLOR = '#7AA3D4';
 type ViewMode = 'list' | 'calendar';
-type FilterType = 'all' | 'meditation' | 'qa' | 'memo';
+type FilterType = 'all' | 'meditation' | 'memo';
 type FilterSort = 'newest' | 'oldest';
 type FilterQA = 'all' | 'complete' | 'incomplete';
 
 // ── 노트 타입 감지 ──────────────────────────────────────────────────────────
-function getNoteType(note: string): 'memo' | 'qa' | 'basic' {
+function getNoteType(note: string): 'memo' | 'qa' | 'basic' | 'prayer' {
   try {
     const p = JSON.parse(note);
     if (p?.type === 'memo') return 'memo';
     if (p?.type === 'qa' && Array.isArray(p.entries)) return 'qa';
+    if (p?.type === 'prayer') return 'prayer';
   } catch {}
   return 'basic';
 }
@@ -236,7 +240,30 @@ export default function MeditationsScreen() {
   const [filterSort, setFilterSort] = useState<FilterSort>('newest');
   const [filterQA, setFilterQA] = useState<FilterQA>('all');
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [showExtraFilters, setShowExtraFilters] = useState(false);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const filterSheetY = useRef(new Animated.Value(400)).current;
+
+  function openFilterSheet() {
+    filterSheetY.setValue(400);
+    setShowFilterSheet(true);
+    Animated.spring(filterSheetY, { toValue: 0, friction: 9, tension: 100, useNativeDriver: true }).start();
+  }
+
+  function closeFilterSheet() {
+    Animated.timing(filterSheetY, { toValue: 400, duration: 220, useNativeDriver: true }).start(() => setShowFilterSheet(false));
+  }
+
+  const filterSheetPR = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) filterSheetY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.5) {
+        Animated.timing(filterSheetY, { toValue: 400, duration: 200, useNativeDriver: true }).start(() => setShowFilterSheet(false));
+      } else {
+        Animated.spring(filterSheetY, { toValue: 0, useNativeDriver: true }).start();
+      }
+    },
+  })).current;
   const [longPressTarget, setLongPressTarget] = useState<Meditation | null>(null);
   const [editTarget, setEditTarget] = useState<Meditation | null>(null);
   const [editNote, setEditNote] = useState('');
@@ -312,16 +339,15 @@ export default function MeditationsScreen() {
     load(query);
   }
 
-  // 필터 적용
+  // 필터 적용 — prayer 타입은 기도제목 탭에서만 표시, 여기서는 제외
   const filteredItems = useMemo(() => {
-    let result = [...items];
+    let result = items.filter(m => getNoteType(m.note) !== 'prayer');
 
     if (filterType === 'memo') {
       result = result.filter(m => getNoteType(m.note) === 'memo');
     } else if (filterType === 'meditation') {
-      result = result.filter(m => getNoteType(m.note) === 'basic');
-    } else if (filterType === 'qa') {
-      result = result.filter(m => getNoteType(m.note) === 'qa');
+      // 묵상 = Q&A + basic 모두 포함
+      result = result.filter(m => ['qa', 'basic'].includes(getNoteType(m.note)));
     }
 
     if (filterType !== 'memo' && filterQA !== 'all') {
@@ -355,14 +381,15 @@ export default function MeditationsScreen() {
   // 리스트 모드에서 표시할 아이템
   const listItems = viewMode === 'list' ? filteredItems : dayItems;
 
-  // 기록 서머리
+  // 기록 서머리 — prayer 제외
   const summary = useMemo(() => {
+    const nonPrayerItems = items.filter(m => getNoteType(m.note) !== 'prayer');
     const now = new Date();
     const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const monthItems = items.filter(m => toLocalDateKey(m.createdAt).startsWith(thisMonth));
+    const monthItems = nonPrayerItems.filter(m => toLocalDateKey(m.createdAt).startsWith(thisMonth));
     // 가장 많이 기록한 책
     const bookCounts: Record<number, number> = {};
-    for (const m of items) {
+    for (const m of nonPrayerItems) {
       bookCounts[m.bookId] = (bookCounts[m.bookId] ?? 0) + 1;
     }
     const topBookId = Object.entries(bookCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -370,10 +397,11 @@ export default function MeditationsScreen() {
     return { monthCount: monthItems.length, topBook: topBook?.name ?? null };
   }, [items]);
 
-  // 캘린더 월별 통계
+  // 캘린더 월별 통계 — prayer 제외
   const calendarStats = useMemo(() => {
-    const meditationCount = items.filter(m => getNoteType(m.note) !== 'memo').length;
-    const memoCount = items.filter(m => getNoteType(m.note) === 'memo').length;
+    const nonPrayerItems = items.filter(m => getNoteType(m.note) !== 'prayer');
+    const meditationCount = nonPrayerItems.filter(m => getNoteType(m.note) !== 'memo').length;
+    const memoCount = nonPrayerItems.filter(m => getNoteType(m.note) === 'memo').length;
     return { meditationCount, memoCount };
   }, [items]);
 
@@ -400,7 +428,7 @@ export default function MeditationsScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>기록</Text>
-          <Text style={styles.headerSub}>{items.length}개</Text>
+          <Text style={styles.headerSub}>{items.filter(m => getNoteType(m.note) !== 'prayer').length}개</Text>
         </View>
         <View style={styles.headerRight}>
           <Pressable
@@ -459,14 +487,14 @@ export default function MeditationsScreen() {
       {/* 필터 — 핵심 3개 + 확장 토글 */}
       <View style={styles.filterRow}>
         <View style={styles.filterRowContent}>
-          {(['all', 'meditation', 'qa', 'memo'] as FilterType[]).map(type => (
+          {(['all', 'meditation', 'memo'] as FilterType[]).map(type => (
             <Pressable
               key={type}
               style={[styles.filterChip, filterType === type && styles.filterChipActive]}
               onPress={() => setFilterType(type)}
             >
               <Text style={[styles.filterChipText, filterType === type && styles.filterChipTextActive]}>
-                {type === 'all' ? '전체' : type === 'meditation' ? '묵상' : type === 'qa' ? 'Q&A' : '메모'}
+                {type === 'all' ? '전체' : type === 'meditation' ? '묵상' : '메모'}
               </Text>
             </Pressable>
           ))}
@@ -474,24 +502,31 @@ export default function MeditationsScreen() {
           <View style={{ flex: 1 }} />
 
           <Pressable
-            onPress={() => setShowExtraFilters(!showExtraFilters)}
+            onPress={openFilterSheet}
             hitSlop={8}
-            style={[styles.filterToggle, showExtraFilters && styles.filterToggleActive]}
+            style={[styles.filterToggle, (filterSort !== 'newest' || filterQA !== 'all') && styles.filterToggleActive]}
           >
             <MaterialCommunityIcons
               name="tune-variant"
               size={18}
-              color={showExtraFilters ? theme.gold : theme.textMuted}
+              color={(filterSort !== 'newest' || filterQA !== 'all') ? theme.gold : theme.textMuted}
             />
-            {(filterSort !== 'newest' || filterQA !== 'all') && !showExtraFilters && (
+            {(filterSort !== 'newest' || filterQA !== 'all') && (
               <View style={styles.filterBadge} />
             )}
           </Pressable>
         </View>
+      </View>
 
-        {/* 확장 필터 */}
-        {showExtraFilters && (
-          <View style={styles.extraFilters}>
+      {/* ── 필터 바텀시트 ── */}
+      <Modal visible={showFilterSheet} transparent animationType="fade">
+        <Pressable style={styles.sheetOverlay} onPress={closeFilterSheet} />
+        <Animated.View style={[styles.filterSheet, { transform: [{ translateY: filterSheetY }] }]}>
+          <View style={styles.sheetHandle} {...filterSheetPR.panHandlers} />
+          <Text style={styles.sheetTitle}>필터 설정</Text>
+
+          <Text style={styles.sheetSectionLabel}>정렬</Text>
+          <View style={styles.sheetChips}>
             {(['newest', 'oldest'] as FilterSort[]).map(sort => (
               <Pressable
                 key={sort}
@@ -503,10 +538,12 @@ export default function MeditationsScreen() {
                 </Text>
               </Pressable>
             ))}
+          </View>
 
-            {filterType !== 'memo' && (
-              <>
-                <View style={styles.filterSep} />
+          {filterType !== 'memo' && (
+            <>
+              <Text style={styles.sheetSectionLabel}>Q&A 상태</Text>
+              <View style={styles.sheetChips}>
                 {(['all', 'complete', 'incomplete'] as FilterQA[]).map(qa => (
                   <Pressable
                     key={qa}
@@ -514,15 +551,22 @@ export default function MeditationsScreen() {
                     onPress={() => setFilterQA(qa)}
                   >
                     <Text style={[styles.filterChipText, filterQA === qa && styles.filterChipTextActive]}>
-                      {qa === 'all' ? 'Q&A 전체' : qa === 'complete' ? '완성' : '미완성'}
+                      {qa === 'all' ? '전체' : qa === 'complete' ? '완성' : '미완성'}
                     </Text>
                   </Pressable>
                 ))}
-              </>
-            )}
-          </View>
-        )}
-      </View>
+              </View>
+            </>
+          )}
+
+          <Pressable
+            style={styles.sheetResetBtn}
+            onPress={() => { setFilterSort('newest'); setFilterQA('all'); closeFilterSheet(); }}
+          >
+            <Text style={styles.sheetResetText}>초기화</Text>
+          </Pressable>
+        </Animated.View>
+      </Modal>
 
       {/* 캘린더 뷰 */}
       {viewMode === 'calendar' && (
@@ -551,6 +595,8 @@ export default function MeditationsScreen() {
                     query=""
                     router={router}
                     onLongPress={setLongPressTarget}
+                    onEdit={openEdit}
+                    onDelete={setDeleteTarget}
                   />
                 ))
               )}
@@ -615,6 +661,8 @@ export default function MeditationsScreen() {
                   query={query}
                   router={router}
                   onLongPress={setLongPressTarget}
+                  onEdit={openEdit}
+                  onDelete={setDeleteTarget}
                 />
               )}
             />
@@ -843,11 +891,15 @@ function MeditationCard({
   query,
   router,
   onLongPress,
+  onEdit,
+  onDelete,
 }: {
   item: Meditation;
   query: string;
   router: ReturnType<typeof useRouter>;
   onLongPress: (item: Meditation) => void;
+  onEdit?: (item: Meditation) => void;
+  onDelete?: (item: Meditation) => void;
 }) {
   const { scale } = useUIScale();
   const styles = useMemo(() => makeStyles(scale), [scale]);
@@ -857,7 +909,12 @@ function MeditationCard({
   const preview = isQa ? '' : renderNotePreview(item.note);
   const segments = highlight(preview, query);
 
-  return (
+  const swipeActions = [
+    ...(onEdit ? [{ icon: 'pencil-outline', label: '수정', color: '#4A7CF7', onPress: () => onEdit(item) }] : []),
+    ...(onDelete ? [{ icon: 'trash-can-outline', label: '삭제', color: '#E05252', onPress: () => onDelete(item) }] : []),
+  ];
+
+  const CardBody = (
     <Pressable
       style={[
         styles.card,
@@ -895,7 +952,7 @@ function MeditationCard({
         </Text>
       )}
 
-      {/* 공유 버튼만 유지, 수정/삭제는 롱프레스 */}
+      {/* 공유 버튼 */}
       <View style={styles.cardActions}>
         <Pressable onPress={(e) => e.stopPropagation()}>
           <MeditationShareCard
@@ -908,10 +965,21 @@ function MeditationCard({
             verseEnd={item.verseEnd}
           />
         </Pressable>
-        <Text style={styles.cardLongPressHint}>길게 눌러 더보기</Text>
+        <Text style={styles.cardLongPressHint}>
+          {swipeActions.length > 0 ? '← 스와이프 · 길게 눌러 더보기' : '길게 눌러 더보기'}
+        </Text>
       </View>
     </Pressable>
   );
+
+  if (swipeActions.length > 0) {
+    return (
+      <SwipeableRow rightActions={swipeActions}>
+        {CardBody}
+      </SwipeableRow>
+    );
+  }
+  return CardBody;
 }
 
 // ── 스타일 ─────────────────────────────────────────────────────────────────
@@ -1029,6 +1097,59 @@ function makeStyles(scale: number) {
     paddingBottom: 10,
     gap: 8,
     flexWrap: 'wrap',
+  },
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  filterSheet: {
+    backgroundColor: theme.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    paddingTop: 12,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.border,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: fs(16),
+    fontWeight: '700',
+    color: theme.text,
+    marginBottom: 18,
+  },
+  sheetSectionLabel: {
+    fontSize: fs(11),
+    fontWeight: '600',
+    color: theme.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 10,
+  },
+  sheetChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 20,
+  },
+  sheetResetBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.border,
+    marginTop: 4,
+  },
+  sheetResetText: {
+    fontSize: fs(13),
+    color: theme.textMuted,
+    fontWeight: '600',
   },
   filterChip: {
     paddingHorizontal: 12,

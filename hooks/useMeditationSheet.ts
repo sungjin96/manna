@@ -9,7 +9,7 @@ export function useMeditationSheet(onNavigateNext: () => void) {
   const [meditationVerse, setMeditationVerse] = useState<{ start: number; end: number } | null>(null);
   const [note, setNote] = useState('');
   const [memoText, setMemoText] = useState('');
-  const [meditationMode, setMeditationMode] = useState<MeditationMode>('basic');
+  const [meditationMode, setMeditationMode] = useState<MeditationMode>('qa');
   const [qaEntries, setQaEntries] = useState<QAEntry[]>([{ q: '', a: '' }]);
 
   const meditationSheetY = useRef(new Animated.Value(600)).current;
@@ -35,7 +35,7 @@ export function useMeditationSheet(onNavigateNext: () => void) {
       setNote('');
       setMemoText('');
       setMeditationVerse(null);
-      setMeditationMode('basic');
+      setMeditationMode('qa');
       setQaEntries([{ q: '', a: '' }]);
       afterClose?.();
     });

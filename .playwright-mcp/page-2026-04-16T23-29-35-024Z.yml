@@ -1,0 +1,165 @@
+- generic [ref=e1]:
+  - banner "App Store Connect" [ref=e3]:
+    - generic [ref=e4]:
+      - heading "App Store Connect" [level=1] [ref=e6]:
+        - link "App Store Connect" [ref=e7] [cursor=pointer]:
+          - /url: /
+      - navigation "글로벌" [ref=e8]:
+        - list [ref=e10]:
+          - listitem [ref=e11]:
+            - link "앱" [ref=e12] [cursor=pointer]:
+              - /url: /apps
+          - listitem [ref=e13]:
+            - link "추세" [ref=e14] [cursor=pointer]:
+              - /url: /trends
+          - listitem [ref=e15]:
+            - link "보고서" [ref=e16] [cursor=pointer]:
+              - /url: /itc/payments_and_financial_reports
+          - listitem [ref=e17]:
+            - link "비즈니스" [ref=e18] [cursor=pointer]:
+              - /url: /business
+          - listitem [ref=e19]:
+            - link "사용자 및 액세스" [ref=e20] [cursor=pointer]:
+              - /url: /access/users
+      - button "성진 장 Sungjin Jang Account name menu" [ref=e22] [cursor=pointer]:
+        - generic:
+          - generic: 성진 장
+          - generic: Sungjin Jang
+          - img [ref=e23]
+  - generic [ref=e112]:
+    - button "앱 메뉴, 만나 - 매일의 양식, 선택됨" [ref=e117] [cursor=pointer]:
+      - generic [ref=e118]:
+        - generic "만나 - 매일의 양식" [ref=e119]:
+          - img "만나 - 매일의 양식" [ref=e120]
+        - generic [ref=e121]: 만나 - 매일의 양식
+      - img [ref=e123]
+    - navigation "앱" [ref=e126]:
+      - list [ref=e127]:
+        - listitem [ref=e128]:
+          - link "배포" [ref=e129] [cursor=pointer]:
+            - /url: /apps/6761963940/distribution
+        - listitem [ref=e130]:
+          - link "분석" [ref=e131] [cursor=pointer]:
+            - /url: /apps/6761963940/analytics
+        - listitem [ref=e132]:
+          - link "TestFlight" [active] [ref=e133] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight
+        - listitem [ref=e134]:
+          - link "Xcode Cloud" [ref=e135] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/ci
+  - main [ref=e591]:
+    - generic [ref=e595]:
+      - navigation "TestFlight" [ref=e597]:
+        - list [ref=e598]:
+          - listitem [ref=e599]:
+            - heading "빌드" [level=2] [ref=e601]
+            - list [ref=e602]:
+              - listitem [ref=e603]:
+                - link "iOS" [ref=e604] [cursor=pointer]:
+                  - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight/ios
+                  - generic [ref=e605]: iOS
+          - listitem [ref=e606]:
+            - separator [ref=e607]
+          - listitem [ref=e608]:
+            - heading "피드백" [level=2] [ref=e610]
+            - list [ref=e611]:
+              - listitem [ref=e612]:
+                - link "충돌" [ref=e613] [cursor=pointer]:
+                  - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight/crashes
+                  - generic [ref=e614]: 충돌
+              - listitem [ref=e615]:
+                - link "스크린샷" [ref=e616] [cursor=pointer]:
+                  - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight/screenshots
+                  - generic [ref=e617]: 스크린샷
+          - listitem [ref=e618]:
+            - separator [ref=e619]
+          - listitem [ref=e620]:
+            - heading "테스터" [level=2] [ref=e622]
+            - list [ref=e623]:
+              - listitem [ref=e624]:
+                - link "전체" [ref=e625] [cursor=pointer]:
+                  - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight/testers
+                  - generic [ref=e626]: 전체
+            - generic [ref=e627]:
+              - generic [ref=e628]:
+                - heading "내부 테스팅" [level=3] [ref=e629]
+                - button "새 그룹" [ref=e630] [cursor=pointer]:
+                  - img [ref=e631]
+              - list [ref=e633]:
+                - listitem [ref=e634]:
+                  - generic [ref=e635]:
+                    - link "테스터" [ref=e636] [cursor=pointer]:
+                      - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight/groups/e353aa6d-6eb6-4cb6-b6ca-bfd38f701f3c
+                      - generic [ref=e638]:
+                        - img [ref=e640]
+                        - generic [ref=e642]: 테스터
+                    - button "Delete" [ref=e643] [cursor=pointer]:
+                      - img [ref=e645]:
+                        - img [ref=e647]
+                      - generic [ref=e649]: Delete
+            - generic [ref=e650]:
+              - generic [ref=e651]:
+                - heading "외부 테스팅" [level=3] [ref=e652]
+                - button "새 그룹" [ref=e653] [cursor=pointer]:
+                  - img [ref=e654]
+              - list
+          - listitem [ref=e656]:
+            - separator [ref=e657]
+          - listitem [ref=e658]:
+            - heading "추가" [level=2] [ref=e660]
+            - list [ref=e661]:
+              - listitem [ref=e662]:
+                - link "테스트 정보" [ref=e663] [cursor=pointer]:
+                  - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight/test-info
+                  - generic [ref=e666]: 테스트 정보
+              - listitem [ref=e667]:
+                - button "TestFlight 데이터 정보" [ref=e671] [cursor=pointer]:
+                  - generic [ref=e672]: TestFlight 데이터 정보
+                  - button [ref=e673]: "?"
+      - generic [ref=e675]:
+        - generic [ref=e677]:
+          - generic [ref=e681]:
+            - heading "iOS 빌드" [level=2] [ref=e683]
+            - paragraph [ref=e684]:
+              - text: 테스트가 가능한 빌드입니다.
+              - link "빌드 상태 및 지표에 관한 추가 정보" [ref=e685] [cursor=pointer]:
+                - /url: https://developer.apple.com/help/app-store-connect/test-a-beta-version/view-build-status-and-metrics
+          - separator [ref=e687]
+        - generic [ref=e689]:
+          - button "빌드 업로드" [expanded] [ref=e690] [cursor=pointer]:
+            - img [ref=e692]
+            - heading "빌드 업로드" [level=3] [ref=e694]
+            - progressbar [ref=e696]
+          - region "빌드 업로드" [ref=e697]:
+            - paragraph [ref=e698]:
+              - text: 경고, 오류 및 업로드 로그를 포함한 빌드 업로드 진행 상황을 확인할 수 있습니다.
+              - link "추가 정보" [ref=e699] [cursor=pointer]:
+                - /url: https://developer.apple.com/help/app-store-connect/manage-builds/view-builds-and-metadata#view-build-upload-status
+            - button "전체 상태" [ref=e702] [cursor=pointer]:
+              - paragraph [ref=e703]: 전체 상태
+              - img [ref=e704]
+        - generic [ref=e706]:
+          - button "버전 1.0.0" [expanded] [ref=e707] [cursor=pointer]:
+            - img [ref=e709]
+            - heading "버전 1.0.0" [level=3] [ref=e711]
+            - progressbar [ref=e713]
+          - region "버전 1.0.0" [ref=e714]
+  - contentinfo [ref=e97]:
+    - generic [ref=e98]:
+      - list [ref=e99]:
+        - listitem [ref=e717]:
+          - link "App Store Connect" [ref=e718] [cursor=pointer]:
+            - /url: /apps
+      - list [ref=e101]:
+        - listitem [ref=e102]: Copyright © 2026 Apple Inc. 모든 권리 보유. |
+        - listitem [ref=e103]:
+          - link "서비스 약관" [ref=e104] [cursor=pointer]:
+            - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+          - text: "|"
+        - listitem [ref=e105]:
+          - link "개인정보 처리방침" [ref=e106] [cursor=pointer]:
+            - /url: https://www.apple.com/legal/privacy
+          - text: "|"
+        - listitem [ref=e107]:
+          - link "문의" [ref=e108] [cursor=pointer]:
+            - /url: /contact-us

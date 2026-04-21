@@ -1,0 +1,269 @@
+- generic [ref=e1]:
+  - banner "App Store Connect" [ref=e3]:
+    - generic [ref=e4]:
+      - heading "App Store Connect" [level=1] [ref=e6]:
+        - link "App Store Connect" [ref=e7] [cursor=pointer]:
+          - /url: /
+      - navigation "글로벌" [ref=e8]:
+        - list [ref=e10]:
+          - listitem [ref=e11]:
+            - link "앱" [ref=e12] [cursor=pointer]:
+              - /url: /apps
+          - listitem [ref=e13]:
+            - link "추세" [ref=e14] [cursor=pointer]:
+              - /url: /trends
+          - listitem [ref=e15]:
+            - link "보고서" [ref=e16] [cursor=pointer]:
+              - /url: /itc/payments_and_financial_reports
+          - listitem [ref=e17]:
+            - link "비즈니스" [ref=e18] [cursor=pointer]:
+              - /url: /business
+          - listitem [ref=e19]:
+            - link "사용자 및 액세스" [ref=e20] [cursor=pointer]:
+              - /url: /access/users
+      - button "성진 장 Sungjin Jang Account name menu" [ref=e22] [cursor=pointer]:
+        - generic:
+          - generic: 성진 장
+          - generic: Sungjin Jang
+          - img [ref=e23]
+  - generic [ref=e28]:
+    - button "앱 메뉴, 만나 - 매일의 양식, 선택됨" [ref=e55] [cursor=pointer]:
+      - generic [ref=e56]:
+        - generic "만나 - 매일의 양식" [ref=e57]:
+          - img "만나 - 매일의 양식" [ref=e58]
+        - generic [ref=e59]: 만나 - 매일의 양식
+      - img [ref=e61]
+    - navigation "앱" [ref=e30]:
+      - list [ref=e31]:
+        - listitem [ref=e63]:
+          - link "배포" [ref=e64] [cursor=pointer]:
+            - /url: /apps/6761963940/distribution
+        - listitem [ref=e65]:
+          - link "분석" [ref=e66] [cursor=pointer]:
+            - /url: /apps/6761963940/analytics
+        - listitem [ref=e67]:
+          - link "TestFlight" [ref=e68] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight
+        - listitem [ref=e69]:
+          - link "Xcode Cloud" [ref=e70] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/ci
+  - generic [ref=e73]:
+    - main [ref=e74]:
+      - generic [ref=e84]:
+        - generic [ref=e88]:
+          - link "구독" [ref=e92] [cursor=pointer]:
+            - /url: /apps/6761963940/distribution/subscription-groups/22024505
+            - generic [ref=e93]:
+              - img [ref=e94]
+              - text: 구독
+          - generic [ref=e96]:
+            - heading "Manna Pro Monthly" [level=2] [ref=e97]
+            - generic [ref=e98]:
+              - button "저장" [disabled] [ref=e99]
+              - button "심사를 위해 제출" [disabled] [ref=e100]
+        - generic [ref=e101]:
+          - generic [ref=e102]:
+            - img [ref=e103]
+            - paragraph [ref=e105]:
+              - generic [ref=e106]:
+                - text: 첫 번째 구독은 새로운 앱 버전과 함께 제출해야 합니다. 구독을 생성한 다음, 해당 버전을 앱 심사에 제출하기 전에 버전 페이지에 있는 앱의 앱 내 구입 및 구독 섹션에서 이를 선택하십시오.
+                - text: 바이너리를 업로드하고 첫번째 구독을 심사에 제출한 경우 구독 섹션에서 추가 구독을 제출할 수 있습니다.
+                - link "추가 정보" [ref=e107] [cursor=pointer]:
+                  - /url: https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-for-review
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - generic [ref=e110]:
+                - text: 식별 정보
+                - button "추가 정보" [ref=e112] [cursor=pointer]: "?"
+              - textbox "식별 정보 추가 정보" [ref=e114]: Manna Pro Monthly
+              - paragraph [ref=e116]: "47"
+            - generic [ref=e117]:
+              - generic [ref=e118]: 상태
+              - paragraph [ref=e119]:
+                - img [ref=e120]
+                - text: 심사 대기 중
+            - generic [ref=e122]:
+              - generic [ref=e123]:
+                - text: Apple ID
+                - button "추가 정보" [ref=e125] [cursor=pointer]: "?"
+              - paragraph [ref=e126]: "6761966178"
+            - generic [ref=e127]:
+              - generic [ref=e128]:
+                - text: 제품 ID
+                - button "추가 정보" [ref=e130] [cursor=pointer]: "?"
+              - paragraph [ref=e131]: com.jsj.manna.pro.monthly
+            - generic [ref=e132]:
+              - generic [ref=e133]:
+                - text: 구독 기간
+                - button "추가 정보" [ref=e135] [cursor=pointer]: "?"
+              - combobox [ref=e137]:
+                - option "1주"
+                - option "1개월" [selected]
+                - option "2개월"
+                - option "3개월"
+                - option "6개월"
+                - option "1년"
+            - generic [ref=e138]:
+              - generic [ref=e139]: 그룹 식별 정보
+              - paragraph [ref=e140]:
+                - link "Manna Pro" [ref=e141] [cursor=pointer]:
+                  - /url: /apps/6761963940/distribution/subscription-groups/22024505
+            - generic [ref=e142]:
+              - generic [ref=e143]:
+                - text: 가족 공유
+                - button "추가 정보" [ref=e145] [cursor=pointer]: "?"
+              - paragraph [ref=e146]: 가족 구성원이 서로의 계정을 사용할 필요 없이 이 구독을 공유하도록 허용합니다.
+              - paragraph [ref=e147]:
+                - button "켜기" [ref=e148] [cursor=pointer]
+          - separator [ref=e149]
+          - generic [ref=e151]:
+            - heading "사용 가능 여부" [level=3] [ref=e153]
+            - generic [ref=e155]:
+              - radio "175개 중 1개 국가 또는 지역이 선택되었습니다. 편집" [checked] [ref=e156]
+              - paragraph [ref=e158]:
+                - generic [ref=e159]:
+                  - text: 175개 중
+                  - strong [ref=e160]: "1"
+                  - text: 개 국가 또는 지역이 선택되었습니다.
+                - button "편집" [ref=e161] [cursor=pointer]
+            - generic [ref=e163]:
+              - radio "판매 중단" [ref=e164]
+              - paragraph [ref=e166]: 판매 중단
+          - separator [ref=e167]
+          - generic [ref=e168]:
+            - generic [ref=e169]:
+              - heading "구독 가격 가격 추가" [level=3] [ref=e170]:
+                - text: 구독 가격
+                - button "가격 추가" [ref=e172] [cursor=pointer]:
+                  - img [ref=e173]
+              - link "모든 가격 및 통화" [ref=e175] [cursor=pointer]:
+                - /url: /apps/6761963940/distribution/subscriptions/6761966178/pricing-matrix
+                - paragraph [ref=e176]: 모든 가격 및 통화
+            - paragraph [ref=e177]: 아래는 현재 가격과 예정된 변경 사항에 관한 요약 정보입니다.
+            - button "신규 구독자에게 적용되는 현재 가격" [ref=e179] [cursor=pointer]:
+              - img [ref=e181]
+              - text: 신규 구독자에게 적용되는 현재 가격
+            - link "모든 구독 가격 보기" [ref=e183] [cursor=pointer]:
+              - /url: /apps/6761963940/distribution/subscriptions/6761966178/pricing
+              - paragraph [ref=e184]: 모든 구독 가격 보기
+          - separator [ref=e185]
+          - generic [ref=e186]:
+            - generic [ref=e189]:
+              - heading "현지화" [level=3] [ref=e190]
+              - button [ref=e191] [cursor=pointer]:
+                - img [ref=e192]
+            - paragraph [ref=e195]: 구독의 현지화된 표시 이름 및 설명은 App Store에 표시됩니다.
+            - generic [ref=e199]:
+              - generic:
+                - generic:
+                  - grid:
+                    - row "현지화 표시 이름 구독 설명 상태 Localization status" [ref=e200]:
+                      - columnheader "현지화" [ref=e201]
+                      - columnheader "표시 이름" [ref=e202]
+                      - columnheader "구독 설명" [ref=e203]
+                      - columnheader "상태 Localization status" [ref=e204]:
+                        - generic [ref=e205]:
+                          - text: 상태
+                          - button "Localization status" [ref=e207] [cursor=pointer]: "?"
+                      - columnheader
+                    - rowgroup "grid" [ref=e208]:
+                      - rowgroup [ref=e209]:
+                        - row "한국어 Manna Pro AI 묵상, 스트릭, 통독 계획 등 모든 프리미엄 기능 이용 심사 대기 중" [ref=e210]:
+                          - gridcell "한국어" [ref=e211]:
+                            - button "한국어" [ref=e214] [cursor=pointer]
+                          - gridcell "Manna Pro" [ref=e215]:
+                            - generic [ref=e217]: Manna Pro
+                          - gridcell "AI 묵상, 스트릭, 통독 계획 등 모든 프리미엄 기능 이용" [ref=e218]:
+                            - generic [ref=e220]: AI 묵상, 스트릭, 통독 계획 등 모든 프리미엄 기능 이용
+                          - gridcell "심사 대기 중" [ref=e221]:
+                            - generic [ref=e223]:
+                              - img [ref=e224]
+                              - text: 심사 대기 중
+                          - gridcell [ref=e226]
+          - generic [ref=e228]:
+            - heading "이미지(선택 사항)" [level=3] [ref=e230]
+            - paragraph [ref=e231]:
+              - generic [ref=e232]:
+                - text: 이 구독을 가장 잘 나타내는 1024 x 1024픽셀 이미지를 추가하십시오. 이 구독에 대한 모든 윈백 특가 또는 특가 코드 교환에 사용됩니다. 이 구독에 대해 App Store 프로모션을 활성화하면 앱의 제품 페이지에도 이 이미지가 표시됩니다.
+                - link "추가 정보" [ref=e233] [cursor=pointer]:
+                  - /url: https://developer.apple.com/help/app-store-connect/manage-in-app-purchases/view-and-edit-in-app-purchase-information
+            - generic [ref=e237] [cursor=pointer]:
+              - button "파일 선택" [ref=e238]
+              - generic [ref=e240]: 파일 선택
+          - separator [ref=e241]
+          - generic [ref=e242]:
+            - heading "세금 카테고리 ? 편집" [level=3] [ref=e244]:
+              - text: 세금 카테고리
+              - button "?" [ref=e246] [cursor=pointer]
+              - button "편집" [ref=e247] [cursor=pointer]
+            - paragraph [ref=e248]:
+              - generic [ref=e249]:
+                - text: 정확한 세금 카테고리 및 모든 적용 가능한 속성을 선택하고 유지할 책임이 있습니다. 이 구독에는 다른 카테고리를 선택하지 않는 이상 앱의 세금 카테고리가 사용됩니다. 이 구독의 세금 카테고리를 변경해도 앱 또는 기타 앱 내 구입이나 구독의 세금 카테고리는 영향을 받지 않습니다. 변경 사항은 향후 판매에만 영향을 미칩니다.
+                - link "추가 정보" [ref=e250] [cursor=pointer]:
+                  - /url: https://help.apple.com/app-store-connect/#/dev2bd41114d
+            - generic [ref=e252]:
+              - generic [ref=e253]: 카테고리
+              - paragraph [ref=e254]: 상위 앱과 일치
+          - separator [ref=e255]
+          - generic [ref=e256]:
+            - heading "심사 정보" [level=3] [ref=e258]
+            - generic [ref=e259]:
+              - generic [ref=e260]:
+                - generic [ref=e261]:
+                  - text: 스크린샷
+                  - button "추가 정보" [ref=e263] [cursor=pointer]: "?"
+                - generic [ref=e264]:
+                  - generic [ref=e265] [cursor=pointer]:
+                    - button "Choose File" [ref=e266]
+                    - img "SOURCE" [ref=e269]
+                  - button "삭제" [ref=e270] [cursor=pointer]:
+                    - img [ref=e271]
+              - generic [ref=e273]:
+                - generic [ref=e274]:
+                  - text: 심사용 추가 정보(선택사항)
+                  - button "추가 정보" [ref=e276] [cursor=pointer]: "?"
+                - textbox "심사용 추가 정보(선택사항) 추가 정보" [ref=e278]: "To test the Manna Pro Monthly subscription: 1. Tap the crown icon or \"프리미엄 시작하기\" button on the home screen 2. On the premium screen, tap \"지금 시작하기\" to initiate a subscription 3. Complete a sandbox purchase using a Sandbox Apple ID 4. Once subscribed, verify Pro features are unlocked: - AI meditation questions (AI 묵상) - Streak tracking (스트릭) - Bible reading plan (통독 계획) - Background TTS audio playback 5. To cancel: Settings > [Your Name] > Subscriptions > Manna Pro"
+                - paragraph [ref=e280]: "3521"
+          - separator [ref=e281]
+          - paragraph [ref=e282]:
+            - button "이 구독 삭제" [ref=e283] [cursor=pointer]
+    - dialog "현지화 편집" [ref=e284]:
+      - generic [ref=e286]:
+        - generic [ref=e287]:
+          - heading "현지화 편집" [level=2] [ref=e288]
+          - generic [ref=e289]:
+            - generic [ref=e290]:
+              - generic [ref=e291]: 현지화
+              - paragraph [ref=e292]: 한국어
+            - generic [ref=e293]:
+              - generic [ref=e294]: 표시 이름
+              - textbox "표시 이름" [ref=e296]: Manna Pro
+              - paragraph [ref=e298]: "26"
+            - generic [ref=e299]:
+              - generic [ref=e300]:
+                - text: 설명
+                - button "편집됨" [ref=e312] [cursor=pointer]
+              - textbox "설명편집됨" [active] [ref=e313]: AI 묵상, 스트릭, 통독 계획 등 모든 프리미엄 기능을 이용하세요
+              - paragraph [ref=e304]: "18"
+        - generic [ref=e306]:
+          - button "취소" [ref=e308] [cursor=pointer]
+          - button "저장" [ref=e310] [cursor=pointer]
+  - contentinfo [ref=e38]:
+    - generic [ref=e39]:
+      - list [ref=e40]:
+        - listitem [ref=e41]:
+          - link "App Store Connect" [ref=e42] [cursor=pointer]:
+            - /url: /apps
+      - list [ref=e43]:
+        - listitem [ref=e44]: Copyright © 2026 Apple Inc. 모든 권리 보유. |
+        - listitem [ref=e45]:
+          - link "서비스 약관" [ref=e46] [cursor=pointer]:
+            - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+          - text: "|"
+        - listitem [ref=e47]:
+          - link "개인정보 처리방침" [ref=e48] [cursor=pointer]:
+            - /url: https://www.apple.com/legal/privacy
+          - text: "|"
+        - listitem [ref=e49]:
+          - link "문의" [ref=e50] [cursor=pointer]:
+            - /url: /contact-us

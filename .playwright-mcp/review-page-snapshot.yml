@@ -1,0 +1,91 @@
+- generic [active] [ref=e1]:
+  - banner "App Store Connect" [ref=e3]:
+    - generic [ref=e4]:
+      - heading "App Store Connect" [level=1] [ref=e6]:
+        - link "App Store Connect" [ref=e7] [cursor=pointer]:
+          - /url: /
+      - navigation "글로벌" [ref=e8]:
+        - list [ref=e10]:
+          - listitem [ref=e11]:
+            - link "앱" [ref=e12] [cursor=pointer]:
+              - /url: /apps
+          - listitem [ref=e13]:
+            - link "추세" [ref=e14] [cursor=pointer]:
+              - /url: /trends
+          - listitem [ref=e15]:
+            - link "보고서" [ref=e16] [cursor=pointer]:
+              - /url: /itc/payments_and_financial_reports
+          - listitem [ref=e17]:
+            - link "비즈니스" [ref=e18] [cursor=pointer]:
+              - /url: /business
+          - listitem [ref=e19]:
+            - link "사용자 및 액세스" [ref=e20] [cursor=pointer]:
+              - /url: /access/users
+      - button "성진 장 Sungjin Jang Account name menu" [ref=e22] [cursor=pointer]:
+        - generic:
+          - generic: 성진 장
+          - generic: Sungjin Jang
+          - img [ref=e23]
+  - generic [ref=e356]:
+    - button "앱 메뉴, 만나 - 매일의 양식, 선택됨" [ref=e361] [cursor=pointer]:
+      - generic [ref=e362]:
+        - generic "만나 - 매일의 양식" [ref=e363]:
+          - img "만나 - 매일의 양식" [ref=e364]
+        - generic [ref=e365]: 만나 - 매일의 양식
+      - img [ref=e367]
+    - navigation "앱" [ref=e370]:
+      - list [ref=e371]:
+        - listitem [ref=e372]:
+          - link "배포" [ref=e373] [cursor=pointer]:
+            - /url: /apps/6761963940/distribution
+        - listitem [ref=e374]:
+          - link "분석" [ref=e375] [cursor=pointer]:
+            - /url: /apps/6761963940/analytics
+        - listitem [ref=e376]:
+          - link "TestFlight" [ref=e377] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight
+        - listitem [ref=e378]:
+          - link "Xcode Cloud" [ref=e379] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/ci
+  - main [ref=e74]:
+    - generic [ref=e77]:
+      - generic [ref=e79]:
+        - navigation "배포" [ref=e81]:
+          - list [ref=e82]:
+            - listitem [ref=e83]
+            - listitem [ref=e94]
+            - listitem [ref=e96]
+            - listitem [ref=e109]
+            - listitem [ref=e111]
+        - generic [ref=e166]:
+          - generic [ref=e168]:
+            - heading "앱 심사" [level=2] [ref=e171]
+            - paragraph [ref=e172]: 앱 심사에 제출된 모든 항목 및 Apple과 나눈 메시지가 아래에 표시됩니다.
+          - generic [ref=e173]:
+            - separator [ref=e174]
+            - generic [ref=e175]
+            - generic [ref=e222]
+      - region "제출 초안" [ref=e348]:
+        - button "제출 초안(1개)" [ref=e349] [cursor=pointer]:
+          - generic [ref=e350]:
+            - text: 제출 초안(1개)
+            - img [ref=e351]
+  - contentinfo [ref=e38]:
+    - generic [ref=e39]:
+      - list [ref=e40]:
+        - listitem [ref=e41]:
+          - link "App Store Connect" [ref=e42] [cursor=pointer]:
+            - /url: /apps
+      - list [ref=e43]:
+        - listitem [ref=e44]: Copyright © 2026 Apple Inc. 모든 권리 보유. |
+        - listitem [ref=e45]:
+          - link "서비스 약관" [ref=e46] [cursor=pointer]:
+            - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+          - text: "|"
+        - listitem [ref=e47]:
+          - link "개인정보 처리방침" [ref=e48] [cursor=pointer]:
+            - /url: https://www.apple.com/legal/privacy
+          - text: "|"
+        - listitem [ref=e49]:
+          - link "문의" [ref=e50] [cursor=pointer]:
+            - /url: /contact-us

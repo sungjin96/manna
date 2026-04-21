@@ -1,0 +1,243 @@
+- generic [active] [ref=e1]:
+  - banner "App Store Connect" [ref=e3]:
+    - generic [ref=e4]:
+      - heading "App Store Connect" [level=1] [ref=e20]:
+        - link "App Store Connect" [ref=e21] [cursor=pointer]:
+          - /url: /
+      - navigation "글로벌" [ref=e7]:
+        - list [ref=e23]:
+          - listitem [ref=e24]:
+            - link "앱" [ref=e25] [cursor=pointer]:
+              - /url: /apps
+          - listitem [ref=e26]:
+            - link "추세" [ref=e27] [cursor=pointer]:
+              - /url: /trends
+          - listitem [ref=e28]:
+            - link "보고서" [ref=e29] [cursor=pointer]:
+              - /url: /itc/payments_and_financial_reports
+          - listitem [ref=e30]:
+            - link "비즈니스" [ref=e31] [cursor=pointer]:
+              - /url: /business
+          - listitem [ref=e32]:
+            - link "사용자 및 액세스" [ref=e33] [cursor=pointer]:
+              - /url: /access/users
+      - button "성진 장 Sungjin Jang Account name menu" [ref=e35] [cursor=pointer]:
+        - generic:
+          - generic: 성진 장
+          - generic: Sungjin Jang
+          - img [ref=e36]
+  - generic [ref=e41]:
+    - button "앱 메뉴, 만나 - 매일의 양식, 선택됨" [ref=e46] [cursor=pointer]:
+      - generic [ref=e47]:
+        - generic "만나 - 매일의 양식" [ref=e48]:
+          - img "만나 - 매일의 양식" [ref=e49]
+        - generic [ref=e50]: 만나 - 매일의 양식
+      - img [ref=e52]
+    - navigation "앱" [ref=e55]:
+      - list [ref=e56]:
+        - listitem [ref=e57]:
+          - link "배포" [ref=e58] [cursor=pointer]:
+            - /url: /apps/6761963940/distribution
+        - listitem [ref=e59]:
+          - link "분석" [ref=e60] [cursor=pointer]:
+            - /url: /apps/6761963940/analytics
+        - listitem [ref=e61]:
+          - link "TestFlight" [ref=e62] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/testflight
+        - listitem [ref=e63]:
+          - link "Xcode Cloud" [ref=e64] [cursor=pointer]:
+            - /url: /teams/faf3fcfc-10fc-4041-881e-283211d73116/apps/6761963940/ci
+  - main [ref=e68]:
+    - generic [ref=e73]:
+      - navigation "배포" [ref=e75]:
+        - list [ref=e76]:
+          - listitem [ref=e77]:
+            - generic [ref=e78]:
+              - heading "iOS 앱" [level=2] [ref=e80]
+              - list [ref=e81]:
+                - listitem [ref=e82]:
+                  - link "1.0 개발자가 취소함" [ref=e83] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/ios/version/inflight
+                    - generic [ref=e84]:
+                      - img [ref=e85]
+                      - text: 1.0 개발자가 취소함
+            - button "플랫폼 추가" [ref=e87] [cursor=pointer]
+          - listitem [ref=e88]:
+            - separator [ref=e89]
+          - listitem [ref=e90]:
+            - heading "일반 정보" [level=2] [ref=e92]
+            - list [ref=e93]:
+              - listitem [ref=e94]:
+                - link "앱 정보" [ref=e95] [cursor=pointer]:
+                  - /url: /apps/6761963940/distribution/info
+                  - generic [ref=e96]: 앱 정보
+              - listitem [ref=e97]:
+                - link "앱 심사" [ref=e98] [cursor=pointer]:
+                  - /url: /apps/6761963940/distribution/reviewsubmissions
+                  - generic [ref=e99]: 앱 심사
+              - listitem [ref=e100]:
+                - link "버전 정보" [ref=e101] [cursor=pointer]:
+                  - /url: /apps/6761963940/distribution/activity/ios/versions
+                  - generic [ref=e102]: 버전 정보
+          - listitem [ref=e103]:
+            - separator [ref=e104]
+          - listitem [ref=e105]:
+            - heading "App Store" [level=2] [ref=e107]
+            - generic [ref=e108]:
+              - heading "신뢰 및 안전" [level=3] [ref=e110]
+              - list [ref=e111]:
+                - listitem [ref=e112]:
+                  - link "앱이 수집하는 개인정보" [ref=e113] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/privacy
+                    - generic [ref=e114]: 앱이 수집하는 개인정보
+                - listitem [ref=e115]:
+                  - link "앱의 손쉬운 사용" [ref=e116] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/accessibility
+                    - generic [ref=e117]: 앱의 손쉬운 사용
+                - listitem [ref=e118]:
+                  - link "평가 및 리뷰" [ref=e119] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/ratings/ios
+                    - generic [ref=e120]: 평가 및 리뷰
+            - generic [ref=e121]:
+              - heading "성장 및 마케팅" [level=3] [ref=e123]
+              - list [ref=e124]:
+                - listitem [ref=e125]:
+                  - link "앱 내 이벤트" [ref=e126] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/events
+                    - generic [ref=e127]: 앱 내 이벤트
+                - listitem [ref=e128]:
+                  - link "맞춤형 제품 페이지" [ref=e129] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/productpages
+                    - generic [ref=e130]: 맞춤형 제품 페이지
+                - listitem [ref=e131]:
+                  - link "제품 페이지 최적화" [ref=e132] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/optimization
+                    - generic [ref=e133]: 제품 페이지 최적화
+                - listitem [ref=e134]:
+                  - link "프로모션 코드" [ref=e135] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/promo_codes/generate
+                    - generic [ref=e136]: 프로모션 코드
+                - listitem [ref=e137]:
+                  - link "Game Center" [ref=e138] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/gamecenter
+                    - generic [ref=e139]: Game Center
+            - generic [ref=e140]:
+              - heading "수익화" [level=3] [ref=e142]
+              - list [ref=e143]:
+                - listitem [ref=e144]:
+                  - link "가격 및 사용 가능 여부" [ref=e145] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/pricing
+                    - generic [ref=e146]: 가격 및 사용 가능 여부
+                - listitem [ref=e147]:
+                  - link "앱 내 구입" [ref=e148] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/iaps
+                    - generic [ref=e149]: 앱 내 구입
+                - listitem [ref=e150]:
+                  - link "구독" [ref=e151] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/subscriptions
+                    - generic [ref=e152]: 구독
+            - generic [ref=e153]:
+              - heading "피처링" [level=3] [ref=e155]
+              - list [ref=e156]:
+                - listitem [ref=e157]:
+                  - link "피처링 요청" [ref=e158] [cursor=pointer]:
+                    - /url: /apps/6761963940/distribution/nominations
+                    - generic [ref=e159]: 피처링 요청
+      - generic [ref=e161]:
+        - heading "구독" [level=2] [ref=e166]
+        - separator [ref=e168]
+        - generic [ref=e169]:
+          - img [ref=e170]
+          - paragraph [ref=e172]: 다음 구독 그룹 중 하나 이상에 주의가 필요합니다.
+        - generic [ref=e173]:
+          - img [ref=e174]
+          - paragraph [ref=e176]:
+            - generic [ref=e177]:
+              - text: 첫 번째 구독은 새로운 앱 버전과 함께 제출해야 합니다. 구독을 생성한 다음, 해당 버전을 앱 심사에 제출하기 전에 버전 페이지에 있는 앱의 앱 내 구입 및 구독 섹션에서 이를 선택하십시오.
+              - text: 바이너리를 업로드하고 첫번째 구독을 심사에 제출한 경우 구독 섹션에서 추가 구독을 제출할 수 있습니다.
+              - link "추가 정보" [ref=e178] [cursor=pointer]:
+                - /url: https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-for-review
+        - heading "자동 갱신 구독" [level=3] [ref=e179]
+        - paragraph [ref=e180]:
+          - generic [ref=e181]:
+            - text: 구독은 사용자가 일정 기간 동안 동적 콘텐츠를 구입할 수 있게 하는 제품입니다. 이 구독 유형은 사용자가 취소하지 않는 한 자동으로 갱신됩니다. 바이너리를 업로드하고 첫 번째 구독을 심사에 제출한 경우, 아래 표를 사용하여 추가 구독을 제출할 수 있습니다.
+            - link "추가 정보" [ref=e182] [cursor=pointer]:
+              - /url: https://developer.apple.com/help/app-store-connect/manage-subscriptions/offer-auto-renewable-subscriptions
+        - generic [ref=e183]:
+          - generic [ref=e184]:
+            - generic [ref=e185]:
+              - generic [ref=e186]:
+                - heading "구독 그룹" [level=3] [ref=e187]
+                - button "구독 그룹 생성" [ref=e188] [cursor=pointer]:
+                  - img [ref=e189]
+              - paragraph [ref=e191]:
+                - generic [ref=e192]:
+                  - text: 구독 그룹을 생성한 후 구독을 생성할 수 있습니다. 모든 구독은 그룹에 속해야 합니다. 사용자는 한 번에 하나의 그룹 내에서 한 개의 구독만 이용할 수 있지만, 동일 그룹 내에서는 다른 구독으로 변경할 수 있습니다. 이 경우, 두 번째 해에 수익금의 85％를 계속 받게 됩니다(해당되는 경우, 세후).
+                  - link "추가 정보" [ref=e193] [cursor=pointer]:
+                    - /url: https://developer.apple.com/help/app-store-connect/manage-subscriptions/offer-auto-renewable-subscriptions
+            - button [ref=e195] [cursor=pointer]:
+              - img [ref=e196]
+          - generic [ref=e202]:
+            - generic:
+              - generic:
+                - grid:
+                  - row "[object Object] 구독" [ref=e203]:
+                    - columnheader "[object Object]" [ref=e204] [cursor=pointer]:
+                      - text: 구독 그룹 식별 정보
+                      - generic [ref=e205]: 
+                    - columnheader "구독" [ref=e206]
+                  - rowgroup "grid" [ref=e207]:
+                    - rowgroup [ref=e208]:
+                      - row "Manna Pro 1" [ref=e209]:
+                        - gridcell "Manna Pro" [ref=e210]:
+                          - generic [ref=e212]:
+                            - link "Manna Pro" [ref=e213] [cursor=pointer]:
+                              - /url: /apps/6761963940/distribution/subscription-groups/22024505
+                            - img [ref=e214]
+                        - gridcell "1" [ref=e216]:
+                          - generic [ref=e218]: "1"
+        - generic [ref=e219]:
+          - heading "청구 유예 기간" [level=5] [ref=e221]
+          - paragraph [ref=e222]:
+            - generic [ref=e223]:
+              - text: 청구 유예 기간 기능을 활성화하면, 구독자가 청구 문제로 구독이 만료되더라도 앱의 유료 콘텐츠에 계속 액세스할 수 있습니다. 유예 기간 동안 Apple에서 구독을 복원할 수 있게 되면 중단 없이 수익을 창출할 수 있습니다.
+              - link "추가 정보" [ref=e224] [cursor=pointer]:
+                - /url: https://developer.apple.com/help/app-store-connect/manage-subscriptions/enable-billing-grace-period-for-auto-renewable-subscriptions
+          - paragraph [ref=e227]:
+            - button "청구 유예 기간 설정" [ref=e228] [cursor=pointer]
+        - generic [ref=e229]:
+          - heading "간소화된 구입" [level=5] [ref=e230]
+          - paragraph [ref=e231]:
+            - generic [ref=e232]:
+              - text: 간소화된 구입을 통해 고객이 앱 외부에서 구독을 구입할 수 있습니다. 간소화된 구입은 조건부 가격을 사용하는 구독 또는 윈백 특가에 대해 끌 수 있습니다.
+              - link "추가 정보" [ref=e233] [cursor=pointer]:
+                - /url: https://developer.apple.com/help/app-store-connect/manage-subscriptions/manage-streamlined-purchasing
+          - generic [ref=e234]:
+            - paragraph [ref=e235]: 켜짐
+            - paragraph [ref=e236]:
+              - button "편집" [ref=e237] [cursor=pointer]
+        - separator [ref=e238]
+        - heading "비갱신 구독" [level=3] [ref=e239]
+        - paragraph [ref=e240]: 사용자는 게임 내 콘텐츠에 대한 시즌 패스와 같이 일정 기간 동안 서비스나 콘텐츠에 액세스할 수 있는 권한을 구입할 수 있습니다. 이 구독 유형은 자동으로 갱신되지 않으므로 사용자가 액세스 권한을 유지하려면 구독이 종료된 후 새로운 구독을 구입해야 합니다.
+        - paragraph [ref=e241]:
+          - link "관리" [ref=e242] [cursor=pointer]:
+            - /url: /apps/6761963940/distribution/non-renewing-subscriptions
+  - contentinfo [ref=e10]:
+    - generic [ref=e11]:
+      - list [ref=e243]:
+        - listitem [ref=e244]:
+          - link "App Store Connect" [ref=e245] [cursor=pointer]:
+            - /url: /apps
+      - list [ref=e12]:
+        - listitem [ref=e13]: Copyright © 2026 Apple Inc. 모든 권리 보유. |
+        - listitem [ref=e14]:
+          - link "서비스 약관" [ref=e15] [cursor=pointer]:
+            - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+          - text: "|"
+        - listitem [ref=e16]:
+          - link "개인정보 처리방침" [ref=e17] [cursor=pointer]:
+            - /url: https://www.apple.com/legal/privacy
+          - text: "|"
+        - listitem [ref=e18]:
+          - link "문의" [ref=e19] [cursor=pointer]:
+            - /url: /contact-us

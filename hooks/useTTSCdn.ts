@@ -31,6 +31,7 @@ export interface CdnEngineControls {
   setRate: (rateIdx: number) => void;
   selectVoice: (voiceId: string) => Promise<void>;
   scheduleResume: (verseNum: number, autoPlay?: boolean) => void;
+  deactivateLockScreen: () => void;
 }
 
 /**
@@ -42,7 +43,10 @@ export function useTTSCdn(
   onVerseChange?: (verse: number) => void,
   onVerseRead?: (verse: number) => void,
   onFinish?: () => void,
+  isProUser?: boolean,
 ) {
+  const isProUserRef = useRef(!!isProUser);
+  isProUserRef.current = !!isProUser;
   const [isLoading, setIsLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [currentVerse, setCurrentVerse] = useState<number | null>(null);
@@ -189,6 +193,7 @@ export function useTTSCdn(
   }, [cdnVoiceId]);
 
   function activateLockScreen() {
+    if (!isProUserRef.current) return;
     const bookName = BOOKS.find(b => b.id === loadedBookIdRef.current)?.name ?? '';
     const ch = loadedChapterRef.current ?? 1;
     try {
@@ -249,6 +254,10 @@ export function useTTSCdn(
     prevVerseRef.current = null;
   }, [player]);
 
+  const deactivateLockScreen = useCallback(() => {
+    try { player.setActiveForLockScreen(false); } catch { /* player may not be ready */ }
+  }, [player]);
+
   const skipVerse = useCallback((delta: number) => {
     const ts = timestampsRef.current;
     if (!ts || !versesRef.current) return;
@@ -304,6 +313,7 @@ export function useTTSCdn(
     setRate,
     selectVoice,
     scheduleResume,
+    deactivateLockScreen,
   };
 
   return { state, controls, player };

@@ -145,6 +145,7 @@ export function useTTS(
         }
       }
     },
+    isProUser,
   );
 
   // --- Init: load CDN audio + device voices + settings ---
@@ -225,16 +226,26 @@ export function useTTS(
     }
   }, []);
 
-  // Stop TTS when app goes to background (free users only)
+  // Free users: pause on background, re-enforce pause on foreground return (prevent auto-resume)
+  const pausedByBackgroundRef = useRef(false);
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
-      if (state === 'background' && !isProUserRef.current) {
-        if (isCdnModeRef.current) {
-          cdn.controls.pause();
-        } else {
-          Speech.pause();
+      if (!isProUserRef.current) {
+        if (state === 'background') {
+          if (isCdnModeRef.current) {
+            cdn.controls.pause();
+            cdn.controls.deactivateLockScreen();
+          } else {
+            Speech.pause();
+          }
+          setIsPaused(true);
+          pausedByBackgroundRef.current = true;
+        } else if (state === 'active' && pausedByBackgroundRef.current) {
+          // Re-enforce pause in case expo-audio auto-resumed on foreground
+          if (isCdnModeRef.current) cdn.controls.pause();
+          else Speech.pause();
+          pausedByBackgroundRef.current = false;
         }
-        setIsPaused(true);
       }
     });
     return () => subscription.remove();

@@ -1,0 +1,33 @@
+- generic [active] [ref=e1]:
+  - banner "App Store Connect" [ref=e3]:
+    - generic [ref=e4]:
+      - heading "App Store Connect" [level=1] [ref=e6]:
+        - link "App Store Connect" [ref=e7] [cursor=pointer]:
+          - /url: /
+      - navigation "글로벌" [ref=e8]:
+        - generic:
+          - list
+      - button "성진 장 Sungjin Jang Account name menu" [ref=e10] [cursor=pointer]:
+        - generic:
+          - generic: 성진 장
+          - generic: Sungjin Jang
+          - img [ref=e11]
+  - contentinfo [ref=e15]:
+    - generic [ref=e16]:
+      - list [ref=e17]:
+        - listitem [ref=e18]:
+          - link "App Store Connect" [ref=e19] [cursor=pointer]:
+            - /url: /apps
+      - list [ref=e20]:
+        - listitem [ref=e21]: Copyright © 2026 Apple Inc. 모든 권리 보유. |
+        - listitem [ref=e22]:
+          - link "서비스 약관" [ref=e23] [cursor=pointer]:
+            - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+          - text: "|"
+        - listitem [ref=e24]:
+          - link "개인정보 처리방침" [ref=e25] [cursor=pointer]:
+            - /url: https://www.apple.com/legal/privacy
+          - text: "|"
+        - listitem [ref=e26]:
+          - link "문의" [ref=e27] [cursor=pointer]:
+            - /url: /contact-us
