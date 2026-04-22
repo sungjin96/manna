@@ -22,6 +22,8 @@ import ViewShot from 'react-native-view-shot';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { useUIScale } from '../../contexts/UIScaleContext';
+import { useTabletLayout } from '../../contexts/TabletLayoutContext';
+import MasterDetailLayout from '../../components/MasterDetailLayout';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   saveMeditationReturningId,
@@ -58,6 +60,7 @@ function formatDate(iso: string): string {
 
 export default function PrayersScreen() {
   const { scale } = useUIScale();
+  const { isTabletLandscape } = useTabletLayout();
   const styles = useMemo(() => makeStyles(scale), [scale]);
   const insets = useSafeAreaInsets();
   const [prayers, setPrayers] = useState<Meditation[]>([]);
@@ -122,6 +125,9 @@ export default function PrayersScreen() {
 
   // 그룹 삭제 confirm
   const [groupDeleteTarget, setGroupDeleteTarget] = useState<PrayerGroup | null>(null);
+
+  // 태블릿 선택 아이템
+  const [selectedTabletPrayer, setSelectedTabletPrayer] = useState<Meditation | null>(null);
 
   const loadAll = useCallback(() => {
     getPrayerMeditations().then(setPrayers);
@@ -285,7 +291,7 @@ export default function PrayersScreen() {
   const answeredCount = prayers.filter(m => parsePrayerNote(m.note)?.is_answered).length;
   const totalCount = prayers.length;
 
-  return (
+  const baseContent = (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
@@ -497,8 +503,12 @@ export default function PrayersScreen() {
                   styles.card,
                   p.is_answered && styles.cardAnswered,
                   isSelectMode && isSelected && styles.cardSelected,
+                  isTabletLandscape && selectedTabletPrayer?.id === item.id && styles.cardSelected,
                 ]}
-                onPress={() => { if (isSelectMode) toggleSelect(item); }}
+                onPress={() => {
+                  if (isSelectMode) { toggleSelect(item); return; }
+                  if (isTabletLandscape) { setSelectedTabletPrayer(item); return; }
+                }}
                 onLongPress={() => { if (!isSelectMode) enterSelectMode(item); }}
                 delayLongPress={400}
               >
@@ -847,6 +857,106 @@ export default function PrayersScreen() {
       />
     </View>
   );
+
+  if (isTabletLandscape) {
+    const prayerDetailPanel = selectedTabletPrayer ? (() => {
+      const p = parsePrayerNote(selectedTabletPrayer.note);
+      const groupName = selectedTabletPrayer.prayerGroupId
+        ? groups.find(g => g.id === selectedTabletPrayer.prayerGroupId)?.name
+        : null;
+      const isAnswered = p?.is_answered ?? false;
+
+      return (
+        <ScrollView contentContainerStyle={{ padding: 28, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+          {/* 헤더: 상태 뱃지 + 날짜 */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <Text style={{ fontSize: 12, color: theme.textMuted }}>{formatDate(selectedTabletPrayer.createdAt)}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {groupName && (
+                <View style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border }}>
+                  <Text style={{ fontSize: 12, color: theme.textMuted }}>{groupName}</Text>
+                </View>
+              )}
+              <View style={{
+                paddingHorizontal: 12, paddingVertical: 5,
+                backgroundColor: isAnswered ? 'rgba(212,168,71,0.15)' : 'rgba(255,255,255,0.06)',
+                borderRadius: 12, borderWidth: 1,
+                borderColor: isAnswered ? `${theme.gold}50` : theme.border,
+              }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: isAnswered ? theme.gold : theme.textMuted }}>
+                  {isAnswered ? '응답됨' : '기도 중'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* 구분선 */}
+          <View style={{ height: 1, backgroundColor: theme.border, marginBottom: 24 }} />
+
+          {/* 기도 내용 */}
+          <Text style={{ fontSize: 17, color: theme.text, lineHeight: 30 }}>
+            {p?.content ?? ''}
+          </Text>
+
+          {/* 액션 버튼 */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 32 }}>
+            <Pressable
+              style={({ pressed }) => [{
+                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                gap: 6, paddingVertical: 13, borderRadius: 12,
+                backgroundColor: isAnswered ? 'rgba(255,255,255,0.06)' : `${theme.gold}18`,
+                borderWidth: 1,
+                borderColor: isAnswered ? theme.border : `${theme.gold}50`,
+                opacity: pressed ? 0.7 : 1,
+              }]}
+              onPress={async () => {
+                await handleToggleAnswered(selectedTabletPrayer);
+                setSelectedTabletPrayer(prev => prev ? { ...prev, note: toggleAnsweredNote(prev.note, !isAnswered) } : prev);
+              }}
+            >
+              <MaterialCommunityIcons name={isAnswered ? 'checkbox-blank-circle-outline' : 'check-circle-outline'} size={17} color={isAnswered ? theme.textMuted : theme.gold} />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: isAnswered ? theme.textMuted : theme.gold }}>{isAnswered ? '기도 중으로' : '응답됨'}</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [{
+                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                gap: 6, paddingVertical: 13, borderRadius: 12,
+                backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+                opacity: pressed ? 0.7 : 1,
+              }]}
+              onPress={() => handleEdit(selectedTabletPrayer)}
+            >
+              <MaterialCommunityIcons name="pencil-outline" size={17} color={theme.text} />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text }}>수정</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [{
+                paddingHorizontal: 18, paddingVertical: 13, borderRadius: 12,
+                backgroundColor: 'rgba(224,122,122,0.1)', borderWidth: 1, borderColor: 'rgba(224,122,122,0.3)',
+                opacity: pressed ? 0.7 : 1,
+              }]}
+              onPress={() => { setDeleteTarget(selectedTabletPrayer); setSelectedTabletPrayer(null); }}
+            >
+              <MaterialCommunityIcons name="trash-can-outline" size={17} color="#E07A7A" />
+            </Pressable>
+          </View>
+        </ScrollView>
+      );
+    })() : null;
+
+    return (
+      <MasterDetailLayout
+        leftFlex={0.4}
+        hasSelection={selectedTabletPrayer !== null}
+        emptyIcon="hands-pray"
+        emptyMessage="기도제목을 선택하면 내용을 볼 수 있어요"
+        masterContent={baseContent}
+        detailContent={prayerDetailPanel}
+      />
+    );
+  }
+
+  return baseContent;
 }
 
 function makeStyles(scale: number) {

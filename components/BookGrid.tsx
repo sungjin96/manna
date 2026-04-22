@@ -1,16 +1,12 @@
 import { useCallback } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BOOKS } from '../constants/books';
 import { theme } from '../constants/theme';
 
-const SCREEN_W = Dimensions.get('window').width;
 const GRID_PADDING = 20;
 const TILE_GAP = 6;
-// 더 큰 타일: 한 줄에 ~7개 (40~50대 가독성)
-const COLS = Math.max(6, Math.floor((SCREEN_W - GRID_PADDING * 2 + TILE_GAP) / (50 + TILE_GAP)));
-const TILE_SIZE = Math.floor((SCREEN_W - GRID_PADDING * 2 - (COLS - 1) * TILE_GAP) / COLS);
 
 function shortName(name: string): string {
   const map: Record<string, string> = {
@@ -42,6 +38,10 @@ interface Props {
 }
 
 export default function BookGrid({ completed, onBookPress }: Props) {
+  const { width: screenW } = useWindowDimensions();
+  const cols = Math.max(6, Math.floor((screenW - GRID_PADDING * 2 + TILE_GAP) / (50 + TILE_GAP)));
+  const tileSize = Math.floor((screenW - GRID_PADDING * 2 - (cols - 1) * TILE_GAP) / cols);
+
   const otBooks = BOOKS.filter(b => b.testament === 'old');
   const ntBooks = BOOKS.filter(b => b.testament === 'new');
 
@@ -64,6 +64,7 @@ export default function BookGrid({ completed, onBookPress }: Props) {
         key={book.id}
         style={[
           styles.tile,
+          { width: tileSize, height: tileSize },
           isComplete && styles.tileComplete,
           isPartial && styles.tilePartial,
         ]}
@@ -127,8 +128,6 @@ const styles = StyleSheet.create({
     gap: TILE_GAP,
   },
   tile: {
-    width: TILE_SIZE,
-    height: TILE_SIZE,
     borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,

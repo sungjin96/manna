@@ -1,12 +1,12 @@
 import { useRef, useCallback, useState } from 'react';
 import {
   Animated,
-  Dimensions,
   PanResponder,
   Pressable,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type LayoutChangeEvent,
   type ViewStyle,
 } from 'react-native';
@@ -31,13 +31,14 @@ const SNAP_THRESHOLD = 36;
 const VELOCITY_THRESHOLD = 0.3;
 
 export default function SwipeableRow({ children, rightActions, style, disabled }: Props) {
+  const { width: windowWidth } = useWindowDimensions();
   const totalActionWidth = rightActions.length * ACTION_WIDTH;
   const translateX = useRef(new Animated.Value(0)).current;
   const restValue = useRef(0);
   const startDx = useRef(0);
   const isOpen = useRef(false);
   const isHorizontalSwipe = useRef(false);
-  const [cardWidth, setCardWidth] = useState(Dimensions.get('window').width);
+  const [cardWidth, setCardWidth] = useState(windowWidth);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     setCardWidth(e.nativeEvent.layout.width);

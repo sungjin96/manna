@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useUIScale } from '../../contexts/UIScaleContext';
+import { useTabletLayout } from '../../contexts/TabletLayoutContext';
+import MasterDetailLayout from '../../components/MasterDetailLayout';
 import {
   Animated,
-  Dimensions,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -15,6 +16,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -121,6 +123,7 @@ function CalendarView({
   selectedDay: string | null;
 }) {
   const { scale } = useUIScale();
+  const { width: windowWidth } = useWindowDimensions();
   const calStyles = useMemo(() => makeCalStyles(scale), [scale]);
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -153,7 +156,7 @@ function CalendarView({
     onDaySelect(null);
   }
 
-  const CELL_SIZE = Math.floor((Dimensions.get('window').width - 32) / 7);
+  const CELL_SIZE = Math.floor((windowWidth - 32) / 7);
 
   return (
     <View style={calStyles.wrap}>
@@ -233,6 +236,7 @@ function CalendarView({
 export default function MeditationsScreen() {
   const router = useRouter();
   const { scale } = useUIScale();
+  const { isTabletLandscape } = useTabletLayout();
   const styles = useMemo(() => makeStyles(scale), [scale]);
   const [pageMode, setPageMode] = useState<PageMode>('notes');
   const [items, setItems] = useState<Meditation[]>([]);
@@ -276,6 +280,7 @@ export default function MeditationsScreen() {
   const [editIsQa, setEditIsQa] = useState(false);
   const [editIsMemo, setEditIsMemo] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Meditation | null>(null);
+  const [selectedTabletItem, setSelectedTabletItem] = useState<Meditation | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (q = '') => {
@@ -439,7 +444,7 @@ export default function MeditationsScreen() {
     );
   }
 
-  return (
+  const baseContent = (
     <View style={styles.container}>
       {/* 헤더 */}
       <View style={styles.header}>
@@ -726,6 +731,8 @@ export default function MeditationsScreen() {
                   onLongPress={setLongPressTarget}
                   onEdit={openEdit}
                   onDelete={setDeleteTarget}
+                  onPress={isTabletLandscape ? () => setSelectedTabletItem(item) : undefined}
+                  isSelected={isTabletLandscape && selectedTabletItem?.id === item.id}
                 />
               )}
             />
@@ -917,9 +924,94 @@ export default function MeditationsScreen() {
       />
     </View>
   );
+
+  if (isTabletLandscape) {
+    const detailPanel = selectedTabletItem ? (() => {
+      const b = BOOKS.find(bk => bk.id === selectedTabletItem.bookId);
+      const ref = `${b?.name ?? ''} ${selectedTabletItem.chapter}${selectedTabletItem.verseStart ? `:${selectedTabletItem.verseStart}` : ''}`;
+      const noteType = getNoteType(selectedTabletItem.note);
+      const typeLabel = noteType === 'memo' ? '빠른 메모' : noteType === 'qa' ? '묵상' : noteType === 'prayer' ? '기도' : '메모';
+      const typeIcon = noteType === 'memo' ? 'lightning-bolt' : noteType === 'qa' ? 'brain' : 'hands-pray';
+
+      return (
+        <ScrollView contentContainerStyle={{ padding: 28, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+          {/* 헤더: 참조 + 타입 뱃지 */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <View>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: theme.text, marginBottom: 4 }}>{ref}</Text>
+              <Text style={{ fontSize: 12, color: theme.textMuted }}>{formatDate(selectedTabletItem.createdAt)}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: `${theme.gold}18`, borderRadius: 20, borderWidth: 1, borderColor: `${theme.gold}40` }}>
+              <MaterialCommunityIcons name={typeIcon as any} size={14} color={theme.gold} />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.gold }}>{typeLabel}</Text>
+            </View>
+          </View>
+
+          {/* 구분선 */}
+          <View style={{ height: 1, backgroundColor: theme.border, marginBottom: 24 }} />
+
+          {/* 내용 */}
+          {noteType === 'qa' ? (
+            <QaCardBody note={selectedTabletItem.note} query="" />
+          ) : (
+            <Text style={{ fontSize: 16, color: theme.text, lineHeight: 28 }}>
+              {(() => {
+                try {
+                  const p = JSON.parse(selectedTabletItem.note);
+                  return p.text ?? selectedTabletItem.note;
+                } catch {}
+                return selectedTabletItem.note;
+              })()}
+            </Text>
+          )}
+
+          {/* 액션 버튼 */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 32 }}>
+            <Pressable
+              style={({ pressed }) => [{
+                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                gap: 6, paddingVertical: 13, borderRadius: 12,
+                backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+                opacity: pressed ? 0.7 : 1,
+              }]}
+              onPress={() => openEdit(selectedTabletItem)}
+            >
+              <MaterialCommunityIcons name="pencil-outline" size={17} color={theme.text} />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text }}>수정</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [{
+                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                gap: 6, paddingVertical: 13, borderRadius: 12,
+                backgroundColor: 'rgba(224,122,122,0.1)', borderWidth: 1, borderColor: 'rgba(224,122,122,0.3)',
+                opacity: pressed ? 0.7 : 1,
+              }]}
+              onPress={() => { setDeleteTarget(selectedTabletItem); setSelectedTabletItem(null); }}
+            >
+              <MaterialCommunityIcons name="trash-can-outline" size={17} color="#E07A7A" />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#E07A7A' }}>삭제</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      );
+    })() : null;
+
+    return (
+      <MasterDetailLayout
+        leftFlex={0.35}
+        hasSelection={selectedTabletItem !== null}
+        emptyIcon="notebook-edit-outline"
+        emptyMessage="기록을 선택하면 내용을 볼 수 있어요"
+        masterContent={baseContent}
+        detailContent={detailPanel}
+      />
+    );
+  }
+
+  return baseContent;
 }
 
-// ── Q&A 구조적 렌더링 ──────────────────────────────────────────────────────
+// ── Q&A 구조적 렌더링 ────────────────────────────────────────────────────────
 function QaCardBody({ note, query }: { note: string; query: string }) {
   const { scale } = useUIScale();
   const styles = useMemo(() => makeStyles(scale), [scale]);
@@ -968,6 +1060,8 @@ function MeditationCard({
   onLongPress,
   onEdit,
   onDelete,
+  onPress,
+  isSelected,
 }: {
   item: Meditation;
   query: string;
@@ -975,6 +1069,8 @@ function MeditationCard({
   onLongPress: (item: Meditation) => void;
   onEdit?: (item: Meditation) => void;
   onDelete?: (item: Meditation) => void;
+  onPress?: () => void;
+  isSelected?: boolean;
 }) {
   const { scale } = useUIScale();
   const styles = useMemo(() => makeStyles(scale), [scale]);
@@ -1000,8 +1096,9 @@ function MeditationCard({
         isMemo
           ? { backgroundColor: `rgba(${parseInt(memoActualColor.slice(1,3),16)},${parseInt(memoActualColor.slice(3,5),16)},${parseInt(memoActualColor.slice(5,7),16)},0.06)` }
           : styles.cardMeditationTint,
+        isSelected && { borderColor: theme.gold, borderWidth: 1.5 },
       ]}
-      onPress={() => router.push(`/read/${item.bookId}/${item.chapter}${item.verseStart ? `?verse=${item.verseStart}` : ''}`)}
+      onPress={onPress ?? (() => router.push(`/read/${item.bookId}/${item.chapter}${item.verseStart ? `?verse=${item.verseStart}` : ''}`))}
       onLongPress={() => onLongPress(item)}
       delayLongPress={400}
     >

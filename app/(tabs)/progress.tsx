@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useUIScale } from '../../contexts/UIScaleContext';
+import { useTabletLayout } from '../../contexts/TabletLayoutContext';
 import {
   Animated,
   Easing,
@@ -9,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import MasterDetailLayout from '../../components/MasterDetailLayout';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -37,6 +39,7 @@ const TIER_LABELS: Record<Tier, string> = {
 export default function ProgressScreen() {
   const router = useRouter();
   const { scale } = useUIScale();
+  const { isTabletLandscape } = useTabletLayout();
   const styles = useMemo(() => makeStyles(scale), [scale]);
   const { completed, loading } = useReadingProgress();
   const [isPro, setIsPro] = useState(false);
@@ -120,26 +123,201 @@ export default function ProgressScreen() {
     );
   }
 
+  const headerContent = (
+    <View style={styles.headerArea}>
+      <Text style={styles.headerTitle}>나의 여정</Text>
+      <View style={styles.headerStats}>
+        <Text style={styles.headerCount}>{totalDone}</Text>
+        <Text style={styles.headerTotal}> / 1189</Text>
+      </View>
+      <View style={styles.progressRow}>
+        <View style={styles.progressBar}>
+          <Animated.View style={[styles.progressFill, { width: progressBarWidth }]} />
+        </View>
+        <Text style={styles.progressPct}>{completionPct}%</Text>
+      </View>
+    </View>
+  );
+
+  const selectedBook = selectedBookId ? BOOKS.find(b => b.id === selectedBookId) ?? null : null;
+  const chapterDetailContent = selectedBook ? (
+    <ScrollView
+      contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.chapterDetailTitle}>{selectedBook.name}</Text>
+      <Text style={styles.chapterDetailSub}>
+        {Array.from({ length: selectedBook.chapters }, (_, i) => i + 1)
+          .filter(ch => completed.has(`${selectedBook.id}:${ch}`)).length} / {selectedBook.chapters}장 완료
+      </Text>
+      <View style={styles.chapterGrid}>
+        {Array.from({ length: selectedBook.chapters }, (_, i) => {
+          const ch = i + 1;
+          const isDone = completed.has(`${selectedBook.id}:${ch}`);
+          return (
+            <Pressable
+              key={ch}
+              style={({ pressed }) => [
+                styles.chapterBtn,
+                isDone && styles.chapterBtnDone,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => router.push(`/read/${selectedBook.id}/${ch}`)}
+              accessibilityLabel={`${ch}장 ${isDone ? '읽음' : '안읽음'}`}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.chapterNum, isDone && styles.chapterNumDone]}>{ch}</Text>
+              {isDone && <MaterialCommunityIcons name="check" size={11} color={theme.bg} />}
+            </Pressable>
+          );
+        })}
+      </View>
+    </ScrollView>
+  ) : null;
+
+  if (isTabletLandscape) {
+    const tabletMasterContent = (
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {headerContent}
+
+        {/* 66-Book Grid */}
+        <View style={styles.section}>
+          <BookGrid completed={completed} onBookPress={setSelectedBookId} />
+        </View>
+
+        {/* Badges */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>BADGES</Text>
+            <Text style={styles.sectionCount}>{earnedBadges.length} / {allBadges.length}</Text>
+          </View>
+          {earnedBadges.length === 0 ? (
+            <View style={styles.emptyBadge}>
+              <MaterialCommunityIcons name="trophy-outline" size={28} color={theme.textMuted} />
+              <Text style={styles.emptyBadgeText}>첫 챕터를 읽고 첫 뱃지를 획득하세요</Text>
+            </View>
+          ) : (
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.badgeCarousel}>
+                {recentBadges.map(badge => (
+                  <View key={badge.id} style={[styles.badgeChip, { borderColor: `${TIER_COLORS[badge.tier]}44` }]}>
+                    <View style={[styles.badgeChipIcon, { backgroundColor: `${TIER_COLORS[badge.tier]}15` }]}>
+                      <MaterialCommunityIcons name={badge.icon} size={18} color={TIER_COLORS[badge.tier]} />
+                    </View>
+                    <Text style={[styles.badgeChipTitle, { color: TIER_COLORS[badge.tier] }]} numberOfLines={1}>
+                      {badge.title}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+              <Pressable
+                style={({ pressed }) => [styles.showAllBtn, pressed && { opacity: 0.7 }]}
+                onPress={() => { Haptics.selectionAsync(); setShowAllBadges(!showAllBadges); }}
+              >
+                <Text style={styles.showAllText}>{showAllBadges ? '접기' : '전체 보기'}</Text>
+                <MaterialCommunityIcons name={showAllBadges ? 'chevron-up' : 'chevron-down'} size={16} color={theme.gold} />
+              </Pressable>
+              {showAllBadges && (
+                <View style={styles.fullBadgeGrid}>
+                  {TIER_ORDER.slice().reverse().map(tier => {
+                    const tierBadges = BADGES.filter(b => b.tier === tier);
+                    if (tierBadges.length === 0) return null;
+                    const tierEarned = tierBadges.filter(b => stats ? b.check(stats, completed, meditationCount) : false).length;
+                    return (
+                      <View key={tier} style={styles.tierSection}>
+                        <View style={styles.tierHeader}>
+                          <View style={[styles.tierDot, { backgroundColor: TIER_COLORS[tier] }]} />
+                          <Text style={[styles.tierLabel, { color: TIER_COLORS[tier] }]}>{TIER_LABELS[tier]}</Text>
+                          <View style={styles.tierDivider} />
+                          <Text style={styles.tierCount}>{tierEarned}/{tierBadges.length}</Text>
+                        </View>
+                        <View style={styles.badgeRow}>
+                          {tierBadges.map(badge => {
+                            const earned = stats ? badge.check(stats, completed, meditationCount) : false;
+                            return (
+                              <View
+                                key={badge.id}
+                                style={[
+                                  styles.badgeMiniCard,
+                                  earned
+                                    ? { borderColor: TIER_COLORS[badge.tier], backgroundColor: `${TIER_COLORS[badge.tier]}10` }
+                                    : styles.badgeMiniCardLocked,
+                                ]}
+                              >
+                                <MaterialCommunityIcons
+                                  name={earned ? badge.icon : 'lock-outline'}
+                                  size={20}
+                                  color={earned ? TIER_COLORS[badge.tier] : 'rgba(255,255,255,0.15)'}
+                                />
+                                <Text
+                                  style={[styles.badgeMiniTitle, earned ? { color: TIER_COLORS[badge.tier] } : { color: 'rgba(255,255,255,0.2)' }]}
+                                  numberOfLines={1}
+                                >
+                                  {badge.title}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+                  <View style={styles.tierSection}>
+                    <View style={styles.tierHeader}>
+                      <View style={[styles.tierDot, { backgroundColor: theme.gold }]} />
+                      <Text style={[styles.tierLabel, { color: theme.gold }]}>66권 완독</Text>
+                      <View style={styles.tierDivider} />
+                      <Text style={styles.tierCount}>
+                        {BOOK_BADGES.filter(b => stats ? b.check(stats, completed, meditationCount) : false).length}/{BOOK_BADGES.length}
+                      </Text>
+                    </View>
+                    <Text style={styles.bookBadgeHint}>위 타일 그리드에서 각 권의 진행도를 확인하세요</Text>
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+
+        {/* Heatmap */}
+        <View style={styles.section}>
+          <Pressable
+            style={styles.heatmapWrapper}
+            onPress={() => isPro ? router.push('/reading-history') : setShowPaywall(true)}
+          >
+            <StreakHeatmap isPro={isPro} onUpgrade={() => setShowPaywall(true)} />
+          </Pressable>
+        </View>
+      </ScrollView>
+    );
+
+    return (
+      <View style={styles.container}>
+        <MasterDetailLayout
+          leftFlex={0.5}
+          hasSelection={selectedBookId !== null}
+          emptyIcon="book-open-variant"
+          emptyMessage="권을 선택하면 장 목록을 볼 수 있어요"
+          masterContent={tabletMasterContent}
+          detailContent={chapterDetailContent}
+        />
+        <PaywallSheet
+          visible={showPaywall}
+          onClose={() => setShowPaywall(false)}
+          onPurchase={handlePurchase}
+          loading={paywallLoading}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header: Progress summary ── */}
-        <View style={styles.headerArea}>
-          <Text style={styles.headerTitle}>나의 여정</Text>
-          <View style={styles.headerStats}>
-            <Text style={styles.headerCount}>{totalDone}</Text>
-            <Text style={styles.headerTotal}> / 1189</Text>
-          </View>
-          <View style={styles.progressRow}>
-            <View style={styles.progressBar}>
-              <Animated.View style={[styles.progressFill, { width: progressBarWidth }]} />
-            </View>
-            <Text style={styles.progressPct}>{completionPct}%</Text>
-          </View>
-        </View>
+        {headerContent}
 
         {/* ── 66-Book Grid ── */}
         <View style={styles.section}>
@@ -311,6 +489,48 @@ function makeStyles(scale: number) {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
   scroll: { paddingBottom: 40 },
+
+  // Tablet chapter detail panel
+  chapterDetailTitle: {
+    fontSize: fs(22),
+    fontWeight: '800',
+    color: theme.text,
+    marginBottom: 4,
+  },
+  chapterDetailSub: {
+    fontSize: fs(13),
+    color: theme.textMuted,
+    marginBottom: 16,
+  },
+  chapterGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'flex-start',
+  },
+  chapterBtn: {
+    width: 52,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 1,
+  },
+  chapterBtnDone: {
+    backgroundColor: theme.gold,
+    borderColor: theme.gold,
+  },
+  chapterNum: {
+    fontSize: fs(14),
+    fontWeight: '700',
+    color: theme.textSub,
+  },
+  chapterNumDone: {
+    color: theme.bg,
+  },
 
   // Skeleton
   skeleton: {

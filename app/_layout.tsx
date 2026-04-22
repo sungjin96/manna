@@ -1,9 +1,11 @@
 import { Stack, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, ActivityIndicator, Image, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, Image, Platform, StyleSheet } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { BadgeToastProvider } from '../contexts/BadgeToastContext';
 import { UIScaleProvider } from '../contexts/UIScaleContext';
+import { TabletLayoutProvider } from '../contexts/TabletLayoutContext';
 import * as Updates from 'expo-updates';
 import { getDb } from '../db/schema';
 import { getSetting } from '../db/settings';
@@ -43,6 +45,11 @@ export default function RootLayout() {
   const pendingNavRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    // Lock orientation to portrait on non-iPad devices to prevent accidental landscape
+    const isIpad = Platform.OS === 'ios' && (Platform as { isPad?: boolean }).isPad === true;
+    if (!isIpad) {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+    }
     initialize();
 
     // 앱이 알림 탭으로 열렸을 때 (cold start) — 라우터 미준비일 수 있으므로 ref에 저장
@@ -161,6 +168,7 @@ export default function RootLayout() {
   }
 
   return (
+    <TabletLayoutProvider>
     <UIScaleProvider>
     <BadgeToastProvider>
       <Stack
@@ -187,6 +195,7 @@ export default function RootLayout() {
       </Stack>
     </BadgeToastProvider>
     </UIScaleProvider>
+    </TabletLayoutProvider>
   );
 }
 
