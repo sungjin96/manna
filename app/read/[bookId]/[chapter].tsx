@@ -847,8 +847,8 @@ export default function ReadScreen() {
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast('묵상이 저장되었습니다');
-      // Feature 2: reload meditation markers
       getMeditationsForChapter(bookId, chapter).then(setChapterMeditations);
+      checkAndShowNewBadges();
       closeMeditationSheet(() => { if (wasChapter) navigateNext(); });
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -863,6 +863,7 @@ export default function ReadScreen() {
       await saveMeditation(bookId, chapter, memoNote, meditationVerse?.start, meditationVerse?.end);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       getMeditationsForChapter(bookId, chapter).then(setChapterMeditations);
+      checkAndShowNewBadges();
       closeMeditationSheet();
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
