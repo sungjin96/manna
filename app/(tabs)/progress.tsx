@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useUIScale } from '../../contexts/UIScaleContext';
+import { useTabletLayout } from '../../contexts/TabletLayoutContext';
 import {
   Animated,
   Easing,
@@ -9,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import MasterDetailLayout from '../../components/MasterDetailLayout';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -37,6 +39,7 @@ const TIER_LABELS: Record<Tier, string> = {
 export default function ProgressScreen() {
   const router = useRouter();
   const { scale } = useUIScale();
+  const { isTabletLandscape } = useTabletLayout();
   const styles = useMemo(() => makeStyles(scale), [scale]);
   const { completed, loading } = useReadingProgress();
   const [isPro, setIsPro] = useState(false);
@@ -120,26 +123,91 @@ export default function ProgressScreen() {
     );
   }
 
+  const headerContent = (
+    <View style={styles.headerArea}>
+      <Text style={styles.headerTitle}>나의 여정</Text>
+      <View style={styles.headerStats}>
+        <Text style={styles.headerCount}>{totalDone}</Text>
+        <Text style={styles.headerTotal}> / 1189</Text>
+      </View>
+      <View style={styles.progressRow}>
+        <View style={styles.progressBar}>
+          <Animated.View style={[styles.progressFill, { width: progressBarWidth }]} />
+        </View>
+        <Text style={styles.progressPct}>{completionPct}%</Text>
+      </View>
+    </View>
+  );
+
+  const selectedBook = selectedBookId ? BOOKS.find(b => b.id === selectedBookId) ?? null : null;
+  const chapterDetailContent = selectedBook ? (
+    <ScrollView
+      contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.chapterDetailTitle}>{selectedBook.name}</Text>
+      <Text style={styles.chapterDetailSub}>
+        {Array.from({ length: selectedBook.chapters }, (_, i) => i + 1)
+          .filter(ch => completed.has(`${selectedBook.id}:${ch}`)).length} / {selectedBook.chapters}장 완료
+      </Text>
+      <View style={styles.chapterGrid}>
+        {Array.from({ length: selectedBook.chapters }, (_, i) => {
+          const ch = i + 1;
+          const isDone = completed.has(`${selectedBook.id}:${ch}`);
+          return (
+            <Pressable
+              key={ch}
+              style={({ pressed }) => [
+                styles.chapterBtn,
+                isDone && styles.chapterBtnDone,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => router.push(`/read/${selectedBook.id}/${ch}`)}
+              accessibilityLabel={`${ch}장 ${isDone ? '읽음' : '안읽음'}`}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.chapterNum, isDone && styles.chapterNumDone]}>{ch}</Text>
+              {isDone && <MaterialCommunityIcons name="check" size={11} color={theme.bg} />}
+            </Pressable>
+          );
+        })}
+      </View>
+    </ScrollView>
+  ) : null;
+
+  if (isTabletLandscape) {
+    return (
+      <View style={styles.container}>
+        {headerContent}
+        <MasterDetailLayout
+          leftFlex={0.5}
+          hasSelection={selectedBookId !== null}
+          emptyIcon="book-open-variant"
+          emptyMessage="권을 선택하면 장 목록을 볼 수 있어요"
+          masterContent={
+            <ScrollView contentContainerStyle={styles.section} showsVerticalScrollIndicator={false}>
+              <BookGrid completed={completed} onBookPress={setSelectedBookId} />
+            </ScrollView>
+          }
+          detailContent={chapterDetailContent}
+        />
+        <PaywallSheet
+          visible={showPaywall}
+          onClose={() => setShowPaywall(false)}
+          onPurchase={handlePurchase}
+          loading={paywallLoading}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header: Progress summary ── */}
-        <View style={styles.headerArea}>
-          <Text style={styles.headerTitle}>나의 여정</Text>
-          <View style={styles.headerStats}>
-            <Text style={styles.headerCount}>{totalDone}</Text>
-            <Text style={styles.headerTotal}> / 1189</Text>
-          </View>
-          <View style={styles.progressRow}>
-            <View style={styles.progressBar}>
-              <Animated.View style={[styles.progressFill, { width: progressBarWidth }]} />
-            </View>
-            <Text style={styles.progressPct}>{completionPct}%</Text>
-          </View>
-        </View>
+        {headerContent}
 
         {/* ── 66-Book Grid ── */}
         <View style={styles.section}>
@@ -311,6 +379,48 @@ function makeStyles(scale: number) {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
   scroll: { paddingBottom: 40 },
+
+  // Tablet chapter detail panel
+  chapterDetailTitle: {
+    fontSize: fs(22),
+    fontWeight: '800',
+    color: theme.text,
+    marginBottom: 4,
+  },
+  chapterDetailSub: {
+    fontSize: fs(13),
+    color: theme.textMuted,
+    marginBottom: 16,
+  },
+  chapterGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'flex-start',
+  },
+  chapterBtn: {
+    width: 52,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 1,
+  },
+  chapterBtnDone: {
+    backgroundColor: theme.gold,
+    borderColor: theme.gold,
+  },
+  chapterNum: {
+    fontSize: fs(14),
+    fontWeight: '700',
+    color: theme.textSub,
+  },
+  chapterNumDone: {
+    color: theme.bg,
+  },
 
   // Skeleton
   skeleton: {

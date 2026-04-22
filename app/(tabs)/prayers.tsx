@@ -22,6 +22,8 @@ import ViewShot from 'react-native-view-shot';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { useUIScale } from '../../contexts/UIScaleContext';
+import { useTabletLayout } from '../../contexts/TabletLayoutContext';
+import MasterDetailLayout from '../../components/MasterDetailLayout';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   saveMeditationReturningId,
@@ -58,6 +60,7 @@ function formatDate(iso: string): string {
 
 export default function PrayersScreen() {
   const { scale } = useUIScale();
+  const { isTabletLandscape } = useTabletLayout();
   const styles = useMemo(() => makeStyles(scale), [scale]);
   const insets = useSafeAreaInsets();
   const [prayers, setPrayers] = useState<Meditation[]>([]);
@@ -285,7 +288,7 @@ export default function PrayersScreen() {
   const answeredCount = prayers.filter(m => parsePrayerNote(m.note)?.is_answered).length;
   const totalCount = prayers.length;
 
-  return (
+  const baseContent = (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
@@ -847,6 +850,21 @@ export default function PrayersScreen() {
       />
     </View>
   );
+
+  if (isTabletLandscape) {
+    return (
+      <MasterDetailLayout
+        leftFlex={0.35}
+        hasSelection={false}
+        emptyIcon="hands-pray"
+        emptyMessage="기도제목을 선택하면 내용을 볼 수 있어요"
+        masterContent={baseContent}
+        detailContent={null}
+      />
+    );
+  }
+
+  return baseContent;
 }
 
 function makeStyles(scale: number) {

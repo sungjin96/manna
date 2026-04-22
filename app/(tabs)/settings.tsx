@@ -9,6 +9,7 @@ import {
   Switch,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
@@ -34,6 +35,8 @@ import MannaAlert from '../../components/MannaAlert';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
+  const isTabletWidth = windowWidth >= 768;
   const { scale: uiScale, setScale: setUiScale, fs, is } = useUIScale();
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [notifHour, setNotifHour] = useState(8);
@@ -299,7 +302,13 @@ export default function SettingsScreen() {
     : appVersion;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        isTabletWidth && { maxWidth: 680, alignSelf: 'center', width: '100%' },
+      ]}
+    >
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { fontSize: fs(24) }]}>설정</Text>
       </View>

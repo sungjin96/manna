@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useUIScale } from '../../contexts/UIScaleContext';
+import { useTabletLayout } from '../../contexts/TabletLayoutContext';
+import MasterDetailLayout from '../../components/MasterDetailLayout';
 import {
   Animated,
-  Dimensions,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -15,6 +16,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -121,6 +123,7 @@ function CalendarView({
   selectedDay: string | null;
 }) {
   const { scale } = useUIScale();
+  const { width: windowWidth } = useWindowDimensions();
   const calStyles = useMemo(() => makeCalStyles(scale), [scale]);
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -153,7 +156,7 @@ function CalendarView({
     onDaySelect(null);
   }
 
-  const CELL_SIZE = Math.floor((Dimensions.get('window').width - 32) / 7);
+  const CELL_SIZE = Math.floor((windowWidth - 32) / 7);
 
   return (
     <View style={calStyles.wrap}>
@@ -233,6 +236,7 @@ function CalendarView({
 export default function MeditationsScreen() {
   const router = useRouter();
   const { scale } = useUIScale();
+  const { isTabletLandscape } = useTabletLayout();
   const styles = useMemo(() => makeStyles(scale), [scale]);
   const [pageMode, setPageMode] = useState<PageMode>('notes');
   const [items, setItems] = useState<Meditation[]>([]);
@@ -276,6 +280,7 @@ export default function MeditationsScreen() {
   const [editIsQa, setEditIsQa] = useState(false);
   const [editIsMemo, setEditIsMemo] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Meditation | null>(null);
+  const [selectedTabletItem, setSelectedTabletItem] = useState<Meditation | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (q = '') => {
@@ -439,7 +444,7 @@ export default function MeditationsScreen() {
     );
   }
 
-  return (
+  const baseContent = (
     <View style={styles.container}>
       {/* 헤더 */}
       <View style={styles.header}>
@@ -726,6 +731,8 @@ export default function MeditationsScreen() {
                   onLongPress={setLongPressTarget}
                   onEdit={openEdit}
                   onDelete={setDeleteTarget}
+                  onPress={isTabletLandscape ? () => setSelectedTabletItem(item) : undefined}
+                  isSelected={isTabletLandscape && selectedTabletItem?.id === item.id}
                 />
               )}
             />
@@ -917,9 +924,46 @@ export default function MeditationsScreen() {
       />
     </View>
   );
+
+  if (isTabletLandscape) {
+    const detailPanel = selectedTabletItem ? (
+      <ScrollView contentContainerStyle={{ padding: 24 }} showsVerticalScrollIndicator={false}>
+        <Text style={{ fontSize: 13, color: theme.textMuted, marginBottom: 4 }}>
+          {(() => {
+            const b = BOOKS.find(bk => bk.id === selectedTabletItem.bookId);
+            const ref = `${b?.name ?? ''} ${selectedTabletItem.chapter}${selectedTabletItem.verseStart ? `:${selectedTabletItem.verseStart}` : ''}`;
+            return ref;
+          })()}
+        </Text>
+        <Text style={{ fontSize: 16, color: theme.text, lineHeight: 26 }}>
+          {(() => {
+            try {
+              const p = JSON.parse(selectedTabletItem.note);
+              if (p.type === 'memo') return p.text ?? '';
+              if (p.type === 'qa') return p.entries?.map((e: { q: string; a: string }) => `Q: ${e.q}\nA: ${e.a}`).join('\n\n') ?? '';
+            } catch {}
+            return selectedTabletItem.note;
+          })()}
+        </Text>
+      </ScrollView>
+    ) : null;
+
+    return (
+      <MasterDetailLayout
+        leftFlex={0.35}
+        hasSelection={selectedTabletItem !== null}
+        emptyIcon="notebook-edit-outline"
+        emptyMessage="기록을 선택하면 내용을 볼 수 있어요"
+        masterContent={baseContent}
+        detailContent={detailPanel}
+      />
+    );
+  }
+
+  return baseContent;
 }
 
-// ── Q&A 구조적 렌더링 ──────────────────────────────────────────────────────
+// ── Q&A 구조적 렌더링 ────────────────────────────────────────────────────────
 function QaCardBody({ note, query }: { note: string; query: string }) {
   const { scale } = useUIScale();
   const styles = useMemo(() => makeStyles(scale), [scale]);
@@ -968,6 +1012,8 @@ function MeditationCard({
   onLongPress,
   onEdit,
   onDelete,
+  onPress,
+  isSelected,
 }: {
   item: Meditation;
   query: string;
@@ -975,6 +1021,8 @@ function MeditationCard({
   onLongPress: (item: Meditation) => void;
   onEdit?: (item: Meditation) => void;
   onDelete?: (item: Meditation) => void;
+  onPress?: () => void;
+  isSelected?: boolean;
 }) {
   const { scale } = useUIScale();
   const styles = useMemo(() => makeStyles(scale), [scale]);
@@ -1000,8 +1048,9 @@ function MeditationCard({
         isMemo
           ? { backgroundColor: `rgba(${parseInt(memoActualColor.slice(1,3),16)},${parseInt(memoActualColor.slice(3,5),16)},${parseInt(memoActualColor.slice(5,7),16)},0.06)` }
           : styles.cardMeditationTint,
+        isSelected && { borderColor: theme.gold, borderWidth: 1.5 },
       ]}
-      onPress={() => router.push(`/read/${item.bookId}/${item.chapter}${item.verseStart ? `?verse=${item.verseStart}` : ''}`)}
+      onPress={onPress ?? (() => router.push(`/read/${item.bookId}/${item.chapter}${item.verseStart ? `?verse=${item.verseStart}` : ''}`))}
       onLongPress={() => onLongPress(item)}
       delayLongPress={400}
     >

@@ -1,9 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const { height: SCREEN_H } = Dimensions.get('window');
 
 // Fixed pixel layout constants (matches chapter.styles.ts)
 const HEADER_H = 44;
@@ -22,7 +20,7 @@ interface StepDef {
   body: string;
   tooltipBelow: boolean;
   /** px from top of screen to spotlight top (computed dynamically) */
-  spotYFn: (insetsTop: number, insetsBottom: number) => number;
+  spotYFn: (insetsTop: number, insetsBottom: number, screenH: number) => number;
   spotH: number;
 }
 
@@ -42,8 +40,8 @@ const STEPS: StepDef[] = [
     body: '"읽기 완료" 버튼을 탭하면 챕터를 완료해요.\n묵상을 기록하거나 다음 챕터로 이동합니다.',
     tooltipBelow: false,
     // After scrollToEnd, button is above paddingBottom(100) + bottomNav
-    spotYFn: (_, bottom) =>
-      SCREEN_H - bottom - BOTTOM_NAV_CONTENT_H - COMPLETE_BTN_PADDING_BOTTOM - COMPLETE_BTN_H,
+    spotYFn: (_, bottom, screenH) =>
+      screenH - bottom - BOTTOM_NAV_CONTENT_H - COMPLETE_BTN_PADDING_BOTTOM - COMPLETE_BTN_H,
     spotH: COMPLETE_BTN_H,
   },
   {
@@ -51,7 +49,7 @@ const STEPS: StepDef[] = [
     title: '이전 / 다음 챕터',
     body: '화면 하단 좌우 버튼으로\n이전/다음 챕터를 이동해요.',
     tooltipBelow: false,
-    spotYFn: (_, bottom) => SCREEN_H - bottom - BOTTOM_NAV_CONTENT_H,
+    spotYFn: (_, bottom, screenH) => screenH - bottom - BOTTOM_NAV_CONTENT_H,
     spotH: BOTTOM_NAV_CONTENT_H,
   },
   {
@@ -85,6 +83,7 @@ interface Props {
 
 export function ReadingTutorial({ step, overlayOpacity, onNext, onDismiss, onScrollToEnd, measuredSpots }: Props) {
   const insets = useSafeAreaInsets();
+  const { height: SCREEN_H } = useWindowDimensions();
   const prevStepRef = useRef(step);
 
   // When step advances to 1 (읽기 완료), trigger scroll to bottom
@@ -97,7 +96,7 @@ export function ReadingTutorial({ step, overlayOpacity, onNext, onDismiss, onScr
 
   const s = STEPS[step];
   const measured = measuredSpots?.[step];
-  const spotY = measured ? measured.y : s.spotYFn(insets.top, insets.bottom);
+  const spotY = measured ? measured.y : s.spotYFn(insets.top, insets.bottom, SCREEN_H);
   const spotH = measured ? measured.h : s.spotH;
 
   // Tooltip vertical position

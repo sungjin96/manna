@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getStats, UserStats } from '../../db/stats';
@@ -209,9 +209,6 @@ export const BOOK_BADGES: Badge[] = BOOKS.map(book => ({
 
 // ── Layout ─────────────────────────────────────────────────────────────────
 
-const CARD_W = Math.floor((Dimensions.get('window').width - 32 - 16) / 3);
-// 32 = contentContainerPadding (16×2), 16 = 2 gaps of 8 between 3 cards
-
 const TIERS: Tier[] = ['bronze', 'silver', 'gold', 'diamond'];
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
@@ -233,6 +230,9 @@ function BadgeCard({
   shimmerX: Animated.AnimatedInterpolation<number>;
   pulseAnim: Animated.Value;
 }) {
+  const { width: windowWidth } = useWindowDimensions();
+  // 32 = contentContainerPadding (16×2), 16 = 2 gaps of 8 between 3 cards
+  const cardW = Math.floor((windowWidth - 32 - 16) / 3);
   const tc = TIER_CONFIG[badge.tier];
 
   // Diamond badges get a pulsing outer glow
@@ -243,6 +243,7 @@ function BadgeCard({
   return (
     <View style={[
       cardStyles.wrap,
+      { width: cardW },
       earned ? { borderColor: tc.color, backgroundColor: tc.bg } : cardStyles.wrapLocked,
     ]}>
       {/* Shimmer sweep for earned badges */}
@@ -300,6 +301,8 @@ function BadgeCard({
 // ── Main screen ────────────────────────────────────────────────────────────
 
 export default function AchievementsScreen() {
+  const { width: windowWidth } = useWindowDimensions();
+  const cardW = Math.floor((windowWidth - 32 - 16) / 3);
   const [stats, setStats] = useState<UserStats>({
     currentStreak: 0, longestStreak: 0, totalChapters: 0, lastReadDate: null,
   });
@@ -404,7 +407,7 @@ export default function AchievementsScreen() {
                     />
                   ))}
                   {row.length < 3 && Array.from({ length: 3 - row.length }).map((_, i) => (
-                    <View key={`ph-${i}`} style={cardStyles.phantom} />
+                    <View key={`ph-${i}`} style={[cardStyles.phantom, { width: cardW }]} />
                   ))}
                 </View>
               ))}
@@ -474,7 +477,6 @@ export default function AchievementsScreen() {
 
 const cardStyles = StyleSheet.create({
   wrap: {
-    width: CARD_W,
     borderRadius: 16,
     borderWidth: 1.5,
     padding: 12,
@@ -553,9 +555,7 @@ const cardStyles = StyleSheet.create({
   pillTextLocked: {
     color: 'rgba(255,255,255,0.15)',
   },
-  phantom: {
-    width: CARD_W,
-  },
+  phantom: {},
 });
 
 // ── Screen styles ──────────────────────────────────────────────────────────

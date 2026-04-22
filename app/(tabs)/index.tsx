@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
-  Dimensions,
   Easing,
   PanResponder,
   Pressable,
@@ -9,6 +8,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
@@ -31,7 +31,6 @@ import BadgeSelectSheet, { getSelectedBadgeId } from '../../components/BadgeSele
 import { useUIScale } from '../../contexts/UIScaleContext';
 
 const XP_PER_LEVEL = 1200;
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -149,6 +148,7 @@ function fmt(d: Date): string {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
   const { scale, fs, is } = useUIScale();
   const styles = useMemo(() => makeStyles(scale), [scale]);
   const { stats, loading, refresh } = useStreak();

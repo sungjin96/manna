@@ -115,7 +115,8 @@ export default function ReadScreen() {
 
   const { verses, loading, error } = useBibleText(bookId, chapter);
   const { settings, update: updateSettings, colors } = useReaderSettings();
-  const { height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const isTabletWidth = windowWidth >= 768;
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [highlightVerse, setHighlightVerse] = useState<number | null>(null);
@@ -1078,6 +1079,7 @@ export default function ReadScreen() {
               styles.list,
               { paddingHorizontal: MARGIN_MAP[settings.horizontalMargin] },
               settings.focusMode && isProUser && { paddingBottom: windowHeight * 0.8 },
+              isTabletWidth && { maxWidth: 600, alignSelf: 'center', width: '100%' },
             ]}
             onScroll={handleScroll}
             scrollEventThrottle={16}

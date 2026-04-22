@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import {
   Animated,
-  Dimensions,
   Modal,
   PanResponder,
   Pressable,
@@ -9,14 +8,13 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BOOKS } from '../constants/books';
 import { theme } from '../constants/theme';
-
-const SCREEN_H = Dimensions.get('window').height;
 
 interface Props {
   bookId: number | null;
@@ -26,6 +24,7 @@ interface Props {
 
 export default function ChapterSheet({ bookId, completed, onClose }: Props) {
   const router = useRouter();
+  const { height: SCREEN_H } = useWindowDimensions();
   const book = bookId ? BOOKS.find(b => b.id === bookId) : null;
   const sheetY = useRef(new Animated.Value(SCREEN_H)).current;
 

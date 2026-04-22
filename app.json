@@ -11,7 +11,7 @@
       "url": "https://u.expo.dev/99aa66ee-0480-4657-b6d1-3fb03ea33008",
       "channel": "production"
     },
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -21,7 +21,7 @@
       "backgroundColor": "#0B0A12"
     },
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.jsj.manna",
       "infoPlist": {
         "UIBackgroundModes": [
