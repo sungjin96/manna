@@ -176,19 +176,129 @@ export default function ProgressScreen() {
   ) : null;
 
   if (isTabletLandscape) {
+    const tabletMasterContent = (
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {headerContent}
+
+        {/* 66-Book Grid */}
+        <View style={styles.section}>
+          <BookGrid completed={completed} onBookPress={setSelectedBookId} />
+        </View>
+
+        {/* Badges */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>BADGES</Text>
+            <Text style={styles.sectionCount}>{earnedBadges.length} / {allBadges.length}</Text>
+          </View>
+          {earnedBadges.length === 0 ? (
+            <View style={styles.emptyBadge}>
+              <MaterialCommunityIcons name="trophy-outline" size={28} color={theme.textMuted} />
+              <Text style={styles.emptyBadgeText}>첫 챕터를 읽고 첫 뱃지를 획득하세요</Text>
+            </View>
+          ) : (
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.badgeCarousel}>
+                {recentBadges.map(badge => (
+                  <View key={badge.id} style={[styles.badgeChip, { borderColor: `${TIER_COLORS[badge.tier]}44` }]}>
+                    <View style={[styles.badgeChipIcon, { backgroundColor: `${TIER_COLORS[badge.tier]}15` }]}>
+                      <MaterialCommunityIcons name={badge.icon} size={18} color={TIER_COLORS[badge.tier]} />
+                    </View>
+                    <Text style={[styles.badgeChipTitle, { color: TIER_COLORS[badge.tier] }]} numberOfLines={1}>
+                      {badge.title}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+              <Pressable
+                style={({ pressed }) => [styles.showAllBtn, pressed && { opacity: 0.7 }]}
+                onPress={() => { Haptics.selectionAsync(); setShowAllBadges(!showAllBadges); }}
+              >
+                <Text style={styles.showAllText}>{showAllBadges ? '접기' : '전체 보기'}</Text>
+                <MaterialCommunityIcons name={showAllBadges ? 'chevron-up' : 'chevron-down'} size={16} color={theme.gold} />
+              </Pressable>
+              {showAllBadges && (
+                <View style={styles.fullBadgeGrid}>
+                  {TIER_ORDER.slice().reverse().map(tier => {
+                    const tierBadges = BADGES.filter(b => b.tier === tier);
+                    if (tierBadges.length === 0) return null;
+                    const tierEarned = tierBadges.filter(b => stats ? b.check(stats, completed, meditationCount) : false).length;
+                    return (
+                      <View key={tier} style={styles.tierSection}>
+                        <View style={styles.tierHeader}>
+                          <View style={[styles.tierDot, { backgroundColor: TIER_COLORS[tier] }]} />
+                          <Text style={[styles.tierLabel, { color: TIER_COLORS[tier] }]}>{TIER_LABELS[tier]}</Text>
+                          <View style={styles.tierDivider} />
+                          <Text style={styles.tierCount}>{tierEarned}/{tierBadges.length}</Text>
+                        </View>
+                        <View style={styles.badgeRow}>
+                          {tierBadges.map(badge => {
+                            const earned = stats ? badge.check(stats, completed, meditationCount) : false;
+                            return (
+                              <View
+                                key={badge.id}
+                                style={[
+                                  styles.badgeMiniCard,
+                                  earned
+                                    ? { borderColor: TIER_COLORS[badge.tier], backgroundColor: `${TIER_COLORS[badge.tier]}10` }
+                                    : styles.badgeMiniCardLocked,
+                                ]}
+                              >
+                                <MaterialCommunityIcons
+                                  name={earned ? badge.icon : 'lock-outline'}
+                                  size={20}
+                                  color={earned ? TIER_COLORS[badge.tier] : 'rgba(255,255,255,0.15)'}
+                                />
+                                <Text
+                                  style={[styles.badgeMiniTitle, earned ? { color: TIER_COLORS[badge.tier] } : { color: 'rgba(255,255,255,0.2)' }]}
+                                  numberOfLines={1}
+                                >
+                                  {badge.title}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+                  <View style={styles.tierSection}>
+                    <View style={styles.tierHeader}>
+                      <View style={[styles.tierDot, { backgroundColor: theme.gold }]} />
+                      <Text style={[styles.tierLabel, { color: theme.gold }]}>66권 완독</Text>
+                      <View style={styles.tierDivider} />
+                      <Text style={styles.tierCount}>
+                        {BOOK_BADGES.filter(b => stats ? b.check(stats, completed, meditationCount) : false).length}/{BOOK_BADGES.length}
+                      </Text>
+                    </View>
+                    <Text style={styles.bookBadgeHint}>위 타일 그리드에서 각 권의 진행도를 확인하세요</Text>
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+
+        {/* Heatmap */}
+        <View style={styles.section}>
+          <Pressable
+            style={styles.heatmapWrapper}
+            onPress={() => isPro ? router.push('/reading-history') : setShowPaywall(true)}
+          >
+            <StreakHeatmap isPro={isPro} onUpgrade={() => setShowPaywall(true)} />
+          </Pressable>
+        </View>
+      </ScrollView>
+    );
+
     return (
       <View style={styles.container}>
-        {headerContent}
         <MasterDetailLayout
           leftFlex={0.5}
           hasSelection={selectedBookId !== null}
           emptyIcon="book-open-variant"
           emptyMessage="권을 선택하면 장 목록을 볼 수 있어요"
-          masterContent={
-            <ScrollView contentContainerStyle={styles.section} showsVerticalScrollIndicator={false}>
-              <BookGrid completed={completed} onBookPress={setSelectedBookId} />
-            </ScrollView>
-          }
+          masterContent={tabletMasterContent}
           detailContent={chapterDetailContent}
         />
         <PaywallSheet

@@ -60,6 +60,14 @@ const STEPS: StepDef[] = [
     spotYFn: (top) => top + HEADER_H + PROGRESS_H + LIST_PADDING_TOP + 56,
     spotH: 52,
   },
+  {
+    icon: 'circle-small',
+    title: '기록 확인하기',
+    body: '묵상이나 메모를 남기면 절 번호 아래에\n작은 점이 표시돼요. 점을 탭하면\n기록한 내용을 바로 확인할 수 있습니다.',
+    tooltipBelow: true,
+    spotYFn: (top) => top + HEADER_H + PROGRESS_H + LIST_PADDING_TOP,
+    spotH: 52,
+  },
 ];
 
 const PAD = 10;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Modal,
   PanResponder,
   Pressable,
   ScrollView,
@@ -772,8 +773,8 @@ export default function HomeScreen() {
         meditationCount={meditationCount}
       />
 
-      {/* ── Onboarding Overlay (fullscreen) ── */}
-      {showOnboarding && (
+      {/* ── Onboarding Overlay (fullscreen Modal — covers sidebar on tablet) ── */}
+      <Modal visible={showOnboarding} animationType="fade" statusBarTranslucent>
         <View style={styles.onboardingOverlay}>
           <Animated.View
             style={[styles.onboardingContent, { transform: [{ translateX: onboardingSlide }] }]}
@@ -916,7 +917,7 @@ export default function HomeScreen() {
             )}
           </Animated.View>
         </View>
-      )}
+      </Modal>
     </View>
   );
 }

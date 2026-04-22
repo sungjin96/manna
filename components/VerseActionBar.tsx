@@ -89,7 +89,7 @@ function IconBtn({ icon, color, onPress }: { icon: string; color: string; onPres
       onPress={onPress}
       hitSlop={4}
     >
-      <MaterialCommunityIcons name={icon as any} size={20} color={color} />
+      <MaterialCommunityIcons name={icon as any} size={22} color={color} />
     </Pressable>
   );
 }
@@ -118,10 +118,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(212,168,71,0.18)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.45,
     shadowRadius: 20,
-    elevation: 16,
-    paddingVertical: 6,
+    elevation: 14,
+    paddingVertical: 2,
     paddingHorizontal: 4,
   },
   primaryBtn: {
@@ -149,6 +149,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 12,
   },
 });

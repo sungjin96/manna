@@ -926,27 +926,75 @@ export default function MeditationsScreen() {
   );
 
   if (isTabletLandscape) {
-    const detailPanel = selectedTabletItem ? (
-      <ScrollView contentContainerStyle={{ padding: 24 }} showsVerticalScrollIndicator={false}>
-        <Text style={{ fontSize: 13, color: theme.textMuted, marginBottom: 4 }}>
-          {(() => {
-            const b = BOOKS.find(bk => bk.id === selectedTabletItem.bookId);
-            const ref = `${b?.name ?? ''} ${selectedTabletItem.chapter}${selectedTabletItem.verseStart ? `:${selectedTabletItem.verseStart}` : ''}`;
-            return ref;
-          })()}
-        </Text>
-        <Text style={{ fontSize: 16, color: theme.text, lineHeight: 26 }}>
-          {(() => {
-            try {
-              const p = JSON.parse(selectedTabletItem.note);
-              if (p.type === 'memo') return p.text ?? '';
-              if (p.type === 'qa') return p.entries?.map((e: { q: string; a: string }) => `Q: ${e.q}\nA: ${e.a}`).join('\n\n') ?? '';
-            } catch {}
-            return selectedTabletItem.note;
-          })()}
-        </Text>
-      </ScrollView>
-    ) : null;
+    const detailPanel = selectedTabletItem ? (() => {
+      const b = BOOKS.find(bk => bk.id === selectedTabletItem.bookId);
+      const ref = `${b?.name ?? ''} ${selectedTabletItem.chapter}${selectedTabletItem.verseStart ? `:${selectedTabletItem.verseStart}` : ''}`;
+      const noteType = getNoteType(selectedTabletItem.note);
+      const typeLabel = noteType === 'memo' ? '빠른 메모' : noteType === 'qa' ? '묵상' : noteType === 'prayer' ? '기도' : '메모';
+      const typeIcon = noteType === 'memo' ? 'lightning-bolt' : noteType === 'qa' ? 'brain' : 'hands-pray';
+
+      return (
+        <ScrollView contentContainerStyle={{ padding: 28, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+          {/* 헤더: 참조 + 타입 뱃지 */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <View>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: theme.text, marginBottom: 4 }}>{ref}</Text>
+              <Text style={{ fontSize: 12, color: theme.textMuted }}>{formatDate(selectedTabletItem.createdAt)}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: `${theme.gold}18`, borderRadius: 20, borderWidth: 1, borderColor: `${theme.gold}40` }}>
+              <MaterialCommunityIcons name={typeIcon as any} size={14} color={theme.gold} />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.gold }}>{typeLabel}</Text>
+            </View>
+          </View>
+
+          {/* 구분선 */}
+          <View style={{ height: 1, backgroundColor: theme.border, marginBottom: 24 }} />
+
+          {/* 내용 */}
+          {noteType === 'qa' ? (
+            <QaCardBody note={selectedTabletItem.note} query="" />
+          ) : (
+            <Text style={{ fontSize: 16, color: theme.text, lineHeight: 28 }}>
+              {(() => {
+                try {
+                  const p = JSON.parse(selectedTabletItem.note);
+                  return p.text ?? selectedTabletItem.note;
+                } catch {}
+                return selectedTabletItem.note;
+              })()}
+            </Text>
+          )}
+
+          {/* 액션 버튼 */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 32 }}>
+            <Pressable
+              style={({ pressed }) => [{
+                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                gap: 6, paddingVertical: 13, borderRadius: 12,
+                backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+                opacity: pressed ? 0.7 : 1,
+              }]}
+              onPress={() => openEdit(selectedTabletItem)}
+            >
+              <MaterialCommunityIcons name="pencil-outline" size={17} color={theme.text} />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text }}>수정</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [{
+                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                gap: 6, paddingVertical: 13, borderRadius: 12,
+                backgroundColor: 'rgba(224,122,122,0.1)', borderWidth: 1, borderColor: 'rgba(224,122,122,0.3)',
+                opacity: pressed ? 0.7 : 1,
+              }]}
+              onPress={() => { setDeleteTarget(selectedTabletItem); setSelectedTabletItem(null); }}
+            >
+              <MaterialCommunityIcons name="trash-can-outline" size={17} color="#E07A7A" />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#E07A7A' }}>삭제</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      );
+    })() : null;
 
     return (
       <MasterDetailLayout

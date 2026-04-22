@@ -1228,7 +1228,7 @@ export default function ReadScreen() {
             <Pressable style={StyleSheet.absoluteFillObject} onPress={() => closeMeditationSheet()} />
             <Animated.View style={[
               styles.modal,
-              { maxHeight: '88%' },
+              { maxHeight: isTabletWidth ? '92%' : '88%' },
               { backgroundColor: colors.surface, borderTopColor: colors.border },
               { transform: [{ translateY: meditationSheetY }] },
             ]}>
@@ -1474,7 +1474,7 @@ export default function ReadScreen() {
             <Animated.View style={[
               aiStyles.sheet,
               { backgroundColor: colors.surface, borderTopColor: colors.border },
-              { maxHeight: aiSheetExpanded ? '90%' : '62%' },
+              { maxHeight: aiSheetExpanded ? '90%' : (isTabletWidth ? '75%' : '62%') },
               { transform: [{ translateY: aiSheetPanY }] },
             ]}>
               <View {...aiSheetPR.panHandlers} style={aiStyles.handle}>
