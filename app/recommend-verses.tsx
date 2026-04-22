@@ -29,7 +29,7 @@ const THEME_PRESETS = [
   { label: '슬픔', icon: 'water-outline' },
   { label: '소망', icon: 'weather-sunset' },
   { label: '믿음', icon: 'cross-outline' },
-  { label: '평안', icon: 'leaf-maple-outline' },
+  { label: '평안', icon: 'leaf-maple' },
   { label: '관계', icon: 'account-group-outline' },
   { label: '재정', icon: 'cash-remove' },
   { label: '건강', icon: 'heart-pulse' },
@@ -127,10 +127,14 @@ export default function RecommendVersesScreen() {
       return;
     }
 
-    const result = await generateRecommendation(queryTheme, userId);
+    const result = await generateRecommendation(
+      queryTheme, userId,
+      (partial) => setResults(partial),
+    );
     setLoading(false);
 
     if (result.error || !result.data) {
+      setResults(null);
       setError('추천 구절을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
     } else {
       setResults(result.data);
@@ -243,8 +247,8 @@ export default function RecommendVersesScreen() {
           </Pressable>
         )}
 
-        {/* 로딩 */}
-        {loading && (
+        {/* 로딩 (결과 없을 때만) */}
+        {loading && !results && (
           <View style={styles.loadingWrap}>
             <ActivityIndicator color={theme.gold} size="large" />
             <Text style={[styles.loadingText, { color: theme.textMuted }]}>말씀을 찾고 있습니다...</Text>
@@ -280,6 +284,9 @@ export default function RecommendVersesScreen() {
                 <Text style={[styles.verseReason, { color: theme.textSub }]}>{v.reason}</Text>
               </Pressable>
             ))}
+            {loading && (
+              <ActivityIndicator color={theme.gold} size="small" style={{ marginTop: 8 }} />
+            )}
           </View>
         )}
       </ScrollView>

@@ -181,7 +181,7 @@ export default function ReadScreen() {
   const [aiVerseRef, setAiVerseRef] = useState('');
   const [aiTab, setAiTab] = useState<'meditate' | 'explain' | 'prayer'>('meditate');
   const [aiSelectedVerses, setAiSelectedVerses] = useState<Array<{ verse: number; text: string }>>([]);
-  const [aiExplanation, setAiExplanation] = useState<ExplanationResult | null>(null);
+  const [aiExplanation, setAiExplanation] = useState<Partial<ExplanationResult> | null>(null);
   const [aiExplainLoading, setAiExplainLoading] = useState(false);
   const [aiExplainError, setAiExplainError] = useState<string | null>(null);
   const [aiPrayer, setAiPrayer] = useState<string | null>(null);
@@ -272,6 +272,19 @@ export default function ReadScreen() {
   } = useMeditationSheet(navigateNext);
 
   const [memoSaveError, setMemoSaveError] = useState<string | null>(null);
+  const [memoColor, setMemoColor] = useState('#7AA3D4');
+
+  const MEMO_COLORS = [
+    { key: 'yellow', hex: '#FFD600', bg: 'rgba(255,214,0,0.20)' },
+    { key: 'cream',  hex: '#FFE4A0', bg: 'rgba(255,228,160,0.30)' },
+    { key: 'blue',   hex: '#7AA3D4', bg: 'rgba(122,163,212,0.20)' },
+    { key: 'pink',   hex: '#FF96AA', bg: 'rgba(255,150,170,0.22)' },
+  ] as const;
+
+  // 시트가 닫힐 때 메모 색상 초기화
+  useEffect(() => {
+    if (!showMeditation) setMemoColor('#7AA3D4');
+  }, [showMeditation]);
 
   const {
     showSettings,
@@ -577,20 +590,25 @@ export default function ReadScreen() {
 
       setAiMeditateError(null);
       setAiLoading(true);
-      const result = await generateMeditationPrompts(aiSelectedVerses, aiVerseRef, appUserId);
+      setAiPrompts(null);
+      const result = await generateMeditationPrompts(
+        aiSelectedVerses, aiVerseRef, appUserId,
+        (partial) => setAiPrompts(partial),
+      );
+      setAiLoading(false);
       if (result.data) {
         setAiPrompts(result.data.prompts);
         await setAICache(bookId, chapter, result.data.prompts, start, end);
         const newCount = await incrementDailyRefresh();
         setAiDailyRefreshCount(newCount);
       } else {
+        setAiPrompts(null);
         if (result.error === 'no_subscription') {
           setShowPaywall(true);
         } else {
           setAiMeditateError(result.error ?? 'api_error');
         }
       }
-      setAiLoading(false);
     }
 
     if (tab === 'explain' && !aiExplanation && !aiExplainLoading) {
@@ -609,7 +627,15 @@ export default function ReadScreen() {
 
       setAiExplainError(null);
       setAiExplainLoading(true);
-      const result = await generateExplanation(aiSelectedVerses, aiVerseRef, appUserId);
+      setAiExplanation(null);
+      const result = await generateExplanation(
+        aiSelectedVerses, aiVerseRef, appUserId,
+        (partial) => {
+          if (partial.background || partial.originalWord || partial.theology) {
+            setAiExplanation(partial as ExplanationResult);
+          }
+        },
+      );
       setAiExplainLoading(false);
       if (result.data) {
         setAiExplanation(result.data);
@@ -617,6 +643,7 @@ export default function ReadScreen() {
         const newCount = await incrementDailyRefresh();
         setAiDailyRefreshCount(newCount);
       } else {
+        setAiExplanation(null);
         if (result.error === 'no_subscription') {
           setShowPaywall(true);
         } else {
@@ -639,7 +666,11 @@ export default function ReadScreen() {
 
       setAiPrayerError(null);
       setAiPrayerLoading(true);
-      const result = await generatePrayer(aiSelectedVerses, aiVerseRef, appUserId);
+      setAiPrayer(null);
+      const result = await generatePrayer(
+        aiSelectedVerses, aiVerseRef, appUserId,
+        (partial) => setAiPrayer(partial),
+      );
       setAiPrayerLoading(false);
       if (result.data) {
         setAiPrayer(result.data);
@@ -647,6 +678,7 @@ export default function ReadScreen() {
         const newCount = await incrementDailyRefresh();
         setAiDailyRefreshCount(newCount);
       } else {
+        setAiPrayer(null);
         if (result.error === 'no_subscription') {
           setShowPaywall(true);
         } else {
@@ -826,7 +858,7 @@ export default function ReadScreen() {
   async function handleSaveMemo() {
     if (!memoText.trim()) return;
     try {
-      const memoNote = JSON.stringify({ type: 'memo', text: memoText.trim() });
+      const memoNote = JSON.stringify({ type: 'memo', text: memoText.trim(), color: memoColor });
       await saveMeditation(bookId, chapter, memoNote, meditationVerse?.start, meditationVerse?.end);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       getMeditationsForChapter(bookId, chapter).then(setChapterMeditations);
@@ -879,21 +911,38 @@ export default function ReadScreen() {
     const isTTSActive = isTTS && ttsVerse === item.verse;
     const verseMeditations = showMeditationMarkers ? getVerseMeditations(item.verse) : [];
     const hasMeditationDot = verseMeditations.some(m => { try { return JSON.parse(m.note)?.type !== 'memo'; } catch { return true; } });
-    const hasMemoDot = verseMeditations.some(m => { try { return JSON.parse(m.note)?.type === 'memo'; } catch { return false; } });
+    const memoHex = (() => {
+      for (const m of verseMeditations) {
+        try {
+          const parsed = JSON.parse(m.note);
+          if (parsed?.type === 'memo') return (parsed.color as string) ?? '#7AA3D4';
+        } catch {}
+      }
+      return null;
+    })();
+    const memoHighlightColor = memoHex
+      ? (() => {
+          const r = parseInt(memoHex.slice(1, 3), 16);
+          const g = parseInt(memoHex.slice(3, 5), 16);
+          const b = parseInt(memoHex.slice(5, 7), 16);
+          return `rgba(${r},${g},${b},0.20)`;
+        })()
+      : null;
     const hasMeditation = verseMeditations.length > 0;
     const isHighlighted = highlightVerse === item.verse;
     const isFocused = settings.focusMode && isProUser
       ? centerVerseIndex === index
       : true;
 
+    const isBookmarked = bookmarkedVerses.has(item.verse);
+    const hasColumnIndicator = isBookmarked || hasMeditationDot || memoHex != null;
+
     return (
-      <Pressable
-        onPress={() => handleVerseTap(item.verse)}
-        onLongPress={() => handleVerseLongPress(item.verse)}
-        delayLongPress={400}
+      <View
         style={[
           styles.verseRow,
           { borderWidth: 1.5, borderColor: 'transparent', borderRadius: 8 },
+          memoHighlightColor != null && { backgroundColor: memoHighlightColor },
           inSelection && { backgroundColor: `${colors.gold}20` },
           isTTSActive && { backgroundColor: `${colors.gold}30`, borderColor: `${colors.gold}60` },
           isHighlighted && {
@@ -908,35 +957,56 @@ export default function ReadScreen() {
         ]}
       >
         {!settings.hideVerseNumbers && (
-          <View style={{ alignItems: 'center' }}>
-            <Text style={[styles.verseNum, { color: colors.gold, fontFamily }, isRead && { opacity: 0.35 }]}>
+          <Pressable
+            hitSlop={{ left: 4, right: 8, top: 6, bottom: 6 }}
+            onPress={() => {
+              if (hasColumnIndicator) {
+                setMeditationPopupVerse(item.verse);
+                setMeditationPopupItems(verseMeditations);
+              }
+            }}
+            style={{ alignItems: 'center', width: 22 }}
+          >
+            {isBookmarked && (
+              <MaterialCommunityIcons name="bookmark" size={11} color={colors.gold} />
+            )}
+            <Text style={[
+              styles.verseNum,
+              { color: colors.gold, fontFamily, paddingTop: isBookmarked ? 1 : 4 },
+              isRead && { opacity: 0.35 },
+            ]}>
               {item.verse}
             </Text>
-            {hasMeditation && (
-              <Pressable
-                hitSlop={8}
-                onPress={() => {
-                  setMeditationPopupVerse(item.verse);
-                  setMeditationPopupItems(verseMeditations);
-                }}
-                style={{ flexDirection: 'row', gap: 3, marginTop: 2 }}
-              >
+            {(hasMeditationDot || memoHex != null) && (
+              <View style={{ flexDirection: 'row', gap: 2, marginTop: 2, alignItems: 'center' }}>
                 {hasMeditationDot && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.gold }} />}
-                {hasMemoDot && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#7AA3D4' }} />}
-              </Pressable>
+                {memoHex != null && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: memoHex }} />}
+                {verseMeditations.length > 1 && (
+                  <Text style={{ fontSize: 8, color: colors.gold, lineHeight: 10, marginLeft: 1 }}>
+                    {verseMeditations.length}
+                  </Text>
+                )}
+              </View>
             )}
-          </View>
+          </Pressable>
         )}
-        <Text style={[
-          styles.verseText,
-          { color: colors.text, fontSize: settings.fontSize, lineHeight: settings.fontSize * settings.lineHeight, fontFamily, letterSpacing: settings.letterSpacing },
-          isRead && { opacity: 0.45 },
-        ]}>
-          {item.text}
-        </Text>
-      </Pressable>
+        <Pressable
+          onPress={() => handleVerseTap(item.verse)}
+          onLongPress={() => handleVerseLongPress(item.verse)}
+          delayLongPress={400}
+          style={{ flex: 1 }}
+        >
+          <Text style={[
+            styles.verseText,
+            { color: colors.text, fontSize: settings.fontSize, lineHeight: settings.fontSize * settings.lineHeight, fontFamily, letterSpacing: settings.letterSpacing },
+            isRead && { opacity: 0.45 },
+          ]}>
+            {item.text}
+          </Text>
+        </Pressable>
+      </View>
     );
-  }, [readVerses, selectionMode, selectionRange, isTTS, ttsVerse, settings, colors, fontFamily, chapterMeditations, showMeditationMarkers, highlightVerse, centerVerseIndex, isProUser]);
+  }, [readVerses, selectionMode, selectionRange, isTTS, ttsVerse, settings, colors, fontFamily, chapterMeditations, showMeditationMarkers, highlightVerse, centerVerseIndex, isProUser, bookmarkedVerses]);
 
   return (
     <>
@@ -1203,6 +1273,21 @@ export default function ReadScreen() {
                   <View style={meditStyles.basicFooter}>
                     <Text style={[meditStyles.charCount, { color: colors.muted }]}>{memoText.length}/500</Text>
                   </View>
+                  {/* 메모 색상 팔레트 */}
+                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', paddingVertical: 4 }}>
+                    {MEMO_COLORS.map(c => (
+                      <Pressable
+                        key={c.key}
+                        onPress={() => setMemoColor(c.hex)}
+                        style={{
+                          width: 26, height: 26, borderRadius: 13,
+                          backgroundColor: c.hex,
+                          borderWidth: memoColor === c.hex ? 2.5 : 1,
+                          borderColor: memoColor === c.hex ? colors.text : 'transparent',
+                        }}
+                      />
+                    ))}
+                  </View>
                   {memoSaveError && (
                     <Text style={[meditStyles.memoErrorText, { color: colors.muted }]}>
                       {memoSaveError}
@@ -1427,12 +1512,7 @@ export default function ReadScreen() {
 
               {/* 탭 콘텐츠 */}
               {aiTab === 'meditate' && (
-                aiLoading ? (
-                  <View style={aiStyles.loading}>
-                    <ActivityIndicator color={colors.gold} size="small" />
-                    <Text style={[aiStyles.loadingText, { color: colors.muted }]}>묵상 질문 생성 중...</Text>
-                  </View>
-                ) : aiPrompts ? (
+                aiPrompts ? (
                   <View style={aiStyles.prompts}>
                     {aiPrompts.map((prompt, i) => (
                       <View key={i} style={[aiStyles.promptRow, { borderColor: colors.border }]}>
@@ -1440,6 +1520,14 @@ export default function ReadScreen() {
                         <Text style={[aiStyles.promptText, { color: colors.text }]}>{prompt}</Text>
                       </View>
                     ))}
+                    {aiLoading && (
+                      <ActivityIndicator color={colors.gold} size="small" style={{ marginTop: 8 }} />
+                    )}
+                  </View>
+                ) : aiLoading ? (
+                  <View style={aiStyles.loading}>
+                    <ActivityIndicator color={colors.gold} size="small" />
+                    <Text style={[aiStyles.loadingText, { color: colors.muted }]}>묵상 질문 생성 중...</Text>
                   </View>
                 ) : aiMeditateError ? (
                   <View style={aiStyles.loading}>
@@ -1468,18 +1556,13 @@ export default function ReadScreen() {
               )}
 
               {aiTab === 'explain' && (
-                aiExplainLoading ? (
-                  <View style={aiStyles.loading}>
-                    <ActivityIndicator color={colors.gold} size="small" />
-                    <Text style={[aiStyles.loadingText, { color: colors.muted }]}>구절 해설 생성 중...</Text>
-                  </View>
-                ) : aiExplanation ? (
+                aiExplanation ? (
                   <ScrollView style={aiStyles.explainScroll} showsVerticalScrollIndicator={false}>
                     {([
                       { label: '역사적 배경', value: aiExplanation.background, icon: 'map-marker-outline' as const },
                       { label: '원어 의미',   value: aiExplanation.originalWord, icon: 'translate' as const },
                       { label: '신학적 핵심', value: aiExplanation.theology, icon: 'cross' as const },
-                    ]).map(({ label, value, icon }) => (
+                    ]).filter(({ value }) => !!value).map(({ label, value, icon }) => (
                       <View key={label} style={[aiStyles.explainCard, { borderColor: colors.border }]}>
                         <View style={aiStyles.explainHeader}>
                           <View style={[aiStyles.explainIconWrap, { backgroundColor: `${colors.gold}15` }]}>
@@ -1488,7 +1571,7 @@ export default function ReadScreen() {
                           <Text style={[aiStyles.explainLabel, { color: colors.gold }]}>{label}</Text>
                         </View>
                         <Text style={[aiStyles.explainText, { color: colors.text }]}>
-                          {parseRichText(value).map((seg, si) =>
+                          {parseRichText(value!).map((seg, si) =>
                             seg.type === 'ref'
                               ? <Text key={si} style={aiStyles.explainRef}>{seg.text}</Text>
                               : seg.type === 'quote'
@@ -1498,7 +1581,15 @@ export default function ReadScreen() {
                         </Text>
                       </View>
                     ))}
+                    {aiExplainLoading && (
+                      <ActivityIndicator color={colors.gold} size="small" style={{ marginTop: 8, marginBottom: 4 }} />
+                    )}
                   </ScrollView>
+                ) : aiExplainLoading ? (
+                  <View style={aiStyles.loading}>
+                    <ActivityIndicator color={colors.gold} size="small" />
+                    <Text style={[aiStyles.loadingText, { color: colors.muted }]}>구절 해설 생성 중...</Text>
+                  </View>
                 ) : (
                   <View style={aiStyles.loading}>
                     {aiExplainError ? (
@@ -1528,15 +1619,18 @@ export default function ReadScreen() {
               )}
 
               {aiTab === 'prayer' && (
-                aiPrayerLoading ? (
-                  <View style={aiStyles.loading}>
-                    <ActivityIndicator color={colors.gold} size="small" />
-                    <Text style={[aiStyles.loadingText, { color: colors.muted }]}>기도문 생성 중...</Text>
-                  </View>
-                ) : aiPrayer ? (
+                aiPrayer ? (
                   <View style={[aiStyles.prayerCard, { borderColor: colors.border }]}>
                     <MaterialCommunityIcons name="hands-pray" size={18} color={colors.gold} style={{ marginBottom: 10 }} />
                     <Text style={[aiStyles.prayerText, { color: colors.text }]}>{aiPrayer}</Text>
+                    {aiPrayerLoading && (
+                      <ActivityIndicator color={colors.gold} size="small" style={{ marginTop: 10 }} />
+                    )}
+                  </View>
+                ) : aiPrayerLoading ? (
+                  <View style={aiStyles.loading}>
+                    <ActivityIndicator color={colors.gold} size="small" />
+                    <Text style={[aiStyles.loadingText, { color: colors.muted }]}>기도문 생성 중...</Text>
                   </View>
                 ) : (
                   <View style={aiStyles.loading}>
@@ -1569,7 +1663,7 @@ export default function ReadScreen() {
               {/* 새로고침 버튼 + 카운터 — 결과가 있고 로딩 중 아닐 때 */}
               {((aiTab === 'meditate' && !aiLoading && aiPrompts) ||
                 (aiTab === 'explain' && !aiExplainLoading && aiExplanation) ||
-                (aiTab === 'prayer' && !aiPrayerLoading && aiPrayer)) && (
+                (aiTab === 'prayer' && !aiPrayerLoading && aiPrayer) ) && (
                 <View style={aiStyles.refreshRow}>
                   <Pressable
                     style={[aiStyles.refreshBtn, aiDailyRefreshCount >= getDailyAILimit(isProUser) && { opacity: 0.4 }]}

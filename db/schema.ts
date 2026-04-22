@@ -38,18 +38,45 @@ async function _initDb(): Promise<SQLite.SQLiteDatabase> {
     const asset = Asset.fromModule(require('../assets/manna.db'));
     await asset.downloadAsync();
 
-    const seedPath = (FileSystem.documentDirectory ?? '') + 'manna_seed.db';
-    await FileSystem.copyAsync({ from: asset.localUri!, to: seedPath });
+    if (!asset.localUri) throw new Error('manna.db asset localUri is null after downloadAsync');
 
-    const seedFsPath = seedPath.replace(/^file:\/\//, '');
-    await db.execAsync(`ATTACH DATABASE '${seedFsPath}' AS seed`);
+    const seedPath = (FileSystem.documentDirectory ?? '') + 'manna_seed.db';
+
+    // 개발 모드에서 asset.localUri가 HTTP URL일 수 있음 — copyAsync는 HTTP 미지원
+    if (asset.localUri.startsWith('http://') || asset.localUri.startsWith('https://')) {
+      console.log('[DB seed] HTTP asset URI, using downloadAsync');
+      const result = await FileSystem.downloadAsync(asset.localUri, seedPath);
+      if (result.status !== 200) throw new Error(`Asset download failed: HTTP ${result.status}`);
+    } else {
+      await FileSystem.copyAsync({ from: asset.localUri, to: seedPath });
+    }
+
+    // expo-sqlite는 documentDirectory/SQLite/ 에 DB를 저장한다.
+    // PRAGMA database_list 경로는 /private/var/... 로 시작해 FileSystem이 쓰기 거부함.
+    // documentDirectory 기반 경로를 직접 사용해야 한다.
+    const sqliteDirUri = (FileSystem.documentDirectory ?? '') + 'SQLite/';
+    await FileSystem.makeDirectoryAsync(sqliteDirUri, { intermediates: true }).catch(() => {});
+    const seedDbName = 'manna_seed_tmp.db';
+    const seedDbUri = sqliteDirUri + seedDbName;
+
+    // 씨드를 expo-sqlite 저장 디렉토리에 복사 (같은 디렉토리에 있어야 파일명으로 열 수 있음)
+    await FileSystem.copyAsync({ from: seedPath, to: seedDbUri });
+    // 임시 파일 (seedPath = Documents/manna_seed.db) 삭제
+    await FileSystem.deleteAsync(seedPath, { idempotent: true }).catch(() => {});
+
     let seedOk = false;
     try {
-      // 에셋 복사가 빈 파일로 끝난 경우 seed.bible이 없음 — 먼저 확인
-      const seedCheck = await db.getFirstAsync<{ count: number }>(
-        "SELECT COUNT(*) as count FROM seed.sqlite_master WHERE type='table' AND name='bible'"
-      );
-      if ((seedCheck?.count ?? 0) === 0) throw new Error('seed.bible table missing — asset copy may be empty');
+      // 씨드 DB를 파일명으로 열기 (expo-sqlite는 자신의 디렉토리에서 파일명으로만 열 수 있음)
+      const seedDb = await SQLite.openDatabaseAsync(seedDbName);
+      let verses: Array<{ id: number; book_id: number; chapter: number; verse: number; text: string }>;
+      try {
+        verses = await seedDb.getAllAsync<{ id: number; book_id: number; chapter: number; verse: number; text: string }>(
+          'SELECT id, book_id, chapter, verse, text FROM bible'
+        );
+      } finally {
+        await seedDb.closeAsync().catch(() => {});
+      }
+      if (!verses || verses.length === 0) throw new Error('seed bible table is empty');
 
       await db.execAsync(`
         DROP TABLE IF EXISTS bible;
@@ -60,21 +87,25 @@ async function _initDb(): Promise<SQLite.SQLiteDatabase> {
           verse   INTEGER NOT NULL,
           text    TEXT    NOT NULL
         );
-        INSERT INTO bible SELECT * FROM seed.bible;
         CREATE INDEX IF NOT EXISTS idx_bible_book_chapter ON bible (book_id, chapter);
       `);
+
+      // 500행씩 배치 INSERT (31,102행 → 약 63회)
+      const BATCH = 500;
+      for (let i = 0; i < verses.length; i += BATCH) {
+        const batch = verses.slice(i, i + BATCH);
+        const ph = batch.map(() => '(?,?,?,?,?)').join(',');
+        const vals = batch.flatMap(v => [v.id, v.book_id, v.chapter, v.verse, v.text]);
+        await db.runAsync(`INSERT INTO bible VALUES ${ph}`, vals);
+      }
+
       seedOk = true;
     } catch (err) {
-      // 실패 시 bible 테이블을 제거해서 다음 실행에 재시도 가능하게 함
       await db.execAsync('DROP TABLE IF EXISTS bible').catch(() => {});
       throw err;
     } finally {
-      await db.execAsync('DETACH DATABASE seed').catch(() => {});
-      await FileSystem.deleteAsync(seedPath, { idempotent: true }).catch(() => {});
-      if (!seedOk) {
-        // _dbPromise 리셋 — 다음 getDb() 호출 시 재시도
-        _dbPromise = null;
-      }
+      await FileSystem.deleteAsync(seedDbUri, { idempotent: true }).catch(() => {});
+      if (!seedOk) _dbPromise = null;
     }
   }
 

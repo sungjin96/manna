@@ -180,6 +180,7 @@ export default function HomeScreen() {
   // Level-up detection
   const [showLevelUp, setShowLevelUp] = useState(false);
   const prevLevelRef = useRef<number | null>(null);
+  const hasInitialLoadRef = useRef(false);
 
   // Animations
   const xpAnim = useRef(new Animated.Value(0)).current;
@@ -310,8 +311,8 @@ export default function HomeScreen() {
       useNativeDriver: false,
     }).start();
 
-    // 레벨업 감지
-    if (prevLevelRef.current !== null && currentLevel > prevLevelRef.current) {
+    // 레벨업 감지 — 초기 로드 시 오발사 방지
+    if (hasInitialLoadRef.current && prevLevelRef.current !== null && currentLevel > prevLevelRef.current) {
       setShowLevelUp(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Animated.sequence([
@@ -320,8 +321,11 @@ export default function HomeScreen() {
         Animated.timing(levelUpGlow, { toValue: 0, duration: 400, useNativeDriver: true }),
       ]).start(() => setShowLevelUp(false));
     }
+    if (!hasInitialLoadRef.current && !loading) {
+      hasInitialLoadRef.current = true;
+    }
     prevLevelRef.current = currentLevel;
-  }, [stats?.totalChapters]);
+  }, [stats?.totalChapters, loading]);
 
   // ── Onboarding ──
 
@@ -866,6 +870,9 @@ export default function HomeScreen() {
                 </View>
               </View>
             )}
+
+            {/* 콘텐츠와 버튼 사이 스페이서 — 버튼을 하단에 고정 */}
+            <View style={{ flex: 1 }} />
 
             {/* 진행 도트 */}
             <View style={styles.dots}>
@@ -1414,8 +1421,9 @@ function makeStyles(scale: number) {
   onboardingContent: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: 32,
+    paddingTop: 80,
     paddingBottom: 48,
     gap: 16,
   },

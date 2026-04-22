@@ -19,6 +19,7 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getAllMeditations, searchMeditations, updateMeditation, deleteMeditation, Meditation } from '../../db/meditations';
+import { getAllBookmarksWithText, deleteBookmark, type BookmarkWithText } from '../../db/bookmarks';
 import { BOOKS } from '../../constants/books';
 import { theme } from '../../constants/theme';
 import MeditationShareCard from '../../components/MeditationShareCard';
@@ -26,6 +27,7 @@ import MannaAlert from '../../components/MannaAlert';
 import SwipeableRow from '../../components/SwipeableRow';
 
 const MEMO_COLOR = '#7AA3D4';
+type PageMode = 'notes' | 'bookmarks';
 type ViewMode = 'list' | 'calendar';
 type FilterType = 'all' | 'meditation' | 'memo';
 type FilterSort = 'newest' | 'oldest';
@@ -232,8 +234,11 @@ export default function MeditationsScreen() {
   const router = useRouter();
   const { scale } = useUIScale();
   const styles = useMemo(() => makeStyles(scale), [scale]);
+  const [pageMode, setPageMode] = useState<PageMode>('notes');
   const [items, setItems] = useState<Meditation[]>([]);
+  const [bookmarks, setBookmarks] = useState<BookmarkWithText[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteBookmarkTarget, setDeleteBookmarkTarget] = useState<BookmarkWithText | null>(null);
   const [query, setQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [filterType, setFilterType] = useState<FilterType>('all');
@@ -275,12 +280,24 @@ export default function MeditationsScreen() {
 
   const load = useCallback(async (q = '') => {
     setLoading(true);
-    const data = q.trim() ? await searchMeditations(q) : await getAllMeditations();
+    const [data, bms] = await Promise.all([
+      q.trim() ? searchMeditations(q) : getAllMeditations(),
+      getAllBookmarksWithText(),
+    ]);
     setItems(data);
+    setBookmarks(bms);
     setLoading(false);
   }, []);
 
   useFocusEffect(useCallback(() => { load(query); }, [load]));
+
+  async function confirmDeleteBookmark() {
+    if (!deleteBookmarkTarget) return;
+    const { book_id, chapter, verse } = deleteBookmarkTarget;
+    await deleteBookmark(book_id, chapter, verse);
+    setDeleteBookmarkTarget(null);
+    setBookmarks(prev => prev.filter(b => !(b.book_id === book_id && b.chapter === chapter && b.verse === verse)));
+  }
 
   function handleQueryChange(text: string) {
     setQuery(text);
@@ -428,35 +445,81 @@ export default function MeditationsScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>기록</Text>
-          <Text style={styles.headerSub}>{items.filter(m => getNoteType(m.note) !== 'prayer').length}개</Text>
+          <Text style={styles.headerSub}>
+            {pageMode === 'bookmarks'
+              ? `${bookmarks.length}개`
+              : `${items.filter(m => getNoteType(m.note) !== 'prayer').length}개`}
+          </Text>
         </View>
         <View style={styles.headerRight}>
           <Pressable
-            onPress={() => setViewMode('list')}
+            onPress={() => setPageMode(m => m === 'bookmarks' ? 'notes' : 'bookmarks')}
             hitSlop={8}
-            style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive]}
+            style={[styles.viewToggleBtn, pageMode === 'bookmarks' && styles.viewToggleBtnActive]}
           >
             <MaterialCommunityIcons
-              name="format-list-bulleted"
+              name={pageMode === 'bookmarks' ? 'bookmark' : 'bookmark-outline'}
               size={20}
-              color={viewMode === 'list' ? theme.gold : theme.textMuted}
+              color={pageMode === 'bookmarks' ? theme.gold : theme.textMuted}
             />
           </Pressable>
-          <Pressable
-            onPress={() => setViewMode('calendar')}
-            hitSlop={8}
-            style={[styles.viewToggleBtn, viewMode === 'calendar' && styles.viewToggleBtnActive]}
-          >
-            <MaterialCommunityIcons
-              name="calendar-month-outline"
-              size={20}
-              color={viewMode === 'calendar' ? theme.gold : theme.textMuted}
-            />
-          </Pressable>
+          {pageMode === 'notes' && (
+            <>
+              <Pressable
+                onPress={() => setViewMode('list')}
+                hitSlop={8}
+                style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive]}
+              >
+                <MaterialCommunityIcons
+                  name="format-list-bulleted"
+                  size={20}
+                  color={viewMode === 'list' ? theme.gold : theme.textMuted}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => setViewMode('calendar')}
+                hitSlop={8}
+                style={[styles.viewToggleBtn, viewMode === 'calendar' && styles.viewToggleBtnActive]}
+              >
+                <MaterialCommunityIcons
+                  name="calendar-month-outline"
+                  size={20}
+                  color={viewMode === 'calendar' ? theme.gold : theme.textMuted}
+                />
+              </Pressable>
+            </>
+          )}
         </View>
       </View>
 
-      {/* 기록 서머리 */}
+      {/* 북마크 뷰 */}
+      {pageMode === 'bookmarks' && (
+        <>
+          {bookmarks.length === 0 ? (
+            <View style={styles.empty}>
+              <MaterialCommunityIcons name="bookmark-outline" size={48} color={theme.textMuted} />
+              <Text style={styles.emptyText}>저장된 북마크가 없어요</Text>
+              <Text style={styles.emptyHint}>읽기 화면에서 절을 꾸욱 눌러 북마크하세요</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={bookmarks}
+              keyExtractor={b => `${b.book_id}-${b.chapter}-${b.verse}`}
+              contentContainerStyle={styles.list}
+              renderItem={({ item }) => (
+                <BookmarkCard
+                  item={item}
+                  router={router}
+                  onDelete={setDeleteBookmarkTarget}
+                />
+              )}
+            />
+          )}
+        </>
+      )}
+
+      {/* 기록 서머리 + 검색 + 필터 + 뷰 (notes 모드만) */}
+      {pageMode === 'notes' && (<>
       <View style={styles.summaryRow}>
         <Text style={styles.summaryText}>
           이번 달 {summary.monthCount}개{summary.topBook ? ` · 최다 ${summary.topBook}` : ''}
@@ -670,6 +733,8 @@ export default function MeditationsScreen() {
         </>
       )}
 
+      </>)}
+
       {/* 수정 모달 */}
       <Modal visible={editTarget !== null} transparent animationType="slide">
         <KeyboardAvoidingView
@@ -840,6 +905,16 @@ export default function MeditationsScreen() {
         ]}
         onDismiss={() => setDeleteTarget(null)}
       />
+      <MannaAlert
+        visible={deleteBookmarkTarget !== null}
+        title="북마크 삭제"
+        message="이 북마크를 삭제할까요?"
+        buttons={[
+          { text: '취소', style: 'cancel' },
+          { text: '삭제', style: 'destructive', onPress: confirmDeleteBookmark },
+        ]}
+        onDismiss={() => setDeleteBookmarkTarget(null)}
+      />
     </View>
   );
 }
@@ -914,11 +989,17 @@ function MeditationCard({
     ...(onDelete ? [{ icon: 'trash-can-outline', label: '삭제', color: '#E05252', onPress: () => onDelete(item) }] : []),
   ];
 
+  const memoActualColor = isMemo ? (() => {
+    try { return (JSON.parse(item.note) as { color?: string }).color ?? MEMO_COLOR; } catch { return MEMO_COLOR; }
+  })() : MEMO_COLOR;
+
   const CardBody = (
     <Pressable
       style={[
         styles.card,
-        isMemo ? styles.cardMemoTint : styles.cardMeditationTint,
+        isMemo
+          ? { backgroundColor: `rgba(${parseInt(memoActualColor.slice(1,3),16)},${parseInt(memoActualColor.slice(3,5),16)},${parseInt(memoActualColor.slice(5,7),16)},0.06)` }
+          : styles.cardMeditationTint,
       ]}
       onPress={() => router.push(`/read/${item.bookId}/${item.chapter}${item.verseStart ? `?verse=${item.verseStart}` : ''}`)}
       onLongPress={() => onLongPress(item)}
@@ -927,11 +1008,11 @@ function MeditationCard({
       <View style={styles.cardTop}>
         <View style={styles.cardTopLeft}>
           <View style={[styles.typeBadge, isMemo
-            ? { backgroundColor: `${MEMO_COLOR}15`, borderColor: `${MEMO_COLOR}33` }
+            ? { backgroundColor: `${memoActualColor}22`, borderColor: `${memoActualColor}44` }
             : { backgroundColor: `${theme.gold}15`, borderColor: `${theme.gold}33` }
           ]}>
-            <View style={[styles.typeBadgeDot, { backgroundColor: isMemo ? MEMO_COLOR : theme.gold }]} />
-            <Text style={[styles.typeBadgeText, { color: isMemo ? MEMO_COLOR : theme.gold }]}>
+            <View style={[styles.typeBadgeDot, { backgroundColor: isMemo ? memoActualColor : theme.gold }]} />
+            <Text style={[styles.typeBadgeText, { color: isMemo ? memoActualColor : theme.gold }]}>
               {isMemo ? '메모' : isQa ? 'Q&A' : '묵상'}
             </Text>
           </View>
@@ -980,6 +1061,43 @@ function MeditationCard({
     );
   }
   return CardBody;
+}
+
+// ── 북마크 카드 ────────────────────────────────────────────────────────────
+function BookmarkCard({
+  item,
+  router,
+  onDelete,
+}: {
+  item: BookmarkWithText;
+  router: ReturnType<typeof useRouter>;
+  onDelete: (item: BookmarkWithText) => void;
+}) {
+  const { scale } = useUIScale();
+  const styles = useMemo(() => makeStyles(scale), [scale]);
+  const book = BOOKS.find(b => b.id === item.book_id);
+  const ref = `${book?.name ?? item.book_id} ${item.chapter}:${item.verse}`;
+  const date = formatDate(item.saved_at);
+
+  return (
+    <SwipeableRow rightActions={[
+      { icon: 'trash-can-outline', label: '삭제', color: '#E05252', onPress: () => onDelete(item) },
+    ]}>
+      <Pressable
+        style={[styles.card, styles.bookmarkCard]}
+        onPress={() => router.push(`/read/${item.book_id}/${item.chapter}?verse=${item.verse}`)}
+      >
+        <View style={styles.cardTop}>
+          <View style={styles.cardTopLeft}>
+            <MaterialCommunityIcons name="bookmark" size={13} color={theme.gold} />
+            <Text style={styles.cardRef}>{ref}</Text>
+          </View>
+          <Text style={styles.cardDate}>{date}</Text>
+        </View>
+        <Text style={styles.bookmarkVerseText} numberOfLines={3}>{item.text}</Text>
+      </Pressable>
+    </SwipeableRow>
+  );
 }
 
 // ── 스타일 ─────────────────────────────────────────────────────────────────
@@ -1064,6 +1182,16 @@ function makeStyles(scale: number) {
   },
   cardMeditationTint: {
     backgroundColor: `rgba(212,168,71,0.03)`,
+  },
+  bookmarkCard: {
+    backgroundColor: `${theme.gold}08`,
+    borderColor: `${theme.gold}22`,
+  },
+  bookmarkVerseText: {
+    fontSize: fs(15),
+    lineHeight: 23,
+    color: theme.textSub,
+    marginTop: 2,
   },
   cardLongPressHint: {
     fontSize: fs(10),

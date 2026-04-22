@@ -52,3 +52,18 @@ export async function getAllBookmarks(): Promise<Bookmark[]> {
     `SELECT book_id, chapter, verse, saved_at FROM bookmarks ORDER BY saved_at DESC`
   );
 }
+
+export interface BookmarkWithText extends Bookmark {
+  text: string;
+}
+
+/** 전체 책갈피 + 절 본문 JOIN (최신순). */
+export async function getAllBookmarksWithText(): Promise<BookmarkWithText[]> {
+  const db = await getDb();
+  return db.getAllAsync<BookmarkWithText>(
+    `SELECT b.book_id, b.chapter, b.verse, b.saved_at, bi.text
+     FROM bookmarks b
+     JOIN bible bi ON bi.book_id = b.book_id AND bi.chapter = b.chapter AND bi.verse = b.verse
+     ORDER BY b.saved_at DESC`
+  );
+}
