@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 import { getSetting, setSetting } from '../../db/settings';
 import { theme } from '../../constants/theme';
 import { UI_SCALE_OPTIONS, UIScaleValue, useUIScale } from '../../contexts/UIScaleContext';
-import { exportToJSON, importFromJSON, backupErrorMessage } from '../../utils/backup';
+import { exportToJSON, importFromJSON, confirmImport, backupErrorMessage } from '../../utils/backup';
 import { checkAIEntitlement, purchasePremium, restorePurchases, purchaseErrorMessage } from '../../utils/subscriptions';
 import {
   requestNotificationPermission,
@@ -215,14 +215,39 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             setImporting(true);
-            const { data, error } = await importFromJSON();
+            const result = await importFromJSON();
             setImporting(false);
-            if (error) {
-              if (error !== 'pick_cancelled') {
-                Alert.alert('가져오기 실패', backupErrorMessage(error));
+
+            if (result.error === 'version_downgrade' && result.versionMeta && result.pendingBackup) {
+              const { backupSchemaVersion, currentSchemaVersion, missingTables } = result.versionMeta;
+              const missing = missingTables.join(', ');
+              Alert.alert(
+                '이전 버전 백업',
+                `이 백업은 앱 v${backupSchemaVersion}에서 만들어졌습니다 (현재 v${currentSchemaVersion}).\n\n복원되지 않는 항목: ${missing}\n\n계속 진행하시겠습니까?`,
+                [
+                  { text: '취소', style: 'cancel' },
+                  {
+                    text: '계속',
+                    style: 'destructive',
+                    onPress: async () => {
+                      setImporting(true);
+                      const { data, error } = await confirmImport(result.pendingBackup!);
+                      setImporting(false);
+                      if (error) {
+                        Alert.alert('가져오기 실패', backupErrorMessage(error));
+                      } else {
+                        Alert.alert('가져오기 완료', data?.counts ?? '복원 완료');
+                      }
+                    },
+                  },
+                ]
+              );
+            } else if (result.error) {
+              if (result.error !== 'pick_cancelled') {
+                Alert.alert('가져오기 실패', backupErrorMessage(result.error));
               }
             } else {
-              Alert.alert('가져오기 완료', data?.counts ?? '복원 완료');
+              Alert.alert('가져오기 완료', result.data?.counts ?? '복원 완료');
             }
           },
         },

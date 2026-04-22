@@ -412,3 +412,7 @@
 **Cons:** 보일러플레이트 작업.
 **Context:** ReaderSettingsSheet.tsx 내 모든 interactive 요소.
 **Depends on:** 없음.
+
+| 38 | 형광펜 v2 확장 (iCloud 동기화 + 검색 + 공유 카드) | P3 | 🗓️ 보류 |
+| 39 | backup.ts 버전 시스템 고도화 (PRAGMA 런타임 읽기, bookmarks/prayer_groups 백업, version_downgrade 다이얼로그) | P2 | ✅ 완료 |
+| 40 | 백업 포맷 v2 대응 (신규 테이블 추가 시 missingTables 자동 계산 로직 확장) | P3 | 🗓️ 보류 |

@@ -3,8 +3,7 @@ import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { getDb } from '../db/schema';
 
-// Current schema version — must match PRAGMA user_version in schema.ts
-const CURRENT_SCHEMA_VERSION = 5;
+const CURRENT_BACKUP_VERSION = 1;
 
 export interface BackupData {
   version: number;
@@ -18,6 +17,7 @@ export interface BackupData {
     createdAt: string;
     verseStart?: number;
     verseEnd?: number;
+    prayerGroupId?: number | null;
   }>;
   userStats: {
     currentStreak: number;
@@ -27,7 +27,9 @@ export interface BackupData {
   } | null;
   appSettings: Array<{ key: string; value: string }>;
   verseReadings: Array<{ bookId: number; chapter: number; verse: number; readAt: string }>;
-  aiMeditationCache: Array<{ cacheKey: string; prompts: string; createdAt: string }>;
+  aiCache: Array<{ cacheKey: string; data: string; createdAt: string }>;
+  bookmarks?: Array<{ bookId: number; chapter: number; verse: number; savedAt: string }>;
+  prayerGroups?: Array<{ id: number; name: string; orderIdx: number; createdAt: string }>;
 }
 
 export type BackupError =
@@ -37,11 +39,20 @@ export type BackupError =
   | 'read_failed'
   | 'invalid_format'
   | 'schema_mismatch'
+  | 'version_downgrade'
   | 'import_failed';
+
+export interface VersionMeta {
+  backupSchemaVersion: number;
+  currentSchemaVersion: number;
+  missingTables: string[];
+}
 
 export interface BackupResult<T> {
   data: T | null;
   error: BackupError | null;
+  versionMeta?: VersionMeta;
+  pendingBackup?: BackupData;
 }
 
 // ── Export ───────────────────────────────────────────────────────────────────
@@ -50,14 +61,19 @@ export async function exportToJSON(): Promise<BackupResult<void>> {
   try {
     const db = await getDb();
 
+    // Read actual schema version from DB — never hardcode
+    const { user_version: schemaVersion } = await db.getFirstAsync<{ user_version: number }>(
+      'PRAGMA user_version'
+    ) ?? { user_version: 0 };
+
     const readings = await db.getAllAsync<{
       book_id: number; chapter: number; completed_at: string;
     }>('SELECT book_id, chapter, completed_at FROM readings ORDER BY completed_at');
 
     const meditations = await db.getAllAsync<{
       book_id: number; chapter: number; note: string; created_at: string;
-      verse_start: number | null; verse_end: number | null;
-    }>('SELECT book_id, chapter, note, created_at, verse_start, verse_end FROM meditations ORDER BY created_at');
+      verse_start: number | null; verse_end: number | null; prayer_group_id: number | null;
+    }>('SELECT book_id, chapter, note, created_at, verse_start, verse_end, prayer_group_id FROM meditations ORDER BY created_at');
 
     const statsRow = await db.getFirstAsync<{
       current_streak: number; longest_streak: number;
@@ -73,12 +89,20 @@ export async function exportToJSON(): Promise<BackupResult<void>> {
     }>('SELECT book_id, chapter, verse, read_at FROM verse_readings ORDER BY read_at');
 
     const aiCache = await db.getAllAsync<{
-      cache_key: string; prompts: string; created_at: string;
-    }>('SELECT cache_key, prompts, created_at FROM ai_meditation_cache');
+      cache_key: string; data: string; created_at: string;
+    }>('SELECT cache_key, data, created_at FROM ai_cache');
+
+    const bookmarks = await db.getAllAsync<{
+      book_id: number; chapter: number; verse: number; saved_at: string;
+    }>('SELECT book_id, chapter, verse, saved_at FROM bookmarks ORDER BY saved_at').catch(() => []);
+
+    const prayerGroups = await db.getAllAsync<{
+      id: number; name: string; order_idx: number; created_at: string;
+    }>('SELECT id, name, order_idx, created_at FROM prayer_groups ORDER BY order_idx').catch(() => []);
 
     const payload: BackupData = {
-      version: 1,
-      schemaVersion: CURRENT_SCHEMA_VERSION,
+      version: CURRENT_BACKUP_VERSION,
+      schemaVersion,
       exportedAt: new Date().toISOString(),
       readings: readings.map(r => ({
         bookId: r.book_id,
@@ -92,6 +116,7 @@ export async function exportToJSON(): Promise<BackupResult<void>> {
         createdAt: m.created_at,
         ...(m.verse_start != null && { verseStart: m.verse_start }),
         ...(m.verse_end != null && { verseEnd: m.verse_end }),
+        ...(m.prayer_group_id != null && { prayerGroupId: m.prayer_group_id }),
       })),
       userStats: statsRow ? {
         currentStreak: statsRow.current_streak,
@@ -106,10 +131,22 @@ export async function exportToJSON(): Promise<BackupResult<void>> {
         verse: v.verse,
         readAt: v.read_at,
       })),
-      aiMeditationCache: aiCache.map(c => ({
+      aiCache: aiCache.map(c => ({
         cacheKey: c.cache_key,
-        prompts: c.prompts,
+        data: c.data,
         createdAt: c.created_at,
+      })),
+      bookmarks: bookmarks.map(b => ({
+        bookId: b.book_id,
+        chapter: b.chapter,
+        verse: b.verse,
+        savedAt: b.saved_at,
+      })),
+      prayerGroups: prayerGroups.map(g => ({
+        id: g.id,
+        name: g.name,
+        orderIdx: g.order_idx,
+        createdAt: g.created_at,
       })),
     };
 
@@ -169,19 +206,52 @@ export async function importFromJSON(): Promise<BackupResult<{ counts: string }>
   // Step 3: validate structure
   if (
     typeof backup !== 'object' ||
-    backup.version !== 1 ||
+    backup.version !== CURRENT_BACKUP_VERSION ||
     !Array.isArray(backup.readings) ||
     !Array.isArray(backup.meditations)
   ) {
     return { data: null, error: 'invalid_format' };
   }
 
-  // Step 4: schema version check (warn, don't block)
-  if (backup.schemaVersion && backup.schemaVersion > CURRENT_SCHEMA_VERSION) {
+  const db = await getDb();
+  const { user_version: currentSchemaVersion } = await db.getFirstAsync<{ user_version: number }>(
+    'PRAGMA user_version'
+  ) ?? { user_version: 0 };
+
+  // Step 4: schema version check
+  if (backup.schemaVersion && backup.schemaVersion > currentSchemaVersion) {
     return { data: null, error: 'schema_mismatch' };
   }
 
-  // Step 5: import in a single transaction (rollback on any failure)
+  // Step 5: older backup — surface missing tables so UI can warn
+  if (backup.schemaVersion && backup.schemaVersion < currentSchemaVersion) {
+    const missingTables: string[] = [];
+    if (!Array.isArray(backup.bookmarks)) missingTables.push('책갈피');
+    if (!Array.isArray(backup.prayerGroups)) missingTables.push('기도제목 그룹');
+
+    if (missingTables.length > 0) {
+      return {
+        data: null,
+        error: 'version_downgrade',
+        versionMeta: {
+          backupSchemaVersion: backup.schemaVersion,
+          currentSchemaVersion,
+          missingTables,
+        },
+        pendingBackup: backup,
+      };
+    }
+  }
+
+  return _doImport(backup);
+}
+
+// Called by UI after user confirms the version-downgrade warning
+export async function confirmImport(backup: BackupData): Promise<BackupResult<{ counts: string }>> {
+  return _doImport(backup);
+}
+
+async function _doImport(backup: BackupData): Promise<BackupResult<{ counts: string }>> {
   try {
     const db = await getDb();
 
@@ -190,9 +260,21 @@ export async function importFromJSON(): Promise<BackupResult<{ counts: string }>
       await db.runAsync('DELETE FROM readings');
       await db.runAsync('DELETE FROM meditations');
       await db.runAsync('DELETE FROM verse_readings');
-      await db.runAsync('DELETE FROM ai_meditation_cache');
+      await db.runAsync('DELETE FROM ai_cache');
       await db.runAsync('DELETE FROM user_stats');
+      await db.runAsync('DELETE FROM bookmarks');
+      await db.runAsync('DELETE FROM prayer_groups');
       await db.runAsync('INSERT OR IGNORE INTO user_stats (id) VALUES (1)');
+
+      // Restore prayer_groups first (meditations reference them)
+      if (Array.isArray(backup.prayerGroups)) {
+        for (const g of backup.prayerGroups) {
+          await db.runAsync(
+            'INSERT OR IGNORE INTO prayer_groups (id, name, order_idx, created_at) VALUES (?, ?, ?, ?)',
+            [g.id, g.name, g.orderIdx, g.createdAt]
+          );
+        }
+      }
 
       // Restore readings
       for (const r of backup.readings) {
@@ -205,8 +287,8 @@ export async function importFromJSON(): Promise<BackupResult<{ counts: string }>
       // Restore meditations
       for (const m of backup.meditations) {
         await db.runAsync(
-          'INSERT INTO meditations (book_id, chapter, note, created_at, verse_start, verse_end) VALUES (?, ?, ?, ?, ?, ?)',
-          [m.bookId, m.chapter, m.note, m.createdAt, m.verseStart ?? null, m.verseEnd ?? null]
+          'INSERT INTO meditations (book_id, chapter, note, created_at, verse_start, verse_end, prayer_group_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [m.bookId, m.chapter, m.note, m.createdAt, m.verseStart ?? null, m.verseEnd ?? null, m.prayerGroupId ?? null]
         );
       }
 
@@ -240,11 +322,21 @@ export async function importFromJSON(): Promise<BackupResult<{ counts: string }>
       }
 
       // Restore AI cache
-      if (Array.isArray(backup.aiMeditationCache)) {
-        for (const c of backup.aiMeditationCache) {
+      if (Array.isArray(backup.aiCache)) {
+        for (const c of backup.aiCache) {
           await db.runAsync(
-            'INSERT OR REPLACE INTO ai_meditation_cache (cache_key, prompts, created_at) VALUES (?, ?, ?)',
-            [c.cacheKey, c.prompts, c.createdAt]
+            'INSERT OR REPLACE INTO ai_cache (cache_key, data, created_at) VALUES (?, ?, ?)',
+            [c.cacheKey, c.data, c.createdAt]
+          );
+        }
+      }
+
+      // Restore bookmarks
+      if (Array.isArray(backup.bookmarks)) {
+        for (const b of backup.bookmarks) {
+          await db.runAsync(
+            'INSERT OR IGNORE INTO bookmarks (book_id, chapter, verse, saved_at) VALUES (?, ?, ?, ?)',
+            [b.bookId, b.chapter, b.verse, b.savedAt]
           );
         }
       }
@@ -259,12 +351,13 @@ export async function importFromJSON(): Promise<BackupResult<{ counts: string }>
 
 export function backupErrorMessage(error: BackupError): string {
   switch (error) {
-    case 'export_failed':      return '내보내기 중 오류가 발생했습니다.';
+    case 'export_failed':       return '내보내기 중 오류가 발생했습니다.';
     case 'sharing_unavailable': return '파일 공유를 지원하지 않는 기기입니다.';
-    case 'pick_cancelled':     return '';
-    case 'read_failed':        return '파일을 읽을 수 없습니다. JSON 파일인지 확인해주세요.';
-    case 'invalid_format':     return '유효하지 않은 백업 파일입니다.';
-    case 'schema_mismatch':    return '이 백업은 더 최신 버전의 앱에서 만들어졌습니다. 앱을 업데이트해주세요.';
-    case 'import_failed':      return '가져오기 중 오류가 발생했습니다. 다시 시도해주세요.';
+    case 'pick_cancelled':      return '';
+    case 'read_failed':         return '파일을 읽을 수 없습니다. JSON 파일인지 확인해주세요.';
+    case 'invalid_format':      return '유효하지 않은 백업 파일입니다.';
+    case 'schema_mismatch':     return '이 백업은 더 최신 버전의 앱에서 만들어졌습니다. 앱을 업데이트해주세요.';
+    case 'version_downgrade':   return '이 백업은 이전 버전에서 만들어졌습니다.';
+    case 'import_failed':       return '가져오기 중 오류가 발생했습니다. 다시 시도해주세요.';
   }
 }
