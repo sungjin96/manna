@@ -3,7 +3,7 @@
     "name": "만나",
     "slug": "manna",
     "scheme": "manna",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -28,9 +28,13 @@
           "remote-notification",
           "audio"
         ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleLocalizations": [
+          "ko"
+        ],
+        "CFBundleDevelopmentRegion": "ko"
       },
-      "buildNumber": "31"
+      "buildNumber": "36"
     },
     "android": {
       "package": "com.jsj.manna",
@@ -40,7 +44,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "versionCode": 8
+      "versionCode": 10
     },
     "web": {
       "favicon": "./assets/favicon.png"

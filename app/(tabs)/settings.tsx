@@ -31,6 +31,7 @@ import {
 import { READING_PLANS, PlanId } from '../../constants/reading-plans';
 import { getActivePlan, setActivePlan, clearActivePlan, todayISO } from '../../db/reading_plans';
 import { resetSettings } from '../../db/reset';
+import { seedDevData, clearDevData } from '../../db/seed-dev-data';
 import MannaAlert from '../../components/MannaAlert';
 
 export default function SettingsScreen() {
@@ -56,6 +57,7 @@ export default function SettingsScreen() {
   const [updateStatus, setUpdateStatus] = useState<'checking' | 'latest' | 'available' | 'downloading' | 'restarting' | 'error'>('checking');
   const [resetConfirmVisible, setResetConfirmVisible] = useState(false);
   const [resetDoneVisible, setResetDoneVisible] = useState(false);
+  const [devSeeding, setDevSeeding] = useState(false);
   useEffect(() => {
     (async () => {
       const enabled = await getSetting('notification_enabled', '0');
@@ -797,6 +799,56 @@ export default function SettingsScreen() {
           </Text>
         </View>
       </View>
+
+      {/* DEV 전용 — 스크린샷용 목업 데이터 */}
+      {__DEV__ && (
+        <View style={[styles.section, { marginBottom: 8 }]}>
+          <Text style={[styles.sectionTitle, { fontSize: fs(11) }]}>개발자 도구</Text>
+          <Pressable
+            style={styles.row}
+            onPress={async () => {
+              setDevSeeding(true);
+              try {
+                await seedDevData();
+                Alert.alert('완료', '목업 데이터가 삽입됐습니다. 앱을 재시작해 확인하세요.');
+              } finally {
+                setDevSeeding(false);
+              }
+            }}
+          >
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.rowLabel}>목업 데이터 삽입</Text>
+              <Text style={styles.rowHint}>스크린샷용 샘플 데이터 (이미 데이터가 있으면 스킵)</Text>
+            </View>
+            {devSeeding
+              ? <ActivityIndicator size={16} color={theme.gold} />
+              : <MaterialCommunityIcons name="database-plus" size={18} color={theme.gold} />
+            }
+          </Pressable>
+          <Pressable
+            style={styles.row}
+            onPress={() => {
+              Alert.alert('목업 데이터 삭제', '읽기 기록, 묵상, 기도 등 모든 데이터가 삭제됩니다.', [
+                { text: '취소', style: 'cancel' },
+                {
+                  text: '삭제',
+                  style: 'destructive',
+                  onPress: async () => {
+                    await clearDevData();
+                    Alert.alert('완료', '데이터가 삭제됐습니다. 앱을 재시작해 확인하세요.');
+                  },
+                },
+              ]);
+            }}
+          >
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.rowLabel}>목업 데이터 삭제</Text>
+              <Text style={styles.rowHint}>삽입한 샘플 데이터 전체 삭제</Text>
+            </View>
+            <MaterialCommunityIcons name="database-remove" size={18} color={theme.textMuted} />
+          </Pressable>
+        </View>
+      )}
 
       {/* 법적 고지 */}
       <View style={styles.legalSection}>
