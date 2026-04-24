@@ -82,10 +82,14 @@ export function useTTSCdn(
   const activeRef = useRef(false); // true when user initiated playback
   const pendingResumeVerseRef = useRef<number | null>(null); // auto-resume after voice change
   const pendingResumeAutoPlayRef = useRef(true); // true = play, false = seek only (paused)
+  const pendingPlayRef = useRef(false); // deferred play: fires when player isLoaded
+  const pendingPlayVerseRef = useRef<number | null>(null); // null = from start, N = from verse N
+  const statusRef = useRef(status); // stable ref for status (accessible in callbacks)
 
   // Create audio player — source changes when audioUri changes
   const player = useAudioPlayer(audioUri, { updateInterval: 150 });
   const status = useAudioPlayerStatus(player);
+  statusRef.current = status;
 
   // Load saved voice preference
   useEffect(() => {
@@ -134,6 +138,25 @@ export function useTTSCdn(
       onVerseChangeRef.current?.(found.verse);
     }
   }, [status.currentTime, status.isLoaded, status.playing]);
+
+  // Deferred play: fires when player finishes loading (play() was called before isLoaded)
+  useEffect(() => {
+    if (!mountedRef.current || !pendingPlayRef.current || !activeRef.current) return;
+    if (status.isLoaded && status.duration > 0) {
+      pendingPlayRef.current = false;
+      const verseNum = pendingPlayVerseRef.current;
+      pendingPlayVerseRef.current = null;
+      if (verseNum != null) {
+        const ts = timestampsRef.current;
+        const vts = ts?.verses.find((v: VerseTimestamp) => v.verse === verseNum);
+        if (vts) safePlayer(() => player.seekTo(vts.startSec));
+      } else {
+        safePlayer(() => player.seekTo(0));
+      }
+      safePlayer(() => player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]));
+      safePlayer(() => player.play());
+    }
+  }, [status.isLoaded, status.duration]);
 
   // Auto-resume after voice change: when new player is loaded, resume from pending verse
   useEffect(() => {
@@ -218,10 +241,17 @@ export function useTTSCdn(
     if (!isReady) return;
     activeRef.current = true;
     prevVerseRef.current = null;
+    pendingPlayRef.current = false;
+    pendingPlayVerseRef.current = null;
     activateLockScreen();
-    safePlayer(() => player.seekTo(0));
-    safePlayer(() => player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]));
-    safePlayer(() => player.play());
+    if (statusRef.current.isLoaded && statusRef.current.duration > 0) {
+      safePlayer(() => player.seekTo(0));
+      safePlayer(() => player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]));
+      safePlayer(() => player.play());
+    } else {
+      // Player still loading — defer actual playback until isLoaded fires
+      pendingPlayRef.current = true;
+    }
   }, [isReady, player]);
 
   const playFromVerse = useCallback((verseNum: number) => {
@@ -233,10 +263,17 @@ export function useTTSCdn(
 
     activeRef.current = true;
     prevVerseRef.current = null;
+    pendingPlayRef.current = false;
+    pendingPlayVerseRef.current = null;
     activateLockScreen();
-    safePlayer(() => player.seekTo(vts.startSec));
-    safePlayer(() => player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]));
-    safePlayer(() => player.play());
+    if (statusRef.current.isLoaded && statusRef.current.duration > 0) {
+      safePlayer(() => player.seekTo(vts.startSec));
+      safePlayer(() => player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]));
+      safePlayer(() => player.play());
+    } else {
+      pendingPlayVerseRef.current = verseNum;
+      pendingPlayRef.current = true;
+    }
   }, [isReady, player]);
 
   const pause = useCallback(() => {
@@ -249,6 +286,8 @@ export function useTTSCdn(
 
   const stop = useCallback(() => {
     activeRef.current = false;
+    pendingPlayRef.current = false;
+    pendingPlayVerseRef.current = null;
     safePlayer(() => player.setActiveForLockScreen(false));
     safePlayer(() => player.pause());
     safePlayer(() => player.seekTo(0));
@@ -293,6 +332,7 @@ export function useTTSCdn(
     return () => {
       mountedRef.current = false;
       activeRef.current = false;
+      pendingPlayRef.current = false;
     };
   }, []);
 
