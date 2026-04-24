@@ -32,6 +32,13 @@ export interface TTSOptions {
 // Timer end time persists across chapter navigation (component remount)
 let _globalTimerEndMs: number | null = null;
 
+// Last auto-advance timestamp — persists across chapter remount to block runaway
+// chains (e.g. background playback fails → didJustFinish false-positive → advance
+// → new chapter fails the same way → eventually wraps to Genesis).
+// Minimum realistic chapter is ~30s of audio; anything under 10s is suspicious.
+let _lastAutoAdvanceMs = 0;
+const AUTO_ADVANCE_MIN_GAP_MS = 10_000;
+
 // Cache Korean voices list (for fallback mode)
 let _koVoicesResolved = false;
 let _koVoices: TTSVoice[] = [];
@@ -142,6 +149,13 @@ export function useTTS(
       if (!timerStoppedRef.current) {
         if (autoCompleteRef.current) optionsRef.current?.onChapterEnd?.();
         if (autoAdvanceRef.current) {
+          const now = Date.now();
+          if (now - _lastAutoAdvanceMs < AUTO_ADVANCE_MIN_GAP_MS) {
+            // Runaway chain guard — likely background playback never actually
+            // ran (didJustFinish fired without any real playback).
+            return;
+          }
+          _lastAutoAdvanceMs = now;
           setTimeout(() => optionsRef.current?.onAutoAdvance?.(), 500);
         }
       }
@@ -378,6 +392,9 @@ export function useTTS(
     if (!timerStoppedRef.current) {
       if (autoCompleteRef.current) optionsRef.current?.onChapterEnd?.();
       if (autoAdvanceRef.current) {
+        const now = Date.now();
+        if (now - _lastAutoAdvanceMs < AUTO_ADVANCE_MIN_GAP_MS) return;
+        _lastAutoAdvanceMs = now;
         setTimeout(() => optionsRef.current?.onAutoAdvance?.(), 500);
       }
     }

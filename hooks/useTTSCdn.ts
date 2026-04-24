@@ -187,6 +187,15 @@ export function useTTSCdn(
     if (!mountedRef.current || !activeRef.current) return;
     if (pendingResumeVerseRef.current != null) return; // voice switch in progress
     if (status.didJustFinish) {
+      // False-positive guard: if we never observed any verse or never advanced
+      // past the start (e.g. background load/playback was blocked and the native
+      // player emitted didJustFinish without actually playing), ignore this.
+      // Otherwise a chain of auto-advances can blow past many chapters.
+      const playedSomething =
+        prevVerseRef.current != null || lastPosSec.current > 1;
+      if (!playedSomething) {
+        return;
+      }
       // Mark last verse as read
       if (prevVerseRef.current != null) {
         onVerseReadRef.current?.(prevVerseRef.current);
@@ -194,6 +203,7 @@ export function useTTSCdn(
       activeRef.current = false;
       setCurrentVerse(null);
       prevVerseRef.current = null;
+      lastPosSec.current = 0;
       onFinishRef.current?.();
     }
   }, [status.didJustFinish]);
