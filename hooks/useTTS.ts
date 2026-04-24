@@ -228,27 +228,8 @@ export function useTTS(
     }
   }, []);
 
-  // Pro user audio session upgrade:
-  // Handles the race where startTTS() ran before checkAIEntitlement() resolved.
-  // When isProUser becomes true while TTS is active, upgrade background audio mode and
-  // undo any incorrect pause that was applied because isProUser was still false at the time.
-  const pausedByBackgroundRef = useRef(false);
-  useEffect(() => {
-    if (!isProUser || !isTTS || !isCdnModeRef.current) return;
-    setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-      interruptionMode: 'doNotMix',
-    }).then(() => {
-      if (pausedByBackgroundRef.current) {
-        pausedByBackgroundRef.current = false;
-        cdn.controls.resume();
-        setIsPaused(false);
-      }
-    }).catch(() => {});
-  }, [isProUser, isTTS]);
-
   // Free users: pause on background, re-enforce pause on foreground return (prevent auto-resume)
+  const pausedByBackgroundRef = useRef(false);
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
       if (!isProUserRef.current) {
@@ -351,9 +332,11 @@ export function useTTS(
     setIsPaused(false);
     timerStoppedRef.current = false;
 
+    // Session always allows background; free-user background pause is enforced
+    // at the JS level by the AppState handler (see effect below).
     await setAudioModeAsync({
       playsInSilentMode: true,
-      shouldPlayInBackground: isProUserRef.current,
+      shouldPlayInBackground: true,
       interruptionMode: 'doNotMix',
     });
 
@@ -406,7 +389,7 @@ export function useTTS(
     if (isCdnModeRef.current) {
       await setAudioModeAsync({
         playsInSilentMode: true,
-        shouldPlayInBackground: isProUserRef.current,
+        shouldPlayInBackground: true,
         interruptionMode: 'doNotMix',
       });
       setIsTTS(true);
@@ -424,7 +407,7 @@ export function useTTS(
     if (isCdnModeRef.current) {
       await setAudioModeAsync({
         playsInSilentMode: true,
-        shouldPlayInBackground: isProUserRef.current,
+        shouldPlayInBackground: true,
       });
       setIsTTS(true);
       setIsPaused(false);
@@ -515,7 +498,7 @@ export function useTTS(
           cdn.controls.scheduleResume(currentVerse, wasPlaying);
           await setAudioModeAsync({
             playsInSilentMode: true,
-            shouldPlayInBackground: isProUserRef.current,
+            shouldPlayInBackground: true,
             interruptionMode: 'doNotMix',
           });
         }

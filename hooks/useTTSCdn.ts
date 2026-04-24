@@ -84,11 +84,11 @@ export function useTTSCdn(
   const pendingResumeAutoPlayRef = useRef(true); // true = play, false = seek only (paused)
   const pendingPlayRef = useRef(false); // deferred play: fires when player isLoaded
   const pendingPlayVerseRef = useRef<number | null>(null); // null = from start, N = from verse N
-  const statusRef = useRef(status); // stable ref for status (accessible in callbacks)
 
   // Create audio player — source changes when audioUri changes
   const player = useAudioPlayer(audioUri, { updateInterval: 150 });
   const status = useAudioPlayerStatus(player);
+  const statusRef = useRef(status); // stable ref for status (accessible in callbacks)
   statusRef.current = status;
 
   // Load saved voice preference
