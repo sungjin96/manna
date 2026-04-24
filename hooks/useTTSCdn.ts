@@ -4,12 +4,12 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { ensureChapterAudio } from '../lib/ttsCache';
 import { CDN_VOICES, TTS_RATES_CDN } from '../constants/tts';
 import { BOOKS } from '../constants/books';
 import type { ChapterTimestamps, VerseTimestamp } from '../lib/ttsTypes';
 import { getSetting, setSetting } from '../db/settings';
+import { useAudioPlayerContext } from '../contexts/AudioPlayerContext';
 
 export interface CdnEngineState {
   isReady: boolean;       // audio loaded and playable
@@ -62,7 +62,9 @@ export function useTTSCdn(
   const [isReady, setIsReady] = useState(false);
   const [currentVerse, setCurrentVerse] = useState<number | null>(null);
   const [cdnVoiceId, setCdnVoiceId] = useState('wavenet-d');
-  const [audioUri, setAudioUri] = useState<string | null>(null);
+
+  // Global audio player — survives chapter remounts to preserve iOS session.
+  const { player, status, audioUri, setAudioUri } = useAudioPlayerContext();
 
   const timestampsRef = useRef<ChapterTimestamps | null>(null);
   const prevVerseRef = useRef<number | null>(null);
@@ -85,9 +87,6 @@ export function useTTSCdn(
   const pendingPlayRef = useRef(false); // deferred play: fires when player isLoaded
   const pendingPlayVerseRef = useRef<number | null>(null); // null = from start, N = from verse N
 
-  // Create audio player — source changes when audioUri changes
-  const player = useAudioPlayer(audioUri, { updateInterval: 150 });
-  const status = useAudioPlayerStatus(player);
   const statusRef = useRef(status); // stable ref for status (accessible in callbacks)
   statusRef.current = status;
 

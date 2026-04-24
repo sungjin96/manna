@@ -6,6 +6,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { BadgeToastProvider } from '../contexts/BadgeToastContext';
 import { UIScaleProvider } from '../contexts/UIScaleContext';
 import { TabletLayoutProvider } from '../contexts/TabletLayoutContext';
+import { AudioPlayerProvider } from '../contexts/AudioPlayerContext';
 import * as Updates from 'expo-updates';
 import { getDb } from '../db/schema';
 import { getSetting, setSetting } from '../db/settings';
@@ -229,6 +230,7 @@ export default function RootLayout() {
     <TabletLayoutProvider>
     <UIScaleProvider>
     <BadgeToastProvider>
+    <AudioPlayerProvider>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -264,6 +266,7 @@ export default function RootLayout() {
         }}
         onDismiss={() => setComebackVisible(false)}
       />
+    </AudioPlayerProvider>
     </BadgeToastProvider>
     </UIScaleProvider>
     </TabletLayoutProvider>

@@ -271,11 +271,13 @@ export function useTTS(
   useEffect(() => {
     return () => {
       sessionRef.current += 1;
-      if (isCdnModeRef.current) {
-        cdn.controls.stop();
-      } else {
+      if (!isCdnModeRef.current) {
         Speech.stop();
       }
+      // CDN: audio player is global (AudioPlayerProvider) and must NOT be torn down
+      // here. Auto-advance relies on the same AVPlayer instance surviving the chapter
+      // remount so iOS keeps the audio session active in the background. New chapter's
+      // load() swaps audioUri in-place, replacing the source on the same player.
       clearTimerIntervals();
     };
   }, []);
