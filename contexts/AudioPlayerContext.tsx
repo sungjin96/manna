@@ -41,16 +41,14 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [audioUri, setAudioUriState] = useState<string | null>(null);
 
   const setAudioUri = useCallback((uri: string | null) => {
-    console.log('[AudioPlayerProvider] setAudioUri called with', uri);
     setAudioUriState(uri);
     if (uri) {
       try {
         // Same-instance source swap — preserves the audio session so background
         // playback continues across chapter boundaries.
         player.replace(uri);
-        console.log('[AudioPlayerProvider] player.replace() succeeded');
-      } catch (e) {
-        console.warn('[AudioPlayerProvider] player.replace() failed:', e);
+      } catch {
+        // swallow native errors (e.g. during app tear-down)
       }
     }
   }, [player]);
@@ -64,9 +62,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       playsInSilentMode: true,
       shouldPlayInBackground: true,
       interruptionMode: 'doNotMix',
-    }).catch((err) => {
-      console.warn('[AudioPlayerProvider] setAudioModeAsync failed:', err);
-    });
+    }).catch(() => {});
   }, []);
 
   // Release native resources only when the provider itself unmounts (app exit).

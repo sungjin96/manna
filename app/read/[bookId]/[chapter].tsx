@@ -47,7 +47,7 @@ import {
   generateMeditationPrompts, generateExplanation, generatePrayer,
   aiErrorMessage, type ExplanationResult, type AIMeditationError,
 } from '../../../utils/ai-meditation';
-import { getAppUserId, checkAIEntitlement, purchasePremium } from '../../../utils/subscriptions';
+import { getAppUserId, checkAIEntitlement, purchasePremium, getCachedEntitlement } from '../../../utils/subscriptions';
 import { BOOKS } from '../../../constants/books';
 import { styles, HEADER_H, PROGRESS_H } from './chapter.styles';
 import { BADGES, BOOK_BADGES } from '../../../app/(tabs)/achievements';
@@ -192,7 +192,10 @@ export default function ReadScreen() {
   const [streakMilestone, setStreakMilestone] = useState<number | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallLoading, setPaywallLoading] = useState(false);
-  const [isProUser, setIsProUser] = useState(false);
+  // Initialize from cached entitlement so auto-advance remounts don't briefly
+  // misidentify a Pro user as free (which would suppress lock screen, pause in
+  // background, etc. during the async checkAIEntitlement() resolution window).
+  const [isProUser, setIsProUser] = useState(() => getCachedEntitlement() ?? false);
   const milestoneScale = useRef(new Animated.Value(0)).current;
   const milestoneOpacity = useRef(new Animated.Value(0)).current;
 
@@ -231,7 +234,7 @@ export default function ReadScreen() {
     availableVoices, selectedVoiceId,
     timerMinutes, timerRemaining,
     autoCompleteEnabled, autoAdvanceEnabled, pauseEnabled, verseReadEnabled, settingsLoaded,
-    isCdnMode, isLoading,
+    isCdnMode, isLoading, cdnReady,
     startTTS, startFromVerse, toggleTTS, stopTTS, togglePause, skipVerse,
     selectTTSRate, selectVoice,
     startTimer, cancelTimer,
@@ -722,11 +725,11 @@ export default function ReadScreen() {
   // TTS auto-start: 다음 장으로 이동 후 자동 시작 (?ttsAutoStart=1)
   // settingsLoaded를 체크해야 ttsRateIdxRef가 DB에서 복원된 후 startTTS() 호출 가능
   useEffect(() => {
-    if (ttsAutoStart === '1' && verses && verses.length > 0 && !ttsAutoStartedRef.current && settingsLoaded) {
+    if (ttsAutoStart === '1' && verses && verses.length > 0 && !ttsAutoStartedRef.current && settingsLoaded && cdnReady) {
       ttsAutoStartedRef.current = true;
       startTTS();
     }
-  }, [ttsAutoStart, verses, settingsLoaded]);
+  }, [ttsAutoStart, verses, settingsLoaded, cdnReady]);
 
   // 말씀 알림 / 오늘의 말씀 탭 — ?openMeditation=1 시 Q&A 모드로 묵상 시트 자동 오픈
   const didOpenMeditation = useRef(false);

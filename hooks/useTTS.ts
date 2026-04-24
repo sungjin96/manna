@@ -400,7 +400,6 @@ export function useTTS(
 
   async function startTTS() {
     if (isCdnModeRef.current) {
-      console.log('[TTS] startTTS CDN path — calling cdn.controls.play()');
       setIsTTS(true);
       setIsPaused(false);
       timerStoppedRef.current = false;
@@ -414,7 +413,6 @@ export function useTTS(
   async function startFromVerse(verseNum: number) {
     if (!verses) return;
     if (isCdnModeRef.current) {
-      console.log('[TTS] startFromVerse CDN path — verse', verseNum);
       setIsTTS(true);
       setIsPaused(false);
       timerStoppedRef.current = false;

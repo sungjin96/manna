@@ -46,18 +46,38 @@ export async function getAppUserId(): Promise<string> {
 
 // ── Entitlement check ─────────────────────────────────────────────────────
 
+// In-memory cache of last known entitlement.
+// Populated by checkAIEntitlement(). Used as an initial value when chapter
+// screens remount (e.g. auto-advance) so isProUser-dependent gates (lock screen,
+// background playback) don't misfire due to the async resolution of
+// Purchases.getCustomerInfo() on fresh mount.
+let _cachedEntitlement: boolean | null = null;
+
+/** Synchronous getter for the last known entitlement. null = never resolved. */
+export function getCachedEntitlement(): boolean | null {
+  return _cachedEntitlement;
+}
+
 /**
  * Returns true if the user has an active AI meditation entitlement.
  * In __DEV__ mode always returns true so we can test without EAS Build.
  */
 export async function checkAIEntitlement(): Promise<boolean> {
-  if (__DEV__) return true;
-  if (!RC_API_KEY) return false;
+  if (__DEV__) {
+    _cachedEntitlement = true;
+    return true;
+  }
+  if (!RC_API_KEY) {
+    _cachedEntitlement = false;
+    return false;
+  }
   try {
     const info = await Purchases.getCustomerInfo();
-    return info.entitlements.active[AI_ENTITLEMENT_ID] !== undefined;
+    const entitled = info.entitlements.active[AI_ENTITLEMENT_ID] !== undefined;
+    _cachedEntitlement = entitled;
+    return entitled;
   } catch {
-    return false;
+    return _cachedEntitlement ?? false;
   }
 }
 
