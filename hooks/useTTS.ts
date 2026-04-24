@@ -81,6 +81,7 @@ export function useTTS(
   const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
   const [isCdnMode, setIsCdnMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [cdnReady, setCdnReady] = useState(false);
 
   // Timer state
   const [timerMinutes, setTimerMinutes] = useState<number | null>(null);
@@ -175,13 +176,13 @@ export function useTTS(
           setAvailableVoices(voices);
           if (voices.length === 0) {
             setNoKoreanVoice(true);
-            return;
+          } else {
+            const savedId = await getSetting('tts_voice_id', '');
+            const match = savedId && voices.find(v => v.identifier === savedId);
+            const voiceId = match ? savedId : voices[0].identifier;
+            setSelectedVoiceId(voiceId);
+            selectedVoiceRef.current = voiceId;
           }
-          const savedId = await getSetting('tts_voice_id', '');
-          const match = savedId && voices.find(v => v.identifier === savedId);
-          const voiceId = match ? savedId : voices[0].identifier;
-          setSelectedVoiceId(voiceId);
-          selectedVoiceRef.current = voiceId;
         }
       } else {
         // No bookId/chapter — fallback only
@@ -189,6 +190,7 @@ export function useTTS(
         setAvailableVoices(voices);
         if (voices.length === 0) setNoKoreanVoice(true);
       }
+      setCdnReady(true);
     })();
 
     // Load settings
@@ -226,8 +228,27 @@ export function useTTS(
     }
   }, []);
 
-  // Free users: pause on background, re-enforce pause on foreground return (prevent auto-resume)
+  // Pro user audio session upgrade:
+  // Handles the race where startTTS() ran before checkAIEntitlement() resolved.
+  // When isProUser becomes true while TTS is active, upgrade background audio mode and
+  // undo any incorrect pause that was applied because isProUser was still false at the time.
   const pausedByBackgroundRef = useRef(false);
+  useEffect(() => {
+    if (!isProUser || !isTTS || !isCdnModeRef.current) return;
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+    }).then(() => {
+      if (pausedByBackgroundRef.current) {
+        pausedByBackgroundRef.current = false;
+        cdn.controls.resume();
+        setIsPaused(false);
+      }
+    }).catch(() => {});
+  }, [isProUser, isTTS]);
+
+  // Free users: pause on background, re-enforce pause on foreground return (prevent auto-resume)
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
       if (!isProUserRef.current) {
@@ -574,5 +595,6 @@ export function useTTS(
     // New fields
     isCdnMode,
     isLoading,
+    cdnReady,
   };
 }

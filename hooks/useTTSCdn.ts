@@ -142,6 +142,7 @@ export function useTTSCdn(
   // Deferred play: fires when player finishes loading (play() was called before isLoaded)
   useEffect(() => {
     if (!mountedRef.current || !pendingPlayRef.current || !activeRef.current) return;
+    if (status.playing) return; // already playing
     if (status.isLoaded && status.duration > 0) {
       pendingPlayRef.current = false;
       const verseNum = pendingPlayVerseRef.current;
