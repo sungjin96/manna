@@ -147,6 +147,39 @@ export async function cancelVerseNotifications(): Promise<void> {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 복귀 알림 — 스트릭 위기 시 저녁 8시 일회성 알림
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const RECOVERY_REMINDER_PREFIX = 'streak-danger-';
+
+/**
+ * 오늘 안 읽음 + 어제 읽음 + freeze 0 상태에서 호출.
+ * 오늘 저녁 8시 일회성 알림 예약 (중복 방지: 같은 날 이미 예약됐으면 skip).
+ */
+export async function scheduleRecoveryReminder(today: string): Promise<void> {
+  const identifier = `${RECOVERY_REMINDER_PREFIX}${today}`;
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  if (scheduled.find(n => n.identifier === identifier)) return;
+
+  const fireDate = new Date(today + 'T20:00:00');
+  if (fireDate <= new Date()) return;
+
+  await Notifications.scheduleNotificationAsync({
+    identifier,
+    content: {
+      title: '오늘의 만나',
+      body: '스트릭이 위험해요. 잠깐 1구절만 읽어볼까요?',
+      sound: true,
+      data: { type: 'quick_read' },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: fireDate,
+    },
+  });
+}
+
 /**
  * 남은 말씀 알림이 5일치 미만이면 true — 리스케줄 필요 여부 판단용.
  */

@@ -7,6 +7,9 @@ export function useStreak() {
     longestStreak: 0,
     totalChapters: 0,
     lastReadDate: null,
+    freezesRemaining: 2,
+    freezesMonth: null,
+    comebackCount: 0,
   });
   const [loading, setLoading] = useState(true);
 

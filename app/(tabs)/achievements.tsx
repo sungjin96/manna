@@ -49,6 +49,11 @@ export const BADGES: Badge[] = [
     desc: '첫 묵상 기록을 남겼습니다', tier: 'bronze',
     check: (_, __, mc) => mc >= 1,
   },
+  {
+    id: 'comeback_1', icon: 'run-fast', title: '돌아온 탕자',
+    desc: '스트릭이 끊긴 후 다시 돌아왔습니다', tier: 'bronze',
+    check: (s) => s.comebackCount >= 1,
+  },
   // ── Silver ─────────────────────────────────────────────────────────────────
   {
     id: 'streak_7', icon: 'calendar-week', title: '일주일',
@@ -64,6 +69,11 @@ export const BADGES: Badge[] = [
     id: 'meditation_10', icon: 'notebook-multiple', title: '묵상가',
     desc: '10개의 묵상 기록', tier: 'silver',
     check: (_, __, mc) => mc >= 10,
+  },
+  {
+    id: 'comeback_3', icon: 'heart-outline', title: '흔들리지 않는',
+    desc: '3번 돌아와 묵상을 이어갔습니다', tier: 'silver',
+    check: (s) => s.comebackCount >= 3,
   },
   // ── Gold ───────────────────────────────────────────────────────────────────
   {
@@ -93,6 +103,11 @@ export const BADGES: Badge[] = [
       }
       return true;
     },
+  },
+  {
+    id: 'comeback_10', icon: 'trophy-variant-outline', title: '은혜의 증인',
+    desc: '10번 돌아와 묵상을 이어갔습니다', tier: 'gold',
+    check: (s) => s.comebackCount >= 10,
   },
   // ── Diamond ────────────────────────────────────────────────────────────────
   {
@@ -305,6 +320,7 @@ export default function AchievementsScreen() {
   const cardW = Math.floor((windowWidth - 32 - 16) / 3);
   const [stats, setStats] = useState<UserStats>({
     currentStreak: 0, longestStreak: 0, totalChapters: 0, lastReadDate: null,
+    freezesRemaining: 2, freezesMonth: null, comebackCount: 0,
   });
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [meditationCount, setMeditationCount] = useState(0);
