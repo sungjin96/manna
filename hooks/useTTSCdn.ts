@@ -233,6 +233,32 @@ export function useTTSCdn(
       setIsReady(true);
       setIsLoading(false);
       console.log('[TTS] load() DONE — isReady set true');
+
+      // Prefetch next chapter so auto-advance works in iOS background.
+      // iOS suspends regular URLSession requests shortly after the app
+      // backgrounds, so the next chapter MUST be in the file cache by then.
+      const book = BOOKS.find(b => b.id === bookId);
+      let nextBookId: number | null = null;
+      let nextChapter: number | null = null;
+      if (book) {
+        if (chapter < book.chapters) {
+          nextBookId = bookId;
+          nextChapter = chapter + 1;
+        } else {
+          const nb = BOOKS.find(b => b.id === bookId + 1);
+          if (nb) {
+            nextBookId = nb.id;
+            nextChapter = 1;
+          }
+        }
+      }
+      if (nextBookId != null && nextChapter != null) {
+        console.log('[TTS] prefetching next chapter', nextBookId, nextChapter);
+        ensureChapterAudio(voice.dirName, nextBookId, nextChapter)
+          .then(() => console.log('[TTS] prefetch done', nextBookId, nextChapter))
+          .catch((e) => console.log('[TTS] prefetch failed', e));
+      }
+
       return true;
     } catch (e) {
       console.log('[TTS] load() EXCEPTION', e);
