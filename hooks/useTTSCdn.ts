@@ -143,6 +143,7 @@ export function useTTSCdn(
     if (!mountedRef.current || !pendingPlayRef.current || !activeRef.current) return;
     if (status.playing) return; // already playing
     if (status.isLoaded && status.duration > 0) {
+      console.log('[TTS] deferred play fire — isLoaded', status.isLoaded, 'duration', status.duration);
       pendingPlayRef.current = false;
       const verseNum = pendingPlayVerseRef.current;
       pendingPlayVerseRef.current = null;
@@ -155,6 +156,7 @@ export function useTTSCdn(
       }
       safePlayer(() => player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]));
       safePlayer(() => player.play());
+      console.log('[TTS] deferred play — player.play() called');
     }
   }, [status.isLoaded, status.duration]);
 
@@ -186,6 +188,7 @@ export function useTTSCdn(
     if (!mountedRef.current || !activeRef.current) return;
     if (pendingResumeVerseRef.current != null) return; // voice switch in progress
     if (status.didJustFinish) {
+      console.log('[TTS] didJustFinish fired — prevVerseRef', prevVerseRef.current, 'lastPosSec', lastPosSec.current);
       // False-positive guard: if we never observed any verse or never advanced
       // past the start (e.g. background load/playback was blocked and the native
       // player emitted didJustFinish without actually playing), ignore this.
@@ -208,6 +211,7 @@ export function useTTSCdn(
   }, [status.didJustFinish]);
 
   const load = useCallback(async (bookId: number, chapter: number, overrideVoiceId?: string): Promise<boolean> => {
+    console.log('[TTS] load() START bookId', bookId, 'chapter', chapter);
     const voiceId = overrideVoiceId ?? cdnVoiceId;
     const voice = CDN_VOICES.find(v => v.id === voiceId) ?? CDN_VOICES[0];
     setIsLoading(true);
@@ -216,6 +220,7 @@ export function useTTSCdn(
     try {
       const result = await ensureChapterAudio(voice.dirName, bookId, chapter);
       if (!result) {
+        console.log('[TTS] load() ensureChapterAudio returned null');
         setIsLoading(false);
         return false;
       }
@@ -223,15 +228,18 @@ export function useTTSCdn(
       timestampsRef.current = result.timestamps;
       loadedBookIdRef.current = bookId;
       loadedChapterRef.current = chapter;
+      console.log('[TTS] load() calling setAudioUri with', result.audioUri);
       setAudioUri(result.audioUri);
       setIsReady(true);
       setIsLoading(false);
+      console.log('[TTS] load() DONE — isReady set true');
       return true;
-    } catch {
+    } catch (e) {
+      console.log('[TTS] load() EXCEPTION', e);
       setIsLoading(false);
       return false;
     }
-  }, [cdnVoiceId]);
+  }, [cdnVoiceId, setAudioUri]);
 
   function activateLockScreen() {
     // Note: don't gate on isProUser here — the prop may still be resolving when
@@ -250,18 +258,23 @@ export function useTTSCdn(
   }
 
   const play = useCallback(() => {
-    if (!isReady) return;
+    console.log('[TTS] play() called — isReady', isReady, 'isLoaded', statusRef.current.isLoaded, 'duration', statusRef.current.duration);
+    if (!isReady) {
+      console.log('[TTS] play() early return — not ready');
+      return;
+    }
     activeRef.current = true;
     prevVerseRef.current = null;
     pendingPlayRef.current = false;
     pendingPlayVerseRef.current = null;
     activateLockScreen();
     if (statusRef.current.isLoaded && statusRef.current.duration > 0) {
+      console.log('[TTS] play() immediate — calling player.play()');
       safePlayer(() => player.seekTo(0));
       safePlayer(() => player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]));
       safePlayer(() => player.play());
     } else {
-      // Player still loading — defer actual playback until isLoaded fires
+      console.log('[TTS] play() deferred — isLoaded false or duration 0');
       pendingPlayRef.current = true;
     }
   }, [isReady, player]);

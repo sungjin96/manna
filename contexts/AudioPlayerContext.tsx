@@ -12,7 +12,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { createAudioPlayer, useAudioPlayerStatus, type AudioPlayer, type AudioStatus } from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync, useAudioPlayerStatus, type AudioPlayer, type AudioStatus } from 'expo-audio';
 
 interface AudioPlayerContextValue {
   player: AudioPlayer;
@@ -41,19 +41,33 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [audioUri, setAudioUriState] = useState<string | null>(null);
 
   const setAudioUri = useCallback((uri: string | null) => {
+    console.log('[AudioPlayerProvider] setAudioUri called with', uri);
     setAudioUriState(uri);
     if (uri) {
       try {
         // Same-instance source swap — preserves the audio session so background
         // playback continues across chapter boundaries.
         player.replace(uri);
-      } catch {
-        // swallow native errors (e.g. during app tear-down)
+        console.log('[AudioPlayerProvider] player.replace() succeeded');
+      } catch (e) {
+        console.warn('[AudioPlayerProvider] player.replace() failed:', e);
       }
     }
   }, [player]);
 
   const status = useAudioPlayerStatus(player);
+
+  // Configure audio session ONCE at app start. iOS doesn't like category changes
+  // during active playback — repeated calls can interrupt background sessions.
+  useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+    }).catch((err) => {
+      console.warn('[AudioPlayerProvider] setAudioModeAsync failed:', err);
+    });
+  }, []);
 
   // Release native resources only when the provider itself unmounts (app exit).
   useEffect(() => {

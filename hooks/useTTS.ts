@@ -7,7 +7,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import * as Speech from 'expo-speech';
-import { setAudioModeAsync } from 'expo-audio';
 import { getSetting, setSetting } from '../db/settings';
 import { useTTSCdn } from './useTTSCdn';
 import { CDN_VOICES, TTS_RATES_CDN, TTS_RATES_SPEECH, TTS_RATE_LABELS,
@@ -348,13 +347,8 @@ export function useTTS(
     setIsPaused(false);
     timerStoppedRef.current = false;
 
-    // Session always allows background; free-user background pause is enforced
-    // at the JS level by the AppState handler (see effect below).
-    await setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-      interruptionMode: 'doNotMix',
-    });
+    // Audio mode is configured once at app start by AudioPlayerProvider.
+    // Re-calling setAudioModeAsync during active playback can interrupt iOS sessions.
 
     for (let i = startIdx; i < verses.length; i++) {
       if (sessionRef.current !== session) return;
@@ -406,11 +400,7 @@ export function useTTS(
 
   async function startTTS() {
     if (isCdnModeRef.current) {
-      await setAudioModeAsync({
-        playsInSilentMode: true,
-        shouldPlayInBackground: true,
-        interruptionMode: 'doNotMix',
-      });
+      console.log('[TTS] startTTS CDN path — calling cdn.controls.play()');
       setIsTTS(true);
       setIsPaused(false);
       timerStoppedRef.current = false;
@@ -424,11 +414,7 @@ export function useTTS(
   async function startFromVerse(verseNum: number) {
     if (!verses) return;
     if (isCdnModeRef.current) {
-      await setAudioModeAsync({
-        playsInSilentMode: true,
-        shouldPlayInBackground: true,
-        interruptionMode: 'doNotMix',
-      });
+      console.log('[TTS] startFromVerse CDN path — verse', verseNum);
       setIsTTS(true);
       setIsPaused(false);
       timerStoppedRef.current = false;
@@ -516,11 +502,6 @@ export function useTTS(
         // Schedule auto-resume if was playing or paused
         if ((wasPlaying || wasPaused) && currentVerse) {
           cdn.controls.scheduleResume(currentVerse, wasPlaying);
-          await setAudioModeAsync({
-            playsInSilentMode: true,
-            shouldPlayInBackground: true,
-            interruptionMode: 'doNotMix',
-          });
         }
 
         // Load new voice (useAudioPlayer auto-releases old player)
