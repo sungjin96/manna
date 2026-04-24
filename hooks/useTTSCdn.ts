@@ -38,6 +38,16 @@ export interface CdnEngineControls {
  * Hook that manages CDN audio playback with verse tracking.
  * Must be called at component top level (uses useAudioPlayer internally).
  */
+/** Calls a player method and swallows both sync throws and async rejections. */
+function safePlayer(fn: () => unknown) {
+  try {
+    const r = fn();
+    if (r != null && typeof (r as Promise<unknown>).catch === 'function') {
+      (r as Promise<unknown>).catch(() => {});
+    }
+  } catch {}
+}
+
 export function useTTSCdn(
   verses: Array<{ verse: number; text: string }> | null | undefined,
   onVerseChange?: (verse: number) => void,
@@ -47,6 +57,7 @@ export function useTTSCdn(
 ) {
   const isProUserRef = useRef(!!isProUser);
   isProUserRef.current = !!isProUser;
+  const mountedRef = useRef(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [currentVerse, setCurrentVerse] = useState<number | null>(null);
@@ -90,7 +101,7 @@ export function useTTSCdn(
   // Marks ALL verses between previous and current position as read (no skips)
   const lastPosSec = useRef(0);
   useEffect(() => {
-    if (!activeRef.current || !status.isLoaded || !status.playing) return;
+    if (!mountedRef.current || !activeRef.current || !status.isLoaded || !status.playing) return;
     const ts = timestampsRef.current;
     if (!ts) return;
 
@@ -126,6 +137,7 @@ export function useTTSCdn(
 
   // Auto-resume after voice change: when new player is loaded, resume from pending verse
   useEffect(() => {
+    if (!mountedRef.current) return;
     if (pendingResumeVerseRef.current != null && status.isLoaded && status.duration > 0 && isReady) {
       const verseNum = pendingResumeVerseRef.current;
       const shouldAutoPlay = pendingResumeAutoPlayRef.current;
@@ -138,13 +150,9 @@ export function useTTSCdn(
           prevVerseRef.current = verseNum;
           setCurrentVerse(verseNum);
           activateLockScreen();
-          try {
-            player.seekTo(vts.startSec);
-            player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]);
-            if (shouldAutoPlay) {
-              player.play();
-            }
-          } catch { /* player not ready yet */ }
+          safePlayer(() => player.seekTo(vts.startSec));
+          safePlayer(() => player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]));
+          if (shouldAutoPlay) safePlayer(() => player.play());
         }
       }
     }
@@ -152,7 +160,7 @@ export function useTTSCdn(
 
   // Handle playback finish
   useEffect(() => {
-    if (!activeRef.current) return;
+    if (!mountedRef.current || !activeRef.current) return;
     if (pendingResumeVerseRef.current != null) return; // voice switch in progress
     if (status.didJustFinish) {
       // Mark last verse as read
@@ -196,16 +204,14 @@ export function useTTSCdn(
     if (!isProUserRef.current) return;
     const bookName = BOOKS.find(b => b.id === loadedBookIdRef.current)?.name ?? '';
     const ch = loadedChapterRef.current ?? 1;
-    try {
-      player.setActiveForLockScreen(true, {
-        title: `${bookName} ${ch}장`,
-        artist: '만나 - 매일의 양식',
-        artworkUrl: 'https://pub-877736ec16c9434095c2c0a7563b2b0a.r2.dev/icon.png',
-      }, {
-        showSeekForward: true,
-        showSeekBackward: true,
-      });
-    } catch { /* player may not be ready */ }
+    safePlayer(() => player.setActiveForLockScreen(true, {
+      title: `${bookName} ${ch}장`,
+      artist: '만나 - 매일의 양식',
+      artworkUrl: 'https://pub-877736ec16c9434095c2c0a7563b2b0a.r2.dev/icon.png',
+    }, {
+      showSeekForward: true,
+      showSeekBackward: true,
+    }));
   }
 
   const play = useCallback(() => {
@@ -213,9 +219,9 @@ export function useTTSCdn(
     activeRef.current = true;
     prevVerseRef.current = null;
     activateLockScreen();
-    player.seekTo(0);
-    player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]);
-    player.play();
+    safePlayer(() => player.seekTo(0));
+    safePlayer(() => player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]));
+    safePlayer(() => player.play());
   }, [isReady, player]);
 
   const playFromVerse = useCallback((verseNum: number) => {
@@ -228,34 +234,30 @@ export function useTTSCdn(
     activeRef.current = true;
     prevVerseRef.current = null;
     activateLockScreen();
-    player.seekTo(vts.startSec);
-    player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]);
-    player.play();
+    safePlayer(() => player.seekTo(vts.startSec));
+    safePlayer(() => player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]));
+    safePlayer(() => player.play());
   }, [isReady, player]);
 
   const pause = useCallback(() => {
-    try { player.pause(); } catch { /* released */ }
+    safePlayer(() => player.pause());
   }, [player]);
 
   const resume = useCallback(() => {
-    try { player.play(); } catch { /* released */ }
+    safePlayer(() => player.play());
   }, [player]);
 
   const stop = useCallback(() => {
     activeRef.current = false;
-    try {
-      player.setActiveForLockScreen(false);
-      player.pause();
-      player.seekTo(0);
-    } catch {
-      // Player may already be released on unmount
-    }
+    safePlayer(() => player.setActiveForLockScreen(false));
+    safePlayer(() => player.pause());
+    safePlayer(() => player.seekTo(0));
     setCurrentVerse(null);
     prevVerseRef.current = null;
   }, [player]);
 
   const deactivateLockScreen = useCallback(() => {
-    try { player.setActiveForLockScreen(false); } catch { /* player may not be ready */ }
+    safePlayer(() => player.setActiveForLockScreen(false));
   }, [player]);
 
   const skipVerse = useCallback((delta: number) => {
@@ -265,14 +267,14 @@ export function useTTSCdn(
     const newIdx = Math.max(0, Math.min(ts.verses.length - 1, curIdx + delta));
     const target = ts.verses[newIdx];
     if (target) {
-      try { player.seekTo(target.startSec); } catch { /* released */ }
+      safePlayer(() => player.seekTo(target.startSec));
       prevVerseRef.current = null;
     }
   }, [player]);
 
   const setRate = useCallback((rateIdx: number) => {
     rateIdxRef.current = rateIdx;
-    try { player.setPlaybackRate(TTS_RATES_CDN[rateIdx]); } catch { /* released */ }
+    safePlayer(() => player.setPlaybackRate(TTS_RATES_CDN[rateIdx]));
   }, [player]);
 
   const selectVoice = useCallback(async (voiceId: string) => {
@@ -289,6 +291,7 @@ export function useTTSCdn(
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      mountedRef.current = false;
       activeRef.current = false;
     };
   }, []);
