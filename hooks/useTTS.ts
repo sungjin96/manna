@@ -427,6 +427,7 @@ export function useTTS(
       await setAudioModeAsync({
         playsInSilentMode: true,
         shouldPlayInBackground: true,
+        interruptionMode: 'doNotMix',
       });
       setIsTTS(true);
       setIsPaused(false);
