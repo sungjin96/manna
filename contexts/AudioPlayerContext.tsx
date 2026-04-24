@@ -27,7 +27,14 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   // Lazy-create the player once; keep the same instance for the whole app lifetime.
   const playerRef = useRef<AudioPlayer | null>(null);
   if (!playerRef.current) {
-    playerRef.current = createAudioPlayer(null, { updateInterval: 150 });
+    // keepAudioSessionActive: true — keep iOS AVAudioSession active even when
+    // the player is idle/paused. Without this, the session deactivates after
+    // a chapter ends, and the next chapter's play() in background fails to
+    // re-activate the session (iOS restricts session activation from background).
+    playerRef.current = createAudioPlayer(null, {
+      updateInterval: 150,
+      keepAudioSessionActive: true,
+    });
   }
   const player = playerRef.current;
 

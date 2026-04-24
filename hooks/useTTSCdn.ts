@@ -234,7 +234,9 @@ export function useTTSCdn(
   }, [cdnVoiceId]);
 
   function activateLockScreen() {
-    if (!isProUserRef.current) return;
+    // Note: don't gate on isProUser here — the prop may still be resolving when
+    // a new chapter mounts in the background. Background playback enforcement
+    // for free users is handled at the JS level by the AppState handler in useTTS.
     const bookName = BOOKS.find(b => b.id === loadedBookIdRef.current)?.name ?? '';
     const ch = loadedChapterRef.current ?? 1;
     safePlayer(() => player.setActiveForLockScreen(true, {
