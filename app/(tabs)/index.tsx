@@ -26,7 +26,6 @@ import { theme } from '../../constants/theme';
 import { requestNotificationPermission, scheduleReadingReminder, scheduleVerseNotifications } from '../../utils/notifications';
 import { BADGES, BOOK_BADGES, type Badge, type Tier } from './achievements';
 import { getAllMeditations } from '../../db/meditations';
-import { getDailyEntry, type DailyEntry } from '../../utils/daily-meditation';
 import ProgressRing from '../../components/ProgressRing';
 import BadgeSelectSheet, { getSelectedBadgeId } from '../../components/BadgeSelectSheet';
 import { useUIScale } from '../../contexts/UIScaleContext';
@@ -159,11 +158,11 @@ export default function HomeScreen() {
   const [lastOpenedChapter, setLastOpenedChapter] = useState<{ bookId: number; chapter: number } | null | undefined>(undefined);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [todayRecommendation, setTodayRecommendation] = useState<{ bookId: number; chapter: number } | null>(null);
-  const [dailyEntry, setDailyEntry] = useState<DailyEntry | null>(null);
   const [todayPlanChapters, setTodayPlanChapters] = useState<PlanChapter[]>([]);
   const [activePlanName, setActivePlanName] = useState<string | null>(null);
   const [weeklyData, setWeeklyData] = useState<Map<string, number>>(new Map());
   const [dataReady, setDataReady] = useState(false);
+  const [dailyVerseRead, setDailyVerseRead] = useState(true);
 
   // Badge state
   const [meditationCount, setMeditationCount] = useState(0);
@@ -190,6 +189,7 @@ export default function HomeScreen() {
   const levelUpGlow = useRef(new Animated.Value(0)).current;
   const fabBounce = useRef(new Animated.Value(0)).current;
   const fabScale = useRef(new Animated.Value(1)).current;
+  const verseGlowAnim = useRef(new Animated.Value(0)).current;
 
   // Flip card
   const [heroFlipped, setHeroFlipped] = useState(false);
@@ -232,7 +232,8 @@ export default function HomeScreen() {
         getAllMeditations(),
         getSelectedBadgeId(),
         import('../../db/readings').then(m => m.getWeeklyReadings()),
-      ]).then(([pos, comp, plan, lastOpened, meditations, badgeId, weekly]) => {
+        getSetting('daily_verse_read_date', ''),
+      ]).then(([pos, comp, plan, lastOpened, meditations, badgeId, weekly, verseDate]) => {
         // 이어읽기 로직
         if (lastOpened) {
           setNextChapter(lastOpened);
@@ -248,9 +249,12 @@ export default function HomeScreen() {
         setCompleted(comp);
         setTodayRecommendation(getTodayRecommendation(comp));
         setMeditationCount(meditations.length);
-        setDailyEntry(getDailyEntry());
         setSelectedBadgeIdState(badgeId);
         setWeeklyData(weekly);
+
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        setDailyVerseRead(verseDate === todayStr);
 
         if (plan?.planId && plan?.startDate) {
           const chapters = getChaptersForDay(plan.planId as PlanId, plan.startDate);
@@ -327,6 +331,22 @@ export default function HomeScreen() {
     }
     prevLevelRef.current = currentLevel;
   }, [stats?.totalChapters, loading]);
+
+  // verse glow pulse
+  useEffect(() => {
+    if (dailyVerseRead) {
+      verseGlowAnim.setValue(0);
+      return;
+    }
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(verseGlowAnim, { toValue: 1, duration: 1600, useNativeDriver: false }),
+        Animated.timing(verseGlowAnim, { toValue: 0, duration: 1600, useNativeDriver: false }),
+      ])
+    );
+    anim.start();
+    return () => { anim.stop(); };
+  }, [dailyVerseRead]);
 
   // ── Onboarding ──
 
@@ -646,6 +666,15 @@ export default function HomeScreen() {
             <Text style={styles.quickStatValue}>{Math.round(completionPct)}%</Text>
             <Text style={styles.quickStatLabel}>완독률</Text>
           </View>
+          {(stats?.freezesRemaining ?? 0) > 0 && (
+            <>
+              <View style={styles.quickStatDivider} />
+              <View style={styles.quickStatItem}>
+                <Text style={[styles.quickStatValue, { color: theme.gold }]}>{stats?.freezesRemaining}</Text>
+                <Text style={[styles.quickStatLabel, { color: theme.gold, opacity: 0.7 }]}>보호막</Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* ── Weekly Dots ── */}
@@ -686,20 +715,28 @@ export default function HomeScreen() {
             <Text style={styles.pillText}>테마 구절</Text>
           </Pressable>
 
-          {dailyEntry && (
+          <Animated.View style={[
+            styles.pillGlowWrap,
+            !dailyVerseRead && {
+              shadowColor: theme.gold,
+              shadowOffset: { width: 0, height: 0 },
+              shadowRadius: verseGlowAnim.interpolate({ inputRange: [0, 1], outputRange: [2, 10] }),
+              shadowOpacity: verseGlowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.65] }),
+            },
+          ]}>
             <Pressable
               style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
               onPress={() => {
                 Haptics.selectionAsync();
-                router.push(`/read/${dailyEntry.bookId}/${dailyEntry.chapter}?verse=${dailyEntry.verse}&openMeditation=1`);
+                router.push('/quick-read');
               }}
-              accessibilityLabel="오늘의 말씀"
+              accessibilityLabel={`오늘의 말씀${!dailyVerseRead ? ' (안 읽음)' : ''}`}
               accessibilityRole="button"
             >
               <MaterialCommunityIcons name="book-open-variant" size={16} color={theme.gold} />
               <Text style={styles.pillText}>오늘의 말씀</Text>
             </Pressable>
-          )}
+          </Animated.View>
 
           <Pressable
             style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
@@ -714,6 +751,7 @@ export default function HomeScreen() {
             <MaterialCommunityIcons name="shuffle-variant" size={16} color={theme.gold} />
             <Text style={styles.pillText}>랜덤</Text>
           </Pressable>
+
         </View>
 
         {/* Empty state — 첫 사용자 */}
@@ -1204,6 +1242,10 @@ function makeStyles(scale: number) {
   },
   pillPressed: {
     backgroundColor: theme.surface2,
+  },
+  pillGlowWrap: {
+    flex: 1,
+    borderRadius: 999,
   },
   pillText: {
     fontSize: fs(12),

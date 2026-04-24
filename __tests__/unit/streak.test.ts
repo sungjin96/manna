@@ -1,4 +1,4 @@
-import { getPreviousDay, computeNewStreak } from '../../utils/streak';
+import { getPreviousDay, computeNewStreak, daysBetween } from '../../utils/streak';
 
 describe('getPreviousDay', () => {
   test('일반 날짜', () => {
@@ -19,6 +19,32 @@ describe('getPreviousDay', () => {
 
   test('비윤년 (2025-03-01 → 2025-02-28)', () => {
     expect(getPreviousDay('2025-03-01')).toBe('2025-02-28');
+  });
+});
+
+describe('daysBetween', () => {
+  test('같은 날 → 0', () => {
+    expect(daysBetween('2026-04-09', '2026-04-09')).toBe(0);
+  });
+
+  test('하루 차이 → 1', () => {
+    expect(daysBetween('2026-04-08', '2026-04-09')).toBe(1);
+  });
+
+  test('이틀 차이 → 2', () => {
+    expect(daysBetween('2026-04-07', '2026-04-09')).toBe(2);
+  });
+
+  test('월 경계 넘기 (3월 31일 → 4월 2일) → 2', () => {
+    expect(daysBetween('2026-03-31', '2026-04-02')).toBe(2);
+  });
+
+  test('연도 경계 (12월 31일 → 1월 1일) → 1', () => {
+    expect(daysBetween('2025-12-31', '2026-01-01')).toBe(1);
+  });
+
+  test('윤년 2월 경계 (2024-02-28 → 2024-03-01) → 2', () => {
+    expect(daysBetween('2024-02-28', '2024-03-01')).toBe(2);
   });
 });
 

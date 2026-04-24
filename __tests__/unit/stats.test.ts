@@ -1,9 +1,9 @@
 /**
  * DB layer tests for stats.ts
- * Verifies updateStatsOnComplete logic via a mock DB
+ * Verifies updateStatsOnComplete and markDailyTouch logic via a mock DB
  */
 
-import { updateStatsOnComplete, getStats } from '../../db/stats';
+import { updateStatsOnComplete, markDailyTouch, getStats } from '../../db/stats';
 
 // ── In-memory stats DB mock ──────────────────────────────────────────────────
 
@@ -13,6 +13,9 @@ type StatsRow = {
   longest_streak: number;
   total_chapters: number;
   last_read_date: string | null;
+  freezes_remaining: number;
+  freezes_month: string | null;
+  comeback_count: number;
 };
 
 function createMockStatsDb(initial?: Partial<StatsRow>) {
@@ -22,30 +25,43 @@ function createMockStatsDb(initial?: Partial<StatsRow>) {
     longest_streak: 0,
     total_chapters: 0,
     last_read_date: null,
+    freezes_remaining: 2,
+    freezes_month: null,
+    comeback_count: 0,
     ...initial,
   };
 
   return {
     _row: row,
     async runAsync(sql: string, params: unknown[]) {
-      if (sql.includes('UPDATE user_stats')) {
-        const [newStreak, newLongest, newDate] = params as [number, number, string];
-        row.current_streak = newStreak;
-        row.longest_streak = newLongest;
+      const s = sql.toLowerCase().replace(/\s+/g, ' ');
+
+      // Freeze-only update (idempotent path: already read today)
+      if (s.includes('set freezes_remaining = ?, freezes_month = ?')) {
+        const [fr, fm] = params as [number, string | null];
+        row.freezes_remaining = fr;
+        row.freezes_month = fm;
+
+      // Full streak update (main markDailyTouchInTx path)
+      } else if (s.includes('current_streak = ?')) {
+        const [ns, nl, lrd, fr, fm, cc] = params as [number, number, string, number, string | null, number];
+        row.current_streak = ns;
+        row.longest_streak = nl;
+        row.last_read_date = lrd;
+        row.freezes_remaining = fr;
+        row.freezes_month = fm;
+        row.comeback_count = cc;
+
+      // Chapter count increment
+      } else if (s.includes('total_chapters = total_chapters + 1')) {
         row.total_chapters += 1;
-        row.last_read_date = newDate;
       }
+
       return { changes: 1 };
     },
     async getFirstAsync<T>(): Promise<T> {
-      return {
-        current_streak: row.current_streak,
-        longest_streak: row.longest_streak,
-        total_chapters: row.total_chapters,
-        last_read_date: row.last_read_date,
-      } as unknown as T;
+      return { ...row } as unknown as T;
     },
-    // Transaction wrapper: just run the fn directly
     async withTransactionAsync(fn: () => Promise<void>) {
       await fn();
     },
@@ -57,11 +73,15 @@ jest.mock('../../db/schema', () => ({
   getDb: jest.fn(() => Promise.resolve(mockDb)),
 }));
 
-beforeEach(() => {
+function resetDb(initial?: Partial<StatsRow>) {
   const { getDb } = require('../../db/schema');
-  mockDb = createMockStatsDb();
+  mockDb = createMockStatsDb(initial);
   (getDb as jest.Mock).mockResolvedValue(mockDb);
-});
+}
+
+beforeEach(() => resetDb());
+
+// ── updateStatsOnComplete ────────────────────────────────────────────────────
 
 describe('updateStatsOnComplete', () => {
   test('첫 완료: streak=1, total=1', async () => {
@@ -74,48 +94,37 @@ describe('updateStatsOnComplete', () => {
   });
 
   test('같은 날 두 번째 챕터: streak 유지, total 증가', async () => {
-    mockDb = createMockStatsDb({ current_streak: 3, longest_streak: 5, total_chapters: 10, last_read_date: '2026-04-09' });
-    const { getDb } = require('../../db/schema');
-    (getDb as jest.Mock).mockResolvedValue(mockDb);
-
-    await updateStatsOnComplete('2026-04-09'); // same day
+    resetDb({ current_streak: 3, longest_streak: 5, total_chapters: 10, last_read_date: '2026-04-09' });
+    await updateStatsOnComplete('2026-04-09');
     const stats = await getStats();
-    expect(stats.currentStreak).toBe(3); // unchanged
+    expect(stats.currentStreak).toBe(3);
     expect(stats.totalChapters).toBe(11);
   });
 
   test('연속 읽기 (어제): streak +1', async () => {
-    mockDb = createMockStatsDb({ current_streak: 4, longest_streak: 10, total_chapters: 20, last_read_date: '2026-04-08' });
-    const { getDb } = require('../../db/schema');
-    (getDb as jest.Mock).mockResolvedValue(mockDb);
-
+    resetDb({ current_streak: 4, longest_streak: 10, total_chapters: 20, last_read_date: '2026-04-08' });
     await updateStatsOnComplete('2026-04-09');
     const stats = await getStats();
     expect(stats.currentStreak).toBe(5);
-    expect(stats.longestStreak).toBe(10); // unchanged
+    expect(stats.longestStreak).toBe(10);
     expect(stats.totalChapters).toBe(21);
   });
 
   test('최장 스트릭 갱신', async () => {
-    mockDb = createMockStatsDb({ current_streak: 10, longest_streak: 10, total_chapters: 50, last_read_date: '2026-04-08' });
-    const { getDb } = require('../../db/schema');
-    (getDb as jest.Mock).mockResolvedValue(mockDb);
-
+    resetDb({ current_streak: 10, longest_streak: 10, total_chapters: 50, last_read_date: '2026-04-08' });
     await updateStatsOnComplete('2026-04-09');
     const stats = await getStats();
     expect(stats.currentStreak).toBe(11);
     expect(stats.longestStreak).toBe(11);
   });
 
-  test('스트릭 끊김 (하루 건너뜀): streak 리셋', async () => {
-    mockDb = createMockStatsDb({ current_streak: 7, longest_streak: 15, total_chapters: 30, last_read_date: '2026-04-07' });
-    const { getDb } = require('../../db/schema');
-    (getDb as jest.Mock).mockResolvedValue(mockDb);
-
-    await updateStatsOnComplete('2026-04-09'); // gap of 1 day
+  test('스트릭 끊김 + freeze 0 → streak 리셋', async () => {
+    // gap=2, freeze 없음 → streak 끊김 (freezes_month='2026-04'로 월 리셋 방지)
+    resetDb({ current_streak: 7, longest_streak: 15, total_chapters: 30, last_read_date: '2026-04-07', freezes_remaining: 0, freezes_month: '2026-04' });
+    await updateStatsOnComplete('2026-04-09');
     const stats = await getStats();
     expect(stats.currentStreak).toBe(1);
-    expect(stats.longestStreak).toBe(15); // preserved
+    expect(stats.longestStreak).toBe(15);
     expect(stats.totalChapters).toBe(31);
   });
 
@@ -126,14 +135,74 @@ describe('updateStatsOnComplete', () => {
   });
 });
 
+// ── markDailyTouch ───────────────────────────────────────────────────────────
+
+describe('markDailyTouch', () => {
+  test('하루 첫 터치: streak+1, total_chapters 불변', async () => {
+    resetDb({ current_streak: 5, longest_streak: 10, total_chapters: 30, last_read_date: '2026-04-08' });
+    await markDailyTouch('2026-04-09');
+    const stats = await getStats();
+    expect(stats.currentStreak).toBe(6);
+    expect(stats.totalChapters).toBe(30); // 변화 없음
+  });
+
+  test('같은 날 두 번째 터치: 불변 (idempotent)', async () => {
+    resetDb({ current_streak: 3, longest_streak: 5, total_chapters: 10, last_read_date: '2026-04-09' });
+    await markDailyTouch('2026-04-09');
+    const stats = await getStats();
+    expect(stats.currentStreak).toBe(3);
+    expect(stats.totalChapters).toBe(10);
+  });
+
+  test('freeze 소비: gap=2 + freeze>=1 → streak 유지, freeze 1 감소', async () => {
+    resetDb({ current_streak: 5, longest_streak: 10, last_read_date: '2026-04-07', freezes_remaining: 2, freezes_month: '2026-04' });
+    await markDailyTouch('2026-04-09');
+    const stats = await getStats();
+    expect(stats.currentStreak).toBe(6); // freeze 소비 → gap=1 처리 → +1
+    expect(stats.freezesRemaining).toBe(1); // 1 소비
+  });
+
+  test('freeze 없음: gap=2 → streak 리셋, comeback_count 증가', async () => {
+    resetDb({ current_streak: 5, longest_streak: 10, last_read_date: '2026-04-07', freezes_remaining: 0, freezes_month: '2026-04' });
+    await markDailyTouch('2026-04-09');
+    const stats = await getStats();
+    expect(stats.currentStreak).toBe(1);
+    expect(stats.comebackCount).toBe(1);
+  });
+
+  test('freeze 있어도 gap>=3 → streak 리셋 (freeze는 1일 갭만 메움)', async () => {
+    resetDb({ current_streak: 5, longest_streak: 10, last_read_date: '2026-04-06', freezes_remaining: 2, freezes_month: '2026-04' });
+    await markDailyTouch('2026-04-09'); // gap=3
+    const stats = await getStats();
+    expect(stats.currentStreak).toBe(1);
+    expect(stats.freezesRemaining).toBe(2); // 소비되지 않음
+  });
+
+  test('월 경계에서 freeze 리셋', async () => {
+    resetDb({ current_streak: 1, longest_streak: 1, last_read_date: '2026-03-31', freezes_remaining: 0, freezes_month: '2026-03' });
+    await markDailyTouch('2026-04-01');
+    const stats = await getStats();
+    // 월 리셋 → freezes=2 → gap=1(어제 읽음) → streak continues
+    expect(stats.currentStreak).toBe(2);
+    expect(stats.freezesMonth).toBe('2026-04');
+    // 월 리셋 후에도 freeze는 gap=2일 때만 소비, gap=1이므로 소비 안 됨
+    expect(stats.freezesRemaining).toBe(2);
+  });
+});
+
+// ── getStats ─────────────────────────────────────────────────────────────────
+
 describe('getStats', () => {
-  test('초기 stats 반환', async () => {
+  test('초기 stats 반환 (새 필드 포함)', async () => {
     const stats = await getStats();
     expect(stats).toEqual({
       currentStreak: 0,
       longestStreak: 0,
       totalChapters: 0,
       lastReadDate: null,
+      freezesRemaining: 2,
+      freezesMonth: null,
+      comebackCount: 0,
     });
   });
 });

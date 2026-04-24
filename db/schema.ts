@@ -336,6 +336,15 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     `);
   }
 
+  // v13 → v14: streak freeze + comeback 추적 + comeback 모달 중복 방지
+  if (user_version < 14) {
+    await db.execAsync(`ALTER TABLE user_stats ADD COLUMN freezes_remaining INTEGER DEFAULT 2`);
+    await db.execAsync(`ALTER TABLE user_stats ADD COLUMN freezes_month TEXT`);
+    await db.execAsync(`ALTER TABLE user_stats ADD COLUMN comeback_count INTEGER DEFAULT 0`);
+    await db.execAsync(`INSERT OR IGNORE INTO app_settings (key, value) VALUES ('comeback_shown_date', '')`);
+    await db.execAsync(`PRAGMA user_version = 14`);
+  }
+
   // corrections.json에서 미적용 건 반영 (매 실행마다)
   await applyCorrections(db);
 }

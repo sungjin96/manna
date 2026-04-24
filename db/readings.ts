@@ -1,5 +1,5 @@
 import { getDb } from './schema';
-import { updateStatsOnComplete } from './stats';
+import { updateStatsOnComplete, markDailyTouchInTx } from './stats';
 
 export interface Reading {
   bookId: number;
@@ -54,6 +54,27 @@ export async function markVerseRead(bookId: number, chapter: number, verse: numb
     'INSERT OR IGNORE INTO verse_readings (book_id, chapter, verse, read_at) VALUES (?, ?, ?, ?)',
     [bookId, chapter, verse, now]
   );
+}
+
+/**
+ * 1탭 플로우: verse_readings 삽입 + streak 갱신을 단일 트랜잭션으로 처리.
+ * verse_readings 실패 시 streak도 롤백됨.
+ */
+export async function markQuickRead(
+  bookId: number,
+  chapter: number,
+  verse: number,
+  today: string
+): Promise<void> {
+  const db = await getDb();
+  await db.withTransactionAsync(async () => {
+    const now = new Date().toISOString();
+    await db.runAsync(
+      'INSERT OR IGNORE INTO verse_readings (book_id, chapter, verse, read_at) VALUES (?, ?, ?, ?)',
+      [bookId, chapter, verse, now]
+    );
+    await markDailyTouchInTx(db, today);
+  });
 }
 
 export async function unmarkVerseRead(bookId: number, chapter: number, verse: number): Promise<void> {
