@@ -195,8 +195,31 @@ export default function HomeScreen() {
   const [heroFlipped, setHeroFlipped] = useState(false);
   const flipAnim = useRef(new Animated.Value(0)).current;
   const heroFlippedRef = useRef(false);
+  const peekAnim = useRef(new Animated.Value(0)).current;
+  const hasFlippedRef = useRef(false);
+
+  // Periodic peek hint: slightly rotates the card then snaps back
+  useEffect(() => {
+    const doPeek = () => {
+      if (hasFlippedRef.current) return;
+      Animated.sequence([
+        Animated.timing(peekAnim, { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.timing(peekAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.delay(120),
+        Animated.timing(peekAnim, { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.timing(peekAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.delay(120),
+        Animated.timing(peekAnim, { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.timing(peekAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]).start();
+    };
+    const t1 = setTimeout(doPeek, 2200);
+    const t2 = setTimeout(doPeek, 12000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [peekAnim]);
 
   function flipHero() {
+    hasFlippedRef.current = true;
     const toValue = heroFlippedRef.current ? 0 : 1;
     heroFlippedRef.current = !heroFlippedRef.current;
     Animated.spring(flipAnim, {
@@ -493,6 +516,10 @@ export default function HomeScreen() {
     inputRange: [0, 1],
     outputRange: ['-180deg', '0deg'],
   });
+  const peekRotateY = peekAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '18deg'],
+  });
 
   const weekDays = getWeekDays();
 
@@ -555,7 +582,10 @@ export default function HomeScreen() {
         </Text>
 
         {/* ── Hero Flip Card ── */}
-        <View style={styles.flipCardContainer} {...flipPanResponder.panHandlers}>
+        <Animated.View
+          style={[styles.flipCardContainer, { transform: [{ perspective: 1200 }, { rotateY: peekRotateY }] }]}
+          {...flipPanResponder.panHandlers}
+        >
           {/* ── Front: Streak ── */}
           <Animated.View
             style={[
@@ -589,7 +619,6 @@ export default function HomeScreen() {
                 <Animated.View style={[styles.xpFill, { width: xpBarWidth }]} />
               </View>
             </View>
-            <Text style={styles.flipHint}>← 스와이프</Text>
           </Animated.View>
 
           {/* ── Back: Progress Ring + Stats ── */}
@@ -614,9 +643,8 @@ export default function HomeScreen() {
             <Text style={styles.streakSubtext}>
               {stats?.totalChapters ?? 0}챕터 · 뱃지 {earnedBadges.length}개
             </Text>
-            <Text style={styles.flipHint}>→ 스와이프</Text>
           </Animated.View>
-        </View>
+        </Animated.View>
 
         {/* ── Today's Plan / Quick Stats ── */}
         {activePlanName && todayPlanChapters.length > 0 ? (
@@ -1045,15 +1073,6 @@ function makeStyles(scale: number) {
     color: theme.textMuted,
     letterSpacing: 0.2,
   },
-  flipHint: {
-    fontSize: fs(10),
-    color: theme.textMuted,
-    letterSpacing: 0.5,
-    opacity: 0.6,
-    position: 'absolute',
-    bottom: fs(8),
-  },
-
   // XP inline (inside flip front)
   xpInlineSection: {
     width: '80%',
