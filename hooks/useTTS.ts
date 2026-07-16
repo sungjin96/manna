@@ -114,9 +114,18 @@ export function useTTS(
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isProUserRef = useRef(!!isProUser);
   const isCdnModeRef = useRef(false);
+  const manuallyPausedRef = useRef(false); // true when WE initiated the pause (not external interruption)
+  const isTTSRef = useRef(false);
+  const isPausedRef = useRef(false);
+  const timerRemainingRef = useRef<number | null>(null);
+  const timerFrozenByInterruptionRef = useRef(false);
+  const frozenRemainingRef = useRef<number | null>(null);
 
   optionsRef.current = options;
   isProUserRef.current = !!isProUser;
+  isTTSRef.current = isTTS;
+  isPausedRef.current = isPaused;
+  timerRemainingRef.current = timerRemaining;
 
   // Keep setting refs in sync
   useEffect(() => { autoCompleteRef.current = autoCompleteEnabled; }, [autoCompleteEnabled]);
@@ -173,7 +182,6 @@ export function useTTS(
         if (loaded) {
           setIsCdnMode(true);
           isCdnModeRef.current = true;
-          // Build voice list from CDN voices
           setAvailableVoices(CDN_VOICES.map(v => ({
             identifier: v.id,
             name: v.label,
@@ -181,8 +189,13 @@ export function useTTS(
           })));
           setSelectedVoiceId(cdn.state.cdnVoiceId);
           setNoKoreanVoice(false);
+        } else if (AppState.currentState !== 'active') {
+          // Background CDN load failed (chapter not cached). Keep CDN mode so
+          // we don't accidentally fall back to device TTS mid-session. Audio
+          // will resume when the user returns to foreground and opens the chapter.
+          isCdnModeRef.current = true;
         } else {
-          // Fallback: load device voices
+          // Foreground CDN load failed — fall back to device TTS.
           setIsCdnMode(false);
           isCdnModeRef.current = false;
           const voices = await getKoreanVoices();
@@ -220,6 +233,10 @@ export function useTTS(
       const rateIdxNum = Math.min(3, Math.max(0, parseInt(rateIdx as string, 10) || 1));
       setTtsRateIdx(rateIdxNum);
       ttsRateIdxRef.current = rateIdxNum;
+      // Sync rate to CDN engine so the next play() uses the saved speed.
+      // Without this, useTTSCdn's rateIdxRef stays at 1 (default) after
+      // each chapter remount even if the user previously selected 1.5x/2x.
+      cdn.controls.setRate(rateIdxNum);
       autoCompleteRef.current = autoComplete === '1';
       autoAdvanceRef.current = autoAdvance === '1';
       verseReadRef.current = verseRead === '1';
@@ -245,8 +262,10 @@ export function useTTS(
   const pausedByBackgroundRef = useRef(false);
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
+      console.log(`[TTS] AppState → ${state} | isTTS=${isTTSRef.current} isCdn=${isCdnModeRef.current} isPro=${isProUserRef.current}`);
       if (!isProUserRef.current) {
         if (state === 'background') {
+          manuallyPausedRef.current = true;
           if (isCdnModeRef.current) {
             cdn.controls.pause();
             cdn.controls.deactivateLockScreen();
@@ -265,6 +284,40 @@ export function useTTS(
     });
     return () => subscription.remove();
   }, []);
+
+  // Detect external audio interruption (Bluetooth switch, phone call, etc.)
+  // and sync UI pause state + freeze timer countdown.
+  const cdnIsPaused = cdn.state.isPaused;
+  const cdnIsPlaying = cdn.state.isPlaying;
+
+  useEffect(() => {
+    if (!isCdnMode || !isTTSRef.current || manuallyPausedRef.current) return;
+    if (!cdnIsPaused) return;
+    setIsPaused(true);
+    const rem = timerRemainingRef.current;
+    if (rem !== null && rem > 0 && !timerFrozenByInterruptionRef.current) {
+      timerFrozenByInterruptionRef.current = true;
+      frozenRemainingRef.current = rem;
+      if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    }
+  }, [cdnIsPaused, isCdnMode]);
+
+  useEffect(() => {
+    if (!isCdnMode || !isTTSRef.current) return;
+    if (!cdnIsPlaying) return;
+    if (isPausedRef.current) setIsPaused(false);
+    if (timerFrozenByInterruptionRef.current) {
+      timerFrozenByInterruptionRef.current = false;
+      const rem = frozenRemainingRef.current;
+      frozenRemainingRef.current = null;
+      if (rem !== null && rem > 0) {
+        _globalTimerEndMs = Date.now() + rem * 1000;
+        setTimerRemaining(rem);
+        _runTimerFromSeconds(rem);
+      }
+    }
+  }, [cdnIsPlaying, isCdnMode]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -294,7 +347,12 @@ export function useTTS(
     let remaining = totalSecs;
     countdownRef.current = setInterval(() => {
       remaining -= 1;
-      setTimerRemaining(remaining);
+      // Skip UI update in background — React re-renders waste memory while iOS
+      // can see the app and apply memory pressure (jetsam). The setTimeout still
+      // fires at the right time regardless of whether we update the display.
+      if (AppState.currentState === 'active') {
+        setTimerRemaining(remaining);
+      }
       if (remaining <= 0) {
         clearTimerIntervals();
         _globalTimerEndMs = null;
@@ -427,11 +485,13 @@ export function useTTS(
   }
 
   async function stopTTS() {
+    manuallyPausedRef.current = false;
     cancelTimer();
     await _stopAll();
   }
 
   async function pauseTTS() {
+    manuallyPausedRef.current = true;
     if (isCdnModeRef.current) {
       cdn.controls.pause();
     } else {
@@ -441,6 +501,7 @@ export function useTTS(
   }
 
   async function resumeTTS() {
+    manuallyPausedRef.current = false;
     if (isCdnModeRef.current) {
       cdn.controls.resume();
     } else {

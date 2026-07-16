@@ -4,7 +4,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ensureChapterAudio } from '../lib/ttsCache';
+import { AppState } from 'react-native';
+import { ensureChapterAudio, chapterCdnUrls } from '../lib/ttsCache';
 import { CDN_VOICES, TTS_RATES_CDN } from '../constants/tts';
 import { BOOKS } from '../constants/books';
 import type { ChapterTimestamps, VerseTimestamp } from '../lib/ttsTypes';
@@ -62,6 +63,7 @@ export function useTTSCdn(
   const [isReady, setIsReady] = useState(false);
   const [currentVerse, setCurrentVerse] = useState<number | null>(null);
   const [cdnVoiceId, setCdnVoiceId] = useState('wavenet-d');
+  const cdnVoiceIdRef = useRef('wavenet-d');
 
   // Global audio player — survives chapter remounts to preserve iOS session.
   const { player, status, audioUri, setAudioUri } = useAudioPlayerContext();
@@ -86,6 +88,12 @@ export function useTTSCdn(
   const pendingResumeAutoPlayRef = useRef(true); // true = play, false = seek only (paused)
   const pendingPlayRef = useRef(false); // deferred play: fires when player isLoaded
   const pendingPlayVerseRef = useRef<number | null>(null); // null = from start, N = from verse N
+  // Set to true whenever player.replace() is called (via setAudioUri in load()).
+  // updateInterval=1000ms means status.isLoaded can lag up to 1s behind native state.
+  // play() must not trust statusRef.current.isLoaded until the new source confirms
+  // isLoaded=true — otherwise it calls player.play() on a not-yet-ready source,
+  // which triggers an immediate didJustFinish false-positive.
+  const sourceReplacedRef = useRef(false);
 
   const statusRef = useRef(status); // stable ref for status (accessible in callbacks)
   statusRef.current = status;
@@ -96,31 +104,37 @@ export function useTTSCdn(
       const savedVoice = await getSetting('tts_cdn_voice_id', 'wavenet-d');
       if (CDN_VOICES.find(v => v.id === savedVoice)) {
         setCdnVoiceId(savedVoice as string);
+        cdnVoiceIdRef.current = savedVoice as string;
       }
     })();
   }, []);
+
 
   // Track verse position from playback status
   // Marks ALL verses between previous and current position as read (no skips)
   const lastPosSec = useRef(0);
   useEffect(() => {
     if (!mountedRef.current || !activeRef.current || !status.isLoaded || !status.playing) return;
-    const ts = timestampsRef.current;
-    if (!ts) return;
 
     const posSec = status.currentTime;
     const prevPos = lastPosSec.current;
     lastPosSec.current = posSec;
 
-    // Find current verse for highlighting
+    // In background, skip all verse tracking callbacks. The native AVPlayer
+    // continues uninterrupted; didJustFinish handles chapter auto-advance.
+    // This eliminates recurring JS work in background.
+    // Verses played in background are bulk-marked when the chapter finishes.
+    if (AppState.currentState !== 'active') return;
+
+    const ts = timestampsRef.current;
+    if (!ts) return;
+
     const found = ts.verses.find(
       (v: VerseTimestamp) => posSec >= v.startSec && posSec < v.endSec,
     );
 
-    // Mark all verses that were passed since last update as read
     if (posSec > prevPos) {
       for (const v of ts.verses) {
-        // Verse was passed if its end is between prevPos and current position
         if (v.endSec > prevPos && v.endSec <= posSec && v.verse !== found?.verse) {
           onVerseReadRef.current?.(v.verse);
         }
@@ -128,21 +142,24 @@ export function useTTSCdn(
     }
 
     if (found && found.verse !== prevVerseRef.current) {
-      // Mark previous verse as read
+      console.log(`[TTS CDN] verse ${prevVerseRef.current} → ${found.verse} pos=${posSec.toFixed(1)}s`);
       if (prevVerseRef.current != null) {
         onVerseReadRef.current?.(prevVerseRef.current);
       }
       prevVerseRef.current = found.verse;
       setCurrentVerse(found.verse);
       onVerseChangeRef.current?.(found.verse);
+      console.log(`[TTS CDN] verse ${found.verse} handlers done`);
     }
   }, [status.currentTime, status.isLoaded, status.playing]);
 
   // Deferred play: fires when player finishes loading (play() was called before isLoaded)
   useEffect(() => {
+    console.log(`[TTS CDN] deferred-play check isLoaded=${status.isLoaded} duration=${status.duration.toFixed(1)} pending=${pendingPlayRef.current} active=${activeRef.current}`);
     if (!mountedRef.current || !pendingPlayRef.current || !activeRef.current) return;
     if (status.playing) return; // already playing
     if (status.isLoaded && status.duration > 0) {
+      sourceReplacedRef.current = false; // new source confirmed loaded — stale guard cleared
       pendingPlayRef.current = false;
       const verseNum = pendingPlayVerseRef.current;
       pendingPlayVerseRef.current = null;
@@ -186,17 +203,25 @@ export function useTTSCdn(
     if (!mountedRef.current || !activeRef.current) return;
     if (pendingResumeVerseRef.current != null) return; // voice switch in progress
     if (status.didJustFinish) {
-      // False-positive guard: if we never observed any verse or never advanced
-      // past the start (e.g. background load/playback was blocked and the native
-      // player emitted didJustFinish without actually playing), ignore this.
-      // Otherwise a chain of auto-advances can blow past many chapters.
+      console.log(`[TTS CDN] didJustFinish — prevVerse=${prevVerseRef.current} lastPos=${lastPosSec.current.toFixed(1)}s appState=${AppState.currentState}`);
+      // In background, status.currentTime is frozen in the context so
+      // lastPosSec never advances past ~0. Use status.duration as a fallback:
+      // if the chapter had real audio loaded (duration > 1s), trust the finish.
       const playedSomething =
-        prevVerseRef.current != null || lastPosSec.current > 1;
+        prevVerseRef.current != null ||
+        lastPosSec.current > 1 ||
+        (AppState.currentState !== 'active' && status.duration > 1);
       if (!playedSomething) {
         return;
       }
-      // Mark last verse as read
-      if (prevVerseRef.current != null) {
+      // In background, verse tracking was skipped entirely. Bulk-mark all
+      // verses as read now so reading progress is recorded correctly.
+      const ts = timestampsRef.current;
+      if (AppState.currentState !== 'active' && ts) {
+        for (const v of ts.verses) {
+          onVerseReadRef.current?.(v.verse);
+        }
+      } else if (prevVerseRef.current != null) {
         onVerseReadRef.current?.(prevVerseRef.current);
       }
       activeRef.current = false;
@@ -207,47 +232,95 @@ export function useTTSCdn(
     }
   }, [status.didJustFinish]);
 
+  // Resolve the Nth chapter after a given starting point, crossing book boundaries.
+  function resolveChapterAhead(startBookId: number, startChapter: number, offset: number): { bookId: number; chapter: number } | null {
+    let bId = startBookId;
+    let ch = startChapter + offset;
+    let book = BOOKS.find(b => b.id === bId);
+    while (book && ch > book.chapters) {
+      ch -= book.chapters;
+      bId++;
+      book = BOOKS.find(b => b.id === bId);
+    }
+    return book ? { bookId: bId, chapter: ch } : null;
+  }
+
+  // Sliding-window prefetch: always keep the next 2 chapters cached.
+  // Called on every successful load(). Since load() is also called on background
+  // auto-advance (from cache), the window slides forward naturally — each chapter
+  // advance prefetches one more chapter ahead, so the buffer never depletes.
+  // Downloads only run in foreground; cached chapters return instantly in background.
+  function prefetchAhead(voiceDirName: string, fromBookId: number, fromChapter: number) {
+    for (let i = 1; i <= 3; i++) {
+      const target = resolveChapterAhead(fromBookId, fromChapter, i);
+      if (!target) break;
+      const { bookId: tBook, chapter: tCh } = target;
+      ensureChapterAudio(voiceDirName, tBook, tCh)
+        .then(() => console.log(`[TTS CDN] prefetch[+${i}] DONE book=${tBook} ch=${tCh}`))
+        .catch(() => {});
+    }
+  }
+
   const load = useCallback(async (bookId: number, chapter: number, overrideVoiceId?: string): Promise<boolean> => {
     const voiceId = overrideVoiceId ?? cdnVoiceId;
     const voice = CDN_VOICES.find(v => v.id === voiceId) ?? CDN_VOICES[0];
+    console.log(`[TTS CDN] load() START bookId=${bookId} chapter=${chapter} appState=${AppState.currentState}`);
     setIsLoading(true);
     setIsReady(false);
 
     try {
       const result = await ensureChapterAudio(voice.dirName, bookId, chapter);
-      if (!result) {
+
+      let audioUri: string;
+      if (result) {
+        // Cache hit or foreground download succeeded — use local file.
+        // Local files load almost instantly in AVPlayer, so status.isLoaded reflects
+        // the new source quickly. No need for sourceReplacedRef guard.
+        console.log(`[TTS CDN] load() SUCCESS (local) bookId=${bookId} chapter=${chapter}`);
+        timestampsRef.current = result.timestamps;
+        audioUri = result.audioUri;
+      } else if (AppState.currentState !== 'active') {
+        // Background + cache miss — stream directly from CDN.
+        // AVPlayer buffers the remote URL async (seconds), so status.isLoaded will be
+        // stale (showing the previous chapter's true) when play() is called.
+        // sourceReplacedRef=true forces play() to defer until the stream is actually ready.
+        console.log(`[TTS CDN] load() STREAM (background) bookId=${bookId} chapter=${chapter} — fetching JSON`);
+        const urls = chapterCdnUrls(voice.dirName, bookId, chapter);
+        try {
+          const res = await fetch(urls.json);
+          if (res.ok) {
+            timestampsRef.current = await res.json();
+            console.log(`[TTS CDN] STREAM JSON ok bookId=${bookId} chapter=${chapter}`);
+          } else {
+            console.log(`[TTS CDN] STREAM JSON fail status=${res.status} bookId=${bookId} chapter=${chapter}`);
+            timestampsRef.current = null;
+          }
+        } catch (e) {
+          console.log(`[TTS CDN] STREAM JSON error bookId=${bookId} chapter=${chapter} err=${e}`);
+          timestampsRef.current = null;
+        }
+        console.log(`[TTS CDN] STREAM calling player.replace url=${urls.mp3.slice(-40)}`);
+        sourceReplacedRef.current = true; // stale-status guard: force deferred play
+        audioUri = urls.mp3;
+      } else {
+        console.log(`[TTS CDN] load() FAIL (no audio) bookId=${bookId} chapter=${chapter}`);
         setIsLoading(false);
         return false;
       }
 
-      timestampsRef.current = result.timestamps;
       loadedBookIdRef.current = bookId;
       loadedChapterRef.current = chapter;
-      setAudioUri(result.audioUri);
+      setAudioUri(audioUri);
       setIsReady(true);
       setIsLoading(false);
 
-      // Prefetch next chapter so auto-advance works in iOS background.
-      // iOS suspends regular URLSession requests shortly after the app
-      // backgrounds, so the next chapter MUST be in the file cache by then.
-      const book = BOOKS.find(b => b.id === bookId);
-      let nextBookId: number | null = null;
-      let nextChapter: number | null = null;
-      if (book) {
-        if (chapter < book.chapters) {
-          nextBookId = bookId;
-          nextChapter = chapter + 1;
-        } else {
-          const nb = BOOKS.find(b => b.id === bookId + 1);
-          if (nb) {
-            nextBookId = nb.id;
-            nextChapter = 1;
-          }
-        }
-      }
-      if (nextBookId != null && nextChapter != null) {
-        ensureChapterAudio(voice.dirName, nextBookId, nextChapter).catch(() => {});
-      }
+      // Sliding-window prefetch — called on every successful load (foreground or background).
+      // In foreground: actually downloads the next 2 chapters.
+      // In background: returns instantly for already-cached chapters, skips downloads.
+      // Net effect: as each chapter advances, the cache window slides forward by 1,
+      // so the buffer never shrinks to zero as long as the user occasionally returns
+      // to foreground.
+      prefetchAhead(voice.dirName, bookId, chapter);
 
       return true;
     } catch {
@@ -282,12 +355,18 @@ export function useTTSCdn(
     pendingPlayRef.current = false;
     pendingPlayVerseRef.current = null;
     activateLockScreen();
-    if (statusRef.current.isLoaded && statusRef.current.duration > 0) {
+    // sourceReplacedRef guards against stale status: updateInterval=1000ms means
+    // status.isLoaded can show the PREVIOUS chapter's value for up to 1s after
+    // player.replace(). If we trust it and call player.play() directly, AVPlayer
+    // fires didJustFinish immediately because it's playing a not-yet-ready source.
+    const nativeReady = !sourceReplacedRef.current &&
+      statusRef.current.isLoaded && statusRef.current.duration > 0;
+    if (nativeReady) {
       safePlayer(() => player.seekTo(0));
       safePlayer(() => player.setPlaybackRate(TTS_RATES_CDN[rateIdxRef.current]));
       safePlayer(() => player.play());
     } else {
-      // Player still loading — defer actual playback until isLoaded fires
+      // Defer until deferred-play effect confirms isLoaded=true for the new source.
       pendingPlayRef.current = true;
     }
   }, [isReady, player]);
@@ -356,6 +435,7 @@ export function useTTSCdn(
 
   const selectVoice = useCallback(async (voiceId: string) => {
     setCdnVoiceId(voiceId);
+    cdnVoiceIdRef.current = voiceId;
     await setSetting('tts_cdn_voice_id', voiceId);
   }, []);
 

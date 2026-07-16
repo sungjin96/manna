@@ -12,6 +12,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 import { createAudioPlayer, setAudioModeAsync, useAudioPlayerStatus, type AudioPlayer, type AudioStatus } from 'expo-audio';
 
 interface AudioPlayerContextValue {
@@ -32,7 +33,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     // a chapter ends, and the next chapter's play() in background fails to
     // re-activate the session (iOS restricts session activation from background).
     playerRef.current = createAudioPlayer(null, {
-      updateInterval: 150,
+      updateInterval: 1000,
       keepAudioSessionActive: true,
     });
   }
@@ -53,7 +54,53 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [player]);
 
-  const status = useAudioPlayerStatus(player);
+  // Raw status from the native bridge — fires every 1000ms.
+  const rawStatus = useAudioPlayerStatus(player);
+
+  // In background, freeze the published status so consumers don't re-render
+  // every second. Only propagate events that matter for correctness:
+  //   - didJustFinish: chapter auto-advance
+  //   - isLoaded / duration: deferred-play guard after player.replace()
+  // currentTime changes are silent — the verse tracking effect returns early
+  // in background anyway, so there is nothing to update.
+  const isBackgroundRef = useRef(AppState.currentState !== 'active');
+  const [status, setStatus] = useState<AudioStatus>(rawStatus);
+  const prevKeyRef = useRef({ didJustFinish: false, isLoaded: false, duration: 0, playing: false });
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      const inBackground = state !== 'active';
+      if (isBackgroundRef.current && !inBackground) {
+        // Sync on foreground return so UI sees accurate state immediately.
+        setStatus(rawStatus);
+      }
+      isBackgroundRef.current = inBackground;
+    });
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    if (!isBackgroundRef.current) {
+      setStatus(rawStatus);
+      return;
+    }
+    // Background: only push an update when something functionally important changed.
+    const prev = prevKeyRef.current;
+    if (
+      rawStatus.didJustFinish !== prev.didJustFinish ||
+      rawStatus.isLoaded !== prev.isLoaded ||
+      rawStatus.playing !== prev.playing ||
+      Math.abs(rawStatus.duration - prev.duration) > 0.01
+    ) {
+      prevKeyRef.current = {
+        didJustFinish: rawStatus.didJustFinish,
+        isLoaded: rawStatus.isLoaded,
+        duration: rawStatus.duration,
+        playing: rawStatus.playing,
+      };
+      setStatus(rawStatus);
+    }
+  }, [rawStatus]);
 
   // Configure audio session ONCE at app start. iOS doesn't like category changes
   // during active playback — repeated calls can interrupt background sessions.

@@ -5,6 +5,7 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
+import { AppState } from 'react-native';
 import { TTS_CDN_BASE_URL, CDN_VOICES } from '../constants/tts';
 import type { ChapterTimestamps } from './ttsTypes';
 
@@ -27,6 +28,14 @@ function jsonPath(voiceDirName: string, bookId: number, chapter: number) {
 
 function cdnUrl(voiceDirName: string, bookId: number, chapter: number, ext: string) {
   return `${TTS_CDN_BASE_URL}/${voiceDirName}/${pad2(bookId)}/${pad3(chapter)}.${ext}`;
+}
+
+/** CDN URLs for a chapter — use for direct streaming when cache is unavailable. */
+export function chapterCdnUrls(voiceDirName: string, bookId: number, chapter: number) {
+  return {
+    mp3: cdnUrl(voiceDirName, bookId, chapter, 'mp3'),
+    json: cdnUrl(voiceDirName, bookId, chapter, 'json'),
+  };
 }
 
 async function ensureDir(dir: string) {
@@ -114,13 +123,24 @@ export async function ensureChapterAudio(
   const cachedUri = await getCachedAudioUri(voiceDirName, bookId, chapter);
   const cachedTs = await getCachedTimestamps(voiceDirName, bookId, chapter);
   if (cachedUri && cachedTs) {
+    console.log(`[TTS Cache] HIT book=${bookId} ch=${chapter}`);
     return { audioUri: cachedUri, timestamps: cachedTs };
   }
 
+  // Never download in background — downloadAsync uses foreground URLSession.
+  // iOS background task gives ~30s; if download doesn't finish, iOS kills the app.
+  if (AppState.currentState !== 'active') {
+    return null;
+  }
+
   // Try download
+  console.log(`[TTS Cache] DOWNLOAD START book=${bookId} ch=${chapter}`);
   try {
-    return await downloadChapter(voiceDirName, bookId, chapter);
-  } catch {
+    const result = await downloadChapter(voiceDirName, bookId, chapter);
+    console.log(`[TTS Cache] DOWNLOAD DONE book=${bookId} ch=${chapter}`);
+    return result;
+  } catch (e) {
+    console.log(`[TTS Cache] DOWNLOAD FAIL book=${bookId} ch=${chapter} err=${e}`);
     return null;
   }
 }
